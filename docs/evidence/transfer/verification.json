@@ -1,0 +1,9 @@
+{
+  "full_regression": {
+    "passed": 64,
+    "seconds": 159.8
+  },
+  "strengthened_transfer_test_seconds": 1.65,
+  "static_checks": "Ruff and source type checks passed",
+  "review": "two safeguard gaps resolved; no unresolved findings"
+}

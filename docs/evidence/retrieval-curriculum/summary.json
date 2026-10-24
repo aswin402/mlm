@@ -1,0 +1,291 @@
+{
+  "scope": "controlled synthetic retrieval, one seed; no demonstrated multi-entity binding",
+  "models": {
+    "graph": {
+      "basic_test": {
+        "questions": 32,
+        "pairs": 16,
+        "binding_groups": 0,
+        "accuracy": 1.0,
+        "pair_accuracy": 1.0,
+        "binding_group_accuracy": null,
+        "query_flip_fraction": null,
+        "correct_query_pair_fraction": null,
+        "context_flip_fraction": 1.0,
+        "both_wrong_pair_fraction": 0.0
+      },
+      "final_test": {
+        "questions": 480,
+        "pairs": 240,
+        "binding_groups": 96,
+        "accuracy": 0.5854166666666667,
+        "pair_accuracy": 0.2833333333333333,
+        "binding_group_accuracy": 0.0,
+        "query_flip_fraction": 0.09895833333333333,
+        "correct_query_pair_fraction": 0.03125,
+        "context_flip_fraction": 0.3958333333333333,
+        "both_wrong_pair_fraction": 0.1125
+      },
+      "final_single_fact_accuracy": 1.0,
+      "final_multiple_fact_accuracy": 0.4817708333333333,
+      "raw_greedy_accuracy": 0.5,
+      "raw_greedy_samples": 30,
+      "story_test_loss": 1.5772921719176143,
+      "basic_story_test_loss": 3.4874908724673306,
+      "test_target_loss": 0.1473479355374972,
+      "cells": {
+        "d0-delay0": {
+          "questions": 32,
+          "pairs": 16,
+          "binding_groups": 0,
+          "accuracy": 1.0,
+          "pair_accuracy": 1.0,
+          "binding_group_accuracy": null,
+          "query_flip_fraction": null,
+          "correct_query_pair_fraction": null,
+          "context_flip_fraction": 1.0,
+          "both_wrong_pair_fraction": 0.0
+        },
+        "d0-delay128": {
+          "questions": 32,
+          "pairs": 16,
+          "binding_groups": 0,
+          "accuracy": 1.0,
+          "pair_accuracy": 1.0,
+          "binding_group_accuracy": null,
+          "query_flip_fraction": null,
+          "correct_query_pair_fraction": null,
+          "context_flip_fraction": 1.0,
+          "both_wrong_pair_fraction": 0.0
+        },
+        "d0-delay64": {
+          "questions": 32,
+          "pairs": 16,
+          "binding_groups": 0,
+          "accuracy": 1.0,
+          "pair_accuracy": 1.0,
+          "binding_group_accuracy": null,
+          "query_flip_fraction": null,
+          "correct_query_pair_fraction": null,
+          "context_flip_fraction": 1.0,
+          "both_wrong_pair_fraction": 0.0
+        },
+        "d1-delay0": {
+          "questions": 64,
+          "pairs": 32,
+          "binding_groups": 16,
+          "accuracy": 0.5,
+          "pair_accuracy": 0.125,
+          "binding_group_accuracy": 0.0,
+          "query_flip_fraction": 0.0,
+          "correct_query_pair_fraction": 0.0,
+          "context_flip_fraction": 0.25,
+          "both_wrong_pair_fraction": 0.125
+        },
+        "d1-delay128": {
+          "questions": 64,
+          "pairs": 32,
+          "binding_groups": 16,
+          "accuracy": 0.46875,
+          "pair_accuracy": 0.0,
+          "binding_group_accuracy": 0.0,
+          "query_flip_fraction": 0.0625,
+          "correct_query_pair_fraction": 0.0,
+          "context_flip_fraction": 0.0625,
+          "both_wrong_pair_fraction": 0.0625
+        },
+        "d1-delay64": {
+          "questions": 64,
+          "pairs": 32,
+          "binding_groups": 16,
+          "accuracy": 0.453125,
+          "pair_accuracy": 0.03125,
+          "binding_group_accuracy": 0.0,
+          "query_flip_fraction": 0.15625,
+          "correct_query_pair_fraction": 0.03125,
+          "context_flip_fraction": 0.15625,
+          "both_wrong_pair_fraction": 0.125
+        },
+        "d3-delay0": {
+          "questions": 64,
+          "pairs": 32,
+          "binding_groups": 16,
+          "accuracy": 0.515625,
+          "pair_accuracy": 0.1875,
+          "binding_group_accuracy": 0.0,
+          "query_flip_fraction": 0.03125,
+          "correct_query_pair_fraction": 0.03125,
+          "context_flip_fraction": 0.34375,
+          "both_wrong_pair_fraction": 0.15625
+        },
+        "d3-delay128": {
+          "questions": 64,
+          "pairs": 32,
+          "binding_groups": 16,
+          "accuracy": 0.5,
+          "pair_accuracy": 0.1875,
+          "binding_group_accuracy": 0.0,
+          "query_flip_fraction": 0.125,
+          "correct_query_pair_fraction": 0.0625,
+          "context_flip_fraction": 0.375,
+          "both_wrong_pair_fraction": 0.1875
+        },
+        "d3-delay64": {
+          "questions": 64,
+          "pairs": 32,
+          "binding_groups": 16,
+          "accuracy": 0.453125,
+          "pair_accuracy": 0.09375,
+          "binding_group_accuracy": 0.0,
+          "query_flip_fraction": 0.21875,
+          "correct_query_pair_fraction": 0.0625,
+          "context_flip_fraction": 0.28125,
+          "both_wrong_pair_fraction": 0.1875
+        }
+      }
+    },
+    "gru": {
+      "basic_test": {
+        "questions": 32,
+        "pairs": 16,
+        "binding_groups": 0,
+        "accuracy": 1.0,
+        "pair_accuracy": 1.0,
+        "binding_group_accuracy": null,
+        "query_flip_fraction": null,
+        "correct_query_pair_fraction": null,
+        "context_flip_fraction": 1.0,
+        "both_wrong_pair_fraction": 0.0
+      },
+      "final_test": {
+        "questions": 480,
+        "pairs": 240,
+        "binding_groups": 96,
+        "accuracy": 0.60625,
+        "pair_accuracy": 0.275,
+        "binding_group_accuracy": 0.0,
+        "query_flip_fraction": 0.06770833333333333,
+        "correct_query_pair_fraction": 0.041666666666666664,
+        "context_flip_fraction": 0.3375,
+        "both_wrong_pair_fraction": 0.0625
+      },
+      "final_single_fact_accuracy": 1.0,
+      "final_multiple_fact_accuracy": 0.5078125,
+      "raw_greedy_accuracy": 0.5,
+      "raw_greedy_samples": 30,
+      "story_test_loss": 1.2645088674431524,
+      "basic_story_test_loss": 4.133073591190962,
+      "test_target_loss": 0.14656904190778733,
+      "cells": {
+        "d0-delay0": {
+          "questions": 32,
+          "pairs": 16,
+          "binding_groups": 0,
+          "accuracy": 1.0,
+          "pair_accuracy": 1.0,
+          "binding_group_accuracy": null,
+          "query_flip_fraction": null,
+          "correct_query_pair_fraction": null,
+          "context_flip_fraction": 1.0,
+          "both_wrong_pair_fraction": 0.0
+        },
+        "d0-delay128": {
+          "questions": 32,
+          "pairs": 16,
+          "binding_groups": 0,
+          "accuracy": 1.0,
+          "pair_accuracy": 1.0,
+          "binding_group_accuracy": null,
+          "query_flip_fraction": null,
+          "correct_query_pair_fraction": null,
+          "context_flip_fraction": 1.0,
+          "both_wrong_pair_fraction": 0.0
+        },
+        "d0-delay64": {
+          "questions": 32,
+          "pairs": 16,
+          "binding_groups": 0,
+          "accuracy": 1.0,
+          "pair_accuracy": 1.0,
+          "binding_group_accuracy": null,
+          "query_flip_fraction": null,
+          "correct_query_pair_fraction": null,
+          "context_flip_fraction": 1.0,
+          "both_wrong_pair_fraction": 0.0
+        },
+        "d1-delay0": {
+          "questions": 64,
+          "pairs": 32,
+          "binding_groups": 16,
+          "accuracy": 0.5,
+          "pair_accuracy": 0.0625,
+          "binding_group_accuracy": 0.0,
+          "query_flip_fraction": 0.0625,
+          "correct_query_pair_fraction": 0.03125,
+          "context_flip_fraction": 0.125,
+          "both_wrong_pair_fraction": 0.0625
+        },
+        "d1-delay128": {
+          "questions": 64,
+          "pairs": 32,
+          "binding_groups": 16,
+          "accuracy": 0.5,
+          "pair_accuracy": 0.0,
+          "binding_group_accuracy": 0.0,
+          "query_flip_fraction": 0.0,
+          "correct_query_pair_fraction": 0.0,
+          "context_flip_fraction": 0.0,
+          "both_wrong_pair_fraction": 0.0
+        },
+        "d1-delay64": {
+          "questions": 64,
+          "pairs": 32,
+          "binding_groups": 16,
+          "accuracy": 0.5,
+          "pair_accuracy": 0.0,
+          "binding_group_accuracy": 0.0,
+          "query_flip_fraction": 0.0,
+          "correct_query_pair_fraction": 0.0,
+          "context_flip_fraction": 0.0,
+          "both_wrong_pair_fraction": 0.0
+        },
+        "d3-delay0": {
+          "questions": 64,
+          "pairs": 32,
+          "binding_groups": 16,
+          "accuracy": 0.46875,
+          "pair_accuracy": 0.15625,
+          "binding_group_accuracy": 0.0,
+          "query_flip_fraction": 0.125,
+          "correct_query_pair_fraction": 0.03125,
+          "context_flip_fraction": 0.375,
+          "both_wrong_pair_fraction": 0.21875
+        },
+        "d3-delay128": {
+          "questions": 64,
+          "pairs": 32,
+          "binding_groups": 16,
+          "accuracy": 0.53125,
+          "pair_accuracy": 0.125,
+          "binding_group_accuracy": 0.0,
+          "query_flip_fraction": 0.0625,
+          "correct_query_pair_fraction": 0.0625,
+          "context_flip_fraction": 0.1875,
+          "both_wrong_pair_fraction": 0.0625
+        },
+        "d3-delay64": {
+          "questions": 64,
+          "pairs": 32,
+          "binding_groups": 16,
+          "accuracy": 0.546875,
+          "pair_accuracy": 0.21875,
+          "binding_group_accuracy": 0.0,
+          "query_flip_fraction": 0.15625,
+          "correct_query_pair_fraction": 0.125,
+          "context_flip_fraction": 0.34375,
+          "both_wrong_pair_fraction": 0.125
+        }
+      }
+    }
+  }
+}

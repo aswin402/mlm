@@ -1,0 +1,18 @@
+{
+  "updates_each": 2000,
+  "selection": "minimum target development loss at 0,500,1000,1500,2000",
+  "sweep": false,
+  "maximum_nominal_timescale": 128,
+  "prior_control": "results/assistant-learning",
+  "test_policy": "reused diagnostic only; not selection; fresh confirmation required",
+  "sha256": {
+    "data/assistant-v2/manifest.json": "7405563abe38c781a25946193beec746dc2814de5e3e4804fc7e6ed4ac448b2b",
+    "data/assistant-v2/train.jsonl": "ea174f593a79bbe9864e6f9a18010e4710f2a1e24148c05c0bc7742544c57e88",
+    "data/assistant-v2/validation.jsonl": "51b05fa940a994f32331ff5f0e15ca512c3dcedb270ee1cb2b6820bffe240731",
+    "data/assistant-v2/test-questions.json": "54e6554ad7e09da32cba9e6b63b57e67af3ac980177c517ff07d18abc895dfe1",
+    "configs/assistant-graph.json": "b5fd9b6c17cde069a8bb9e032dd49df2a65ba7be75caf15d1e0c8be0bb2bbd3e",
+    "configs/assistant-gru.json": "4b30501e7d7d9899a03f96987d4378c2973d698954f477c8491d5017a77fd93e",
+    "runs/memory-init-graph/initial.mlm": "0ff73d4c06d71db37ed4cd6e5158ff523c85dec29d10c1523d30f3ee3c4163a9",
+    "runs/memory-init-gru/initial.mlm": "a348a134cdae97d85ce2f58f2a929dcb0fd281633644099575ea3c9b9fbf48b4"
+  }
+}

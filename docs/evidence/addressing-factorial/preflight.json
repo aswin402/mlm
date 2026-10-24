@@ -1,0 +1,27 @@
+{
+  "checks": {
+    "i42-s43:source_step_zero": true,
+    "i42-s43:source_seed": true,
+    "i42-s43:target_seed": true,
+    "i42-s43:zero_gate": true,
+    "i42-s43:config_except_seed": true,
+    "i42-s43:english_tensors": true,
+    "i42-s43:all_initializer_tensors_preserved": true,
+    "i42-s43:fresh_optimizer": true,
+    "i43-s42:source_step_zero": true,
+    "i43-s42:source_seed": true,
+    "i43-s42:target_seed": true,
+    "i43-s42:zero_gate": true,
+    "i43-s42:config_except_seed": true,
+    "i43-s42:english_tensors": true,
+    "i43-s42:all_initializer_tensors_preserved": true,
+    "i43-s42:fresh_optimizer": true,
+    "same_parameter_names": true,
+    "only_memory_parameters_added": true,
+    "memory_initializations_differ": true
+  },
+  "initial_parameters_sha256": {
+    "i42-s43": "8f2acbfe9d52ddb5afe77fca0ea4545f50e0fc3396b3b1504197f6614ef0ac2e",
+    "i43-s42": "1949127fa58b7338663c83bd0a3bd31e1d58f0cfef2a9904582ceb06a6548371"
+  }
+}

@@ -1,0 +1,339 @@
+{
+  "scope": "hierarchical recurrent update prototype; no Transformer-replacement evidence",
+  "models": {
+    "dense": {
+      "parameters": 366722,
+      "selected_qa_step": 1000,
+      "initial_english_dev_loss": 1.1557040961972767,
+      "selected_english_dev_loss": 1.1171764728147686,
+      "test_pools": {
+        "familiar-names-new-pairs": {
+          "cases": 96,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "3": 1,
+            "4": 95
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        },
+        "new-names": {
+          "cases": 48,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "3": 2,
+            "4": 46
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        }
+      },
+      "strata": {
+        "familiar-names-new-pairs/within": {
+          "cases": 48,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "3": 1,
+            "4": 47
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        },
+        "familiar-names-new-pairs/cross": {
+          "cases": 48,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "4": 48
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        },
+        "new-names/within": {
+          "cases": 24,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "3": 1,
+            "4": 23
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        },
+        "new-names/cross": {
+          "cases": 24,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "3": 1,
+            "4": 23
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        }
+      },
+      "individual_accuracy": 0.4973958333333333,
+      "english_test_loss": 1.1190351709635395,
+      "qa_test_loss": 0.2356976586635466,
+      "raw_greedy_accuracy": 0.5,
+      "raw_samples": 8,
+      "final_routing": {
+        "qa": {
+          "positions": 392000.0,
+          "mean_usage": [
+            0.125,
+            0.125,
+            0.125,
+            0.125,
+            0.125,
+            0.125,
+            0.125,
+            0.125
+          ],
+          "mean_entropy": 2.079441547393799,
+          "mean_batch_balance": 0.0
+        },
+        "english": {
+          "positions": 480017.0,
+          "mean_usage": [
+            0.125,
+            0.125,
+            0.125,
+            0.125,
+            0.125,
+            0.125,
+            0.125,
+            0.125
+          ],
+          "mean_entropy": 2.079441304872579,
+          "mean_batch_balance": 0.0
+        }
+      }
+    },
+    "uniform": {
+      "parameters": 366722,
+      "selected_qa_step": 750,
+      "initial_english_dev_loss": 3.770138420661382,
+      "selected_english_dev_loss": 1.963385447252378,
+      "test_pools": {
+        "familiar-names-new-pairs": {
+          "cases": 96,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "3": 9,
+            "4": 74,
+            "5": 12,
+            "6": 1
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        },
+        "new-names": {
+          "cases": 48,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "3": 5,
+            "4": 37,
+            "5": 6
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        }
+      },
+      "strata": {
+        "familiar-names-new-pairs/within": {
+          "cases": 48,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "3": 3,
+            "4": 40,
+            "5": 5
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        },
+        "familiar-names-new-pairs/cross": {
+          "cases": 48,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "3": 6,
+            "4": 34,
+            "5": 7,
+            "6": 1
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        },
+        "new-names/within": {
+          "cases": 24,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "3": 3,
+            "4": 18,
+            "5": 3
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        },
+        "new-names/cross": {
+          "cases": 24,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "3": 2,
+            "4": 19,
+            "5": 3
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        }
+      },
+      "individual_accuracy": 0.5052083333333334,
+      "english_test_loss": 1.9530379284929251,
+      "qa_test_loss": 0.17418968111828523,
+      "raw_greedy_accuracy": 0.125,
+      "raw_samples": 8,
+      "final_routing": {
+        "qa": {
+          "positions": 392000.0,
+          "mean_usage": [
+            0.125,
+            0.125,
+            0.125,
+            0.125,
+            0.125,
+            0.125,
+            0.125,
+            0.125
+          ],
+          "mean_entropy": 2.079441547393799,
+          "mean_batch_balance": 0.0
+        },
+        "english": {
+          "positions": 480017.0,
+          "mean_usage": [
+            0.125,
+            0.125,
+            0.125,
+            0.125,
+            0.125,
+            0.125,
+            0.125,
+            0.125
+          ],
+          "mean_entropy": 2.079441304872579,
+          "mean_batch_balance": 0.0
+        }
+      }
+    },
+    "hierarchical": {
+      "parameters": 368270,
+      "selected_qa_step": 1000,
+      "initial_english_dev_loss": 3.770138420661382,
+      "selected_english_dev_loss": 1.4691509066968655,
+      "test_pools": {
+        "familiar-names-new-pairs": {
+          "cases": 96,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "3": 4,
+            "4": 82,
+            "5": 10
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        },
+        "new-names": {
+          "cases": 48,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "3": 2,
+            "4": 40,
+            "5": 6
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        }
+      },
+      "strata": {
+        "familiar-names-new-pairs/within": {
+          "cases": 48,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "3": 1,
+            "4": 40,
+            "5": 7
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        },
+        "familiar-names-new-pairs/cross": {
+          "cases": 48,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "3": 3,
+            "4": 42,
+            "5": 3
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        },
+        "new-names/within": {
+          "cases": 24,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "3": 1,
+            "4": 20,
+            "5": 3
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        },
+        "new-names/cross": {
+          "cases": 24,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "3": 1,
+            "4": 20,
+            "5": 3
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        }
+      },
+      "individual_accuracy": 0.5086805555555556,
+      "english_test_loss": 1.4734289347645033,
+      "qa_test_loss": 0.15968867646599258,
+      "raw_greedy_accuracy": 0.5,
+      "raw_samples": 8,
+      "final_routing": {
+        "qa": {
+          "positions": 392000.0,
+          "mean_usage": [
+            0.08816405367851257,
+            0.096220086024732,
+            0.18691601497299817,
+            0.20626328299970043,
+            0.09990586679322379,
+            0.09355739120074681,
+            0.12203714960448596,
+            0.10693615477425711
+          ],
+          "mean_entropy": 2.003914620399475,
+          "mean_batch_balance": 0.13860356521606446
+        },
+        "english": {
+          "positions": 480017.0,
+          "mean_usage": [
+            0.04332691404261643,
+            0.03784734152488356,
+            0.10426199323017434,
+            0.5421044084063639,
+            0.03684785888688134,
+            0.031397731659444504,
+            0.14345948206804637,
+            0.06075426997645753
+          ],
+          "mean_entropy": 1.3644610615014794,
+          "mean_batch_balance": 2.0899486878539615
+        }
+      }
+    }
+  }
+}

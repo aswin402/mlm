@@ -1,0 +1,23 @@
+{
+  "architecture": "graph",
+  "node_update": "hierarchical",
+  "groups": 4,
+  "router_balance": 0.01,
+  "node_readout": "sum",
+  "memory": "none",
+  "memory_keys": 16,
+  "memory_lr_scale": 1.0,
+  "nodes": 8,
+  "width": 64,
+  "degree": 2,
+  "rounds": 1,
+  "batch_size": 4,
+  "length": 128,
+  "learning_rate": 0.003,
+  "shared_lr_scale": 0.1,
+  "node_lr_scale": 1.0,
+  "router_lr_scale": 1.0,
+  "weight_decay": 0.01,
+  "clip_norm": 1.0,
+  "seed": 42
+}

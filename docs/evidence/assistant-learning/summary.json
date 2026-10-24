@@ -1,0 +1,34 @@
+{
+  "protocol_verified": true,
+  "same_final_sampler_and_masks": true,
+  "consumed_payload_bytes_each": 915785,
+  "supervised_payload_bytes_each": 82737,
+  "models": {
+    "graph": {
+      "parameters": 366722,
+      "updates": 2000,
+      "best_step": 1000,
+      "best_development_answer_loss": 0.2682227875895769,
+      "test_answer_loss": 0.23434248056497659,
+      "reading_before": 0.5,
+      "reading_after": 0.5,
+      "pair_before": 0.0,
+      "pair_after": 0.0,
+      "greedy_before": 0.0,
+      "greedy_after": 0.125
+    },
+    "gru": {
+      "parameters": 368210,
+      "updates": 2000,
+      "best_step": 1500,
+      "best_development_answer_loss": 0.3868888383767864,
+      "test_answer_loss": 0.24434898258636356,
+      "reading_before": 0.5,
+      "reading_after": 0.5,
+      "pair_before": 0.0,
+      "pair_after": 0.0,
+      "greedy_before": 0.0,
+      "greedy_after": 0.375
+    }
+  }
+}

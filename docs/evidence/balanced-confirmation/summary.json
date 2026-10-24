@@ -1,0 +1,323 @@
+{
+  "scope": "balanced 32-name acquisition from English source; retention without successful binding",
+  "selections": {
+    "task-only/best": {
+      "path": "runs/confirmation-task-only-v1/best.mlm",
+      "qa_step": 0,
+      "optimizer_step": 0,
+      "parameter_sha256": "1eeb9d8e6d9b0f64a549bf6af6569ba6ed7cdd090989f37fa2dc11bfdb899366",
+      "source_fallback": true,
+      "sha256": "b990e83fd5f34ecfc78af1ca0475900ea95c8987998bde79261928b86283dc7f",
+      "pools": {
+        "familiar-names-new-pairs": {
+          "cases": 96,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "4": 96
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        },
+        "new-names": {
+          "cases": 48,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "4": 48
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        }
+      },
+      "strata": {
+        "familiar-names-new-pairs/within": {
+          "cases": 48,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "4": 48
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        },
+        "familiar-names-new-pairs/cross": {
+          "cases": 48,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "4": 48
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        },
+        "new-names/within": {
+          "cases": 24,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "4": 24
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        },
+        "new-names/cross": {
+          "cases": 24,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "4": 24
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        }
+      },
+      "individual_accuracy": 0.5,
+      "context_flip_fraction": 0.0,
+      "query_flip_fraction": 0.0,
+      "qa_test_loss": 5.860110420871664,
+      "english_test_loss": 1.121557189597038,
+      "greedy_sample_accuracy": 0.0,
+      "greedy_samples": 8
+    },
+    "task-only/best-task": {
+      "path": "runs/confirmation-task-only-v1/best-task.mlm",
+      "qa_step": 1500,
+      "optimizer_step": 1500,
+      "parameter_sha256": "8530b143a7717f684f21848fcc2e9d51f2c1a9f4cff2227117e636765e67758b",
+      "source_fallback": false,
+      "sha256": "63729144794b793ea16858ffc3f9f5a4ca57e47be483298bb456e8d66c034753",
+      "pools": {
+        "familiar-names-new-pairs": {
+          "cases": 96,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "4": 96
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        },
+        "new-names": {
+          "cases": 48,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "4": 48
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        }
+      },
+      "strata": {
+        "familiar-names-new-pairs/within": {
+          "cases": 48,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "4": 48
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        },
+        "familiar-names-new-pairs/cross": {
+          "cases": 48,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "4": 48
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        },
+        "new-names/within": {
+          "cases": 24,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "4": 24
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        },
+        "new-names/cross": {
+          "cases": 24,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "4": 24
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        }
+      },
+      "individual_accuracy": 0.5,
+      "context_flip_fraction": 0.0,
+      "query_flip_fraction": 0.0,
+      "qa_test_loss": 0.23855205728775924,
+      "english_test_loss": 3.381754575398326,
+      "greedy_sample_accuracy": 0.0,
+      "greedy_samples": 8
+    },
+    "rehearsal/best": {
+      "path": "runs/confirmation-rehearsal-v1/best.mlm",
+      "qa_step": 2000,
+      "optimizer_step": 4000,
+      "parameter_sha256": "2d61b54ad7c4d12a50d8a8b3e3f1ec0e2518527c477efb5db88937ba7a7f44b5",
+      "source_fallback": false,
+      "sha256": "4d3176264a79b4d37748019c7f1b9326415c46cba93a8f6642bf82ef4dd312dc",
+      "pools": {
+        "familiar-names-new-pairs": {
+          "cases": 96,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "4": 96
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        },
+        "new-names": {
+          "cases": 48,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "4": 48
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        }
+      },
+      "strata": {
+        "familiar-names-new-pairs/within": {
+          "cases": 48,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "4": 48
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        },
+        "familiar-names-new-pairs/cross": {
+          "cases": 48,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "4": 48
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        },
+        "new-names/within": {
+          "cases": 24,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "4": 24
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        },
+        "new-names/cross": {
+          "cases": 24,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "4": 24
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        }
+      },
+      "individual_accuracy": 0.5,
+      "context_flip_fraction": 0.0,
+      "query_flip_fraction": 0.0,
+      "qa_test_loss": 0.21643367430402172,
+      "english_test_loss": 1.0878385768960757,
+      "greedy_sample_accuracy": 0.5,
+      "greedy_samples": 8
+    },
+    "rehearsal/best-task": {
+      "path": "runs/confirmation-rehearsal-v1/best-task.mlm",
+      "qa_step": 2000,
+      "optimizer_step": 4000,
+      "parameter_sha256": "2d61b54ad7c4d12a50d8a8b3e3f1ec0e2518527c477efb5db88937ba7a7f44b5",
+      "source_fallback": false,
+      "sha256": "4d3176264a79b4d37748019c7f1b9326415c46cba93a8f6642bf82ef4dd312dc",
+      "pools": {
+        "familiar-names-new-pairs": {
+          "cases": 96,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "4": 96
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        },
+        "new-names": {
+          "cases": 48,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "4": 48
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        }
+      },
+      "strata": {
+        "familiar-names-new-pairs/within": {
+          "cases": 48,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "4": 48
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        },
+        "familiar-names-new-pairs/cross": {
+          "cases": 48,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "4": 48
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        },
+        "new-names/within": {
+          "cases": 24,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "4": 24
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        },
+        "new-names/cross": {
+          "cases": 24,
+          "all_correct": 0,
+          "accuracy": 0.0,
+          "correct_count_histogram": {
+            "4": 24
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        }
+      },
+      "individual_accuracy": 0.5,
+      "context_flip_fraction": 0.0,
+      "query_flip_fraction": 0.0,
+      "qa_test_loss": 0.21643367430402172,
+      "english_test_loss": 1.0878385768960757,
+      "greedy_sample_accuracy": 0.5,
+      "greedy_samples": 8
+    }
+  },
+  "exposure": {
+    "task-only": {
+      "qa": {
+        "updates": 2000,
+        "input_bytes": 776000,
+        "supervised_bytes": 40000
+      },
+      "english": {
+        "updates": 0,
+        "input_bytes": 0,
+        "supervised_bytes": 0
+      }
+    },
+    "rehearsal": {
+      "qa": {
+        "updates": 2000,
+        "input_bytes": 776000,
+        "supervised_bytes": 40000
+      },
+      "english": {
+        "updates": 2000,
+        "input_bytes": 958088,
+        "supervised_bytes": 958088
+      }
+    }
+  }
+}

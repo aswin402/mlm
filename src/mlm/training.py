@@ -1,0 +1,84 @@
+"""Masked causal prediction and clipped AdamW updates."""
+
+import jax
+import jax.numpy as jnp
+import optax
+from flax.training.train_state import TrainState
+
+from mlm.config import Config
+from mlm.model import initial_state, make_model
+from mlm.plasticity import scale_optimizer
+
+
+def decay_mask(params):
+    """Select weight matrices by role; node-batched biases are still biases."""
+    return {name: "bias" not in name and name != "norm_scale" for name in params}
+
+
+def create_state(config: Config):
+    model = make_model(config)
+    tokens = jnp.zeros((1, 1), dtype=jnp.int32)
+    params = model.init(
+        jax.random.PRNGKey(config.seed),
+        tokens,
+        initial_state(config, 1),
+        jnp.ones_like(tokens, dtype=bool),
+    )["params"]
+    decay = decay_mask(params)
+    optimizer = optax.chain(
+        optax.clip_by_global_norm(config.clip_norm),
+        optax.adamw(
+            config.learning_rate,
+            b1=0.9,
+            b2=0.999,
+            eps=1e-8,
+            weight_decay=config.weight_decay,
+            mask=decay,
+        ),
+    )
+    optimizer = scale_optimizer(optimizer, params, config)
+    return TrainState.create(apply_fn=model.apply, params=params, tx=optimizer)
+
+
+def objective(params, apply_fn, batch, config, messages=True):
+    logits, _ = apply_fn(
+        {"params": params},
+        batch["inputs"],
+        initial_state(config, batch["inputs"].shape[0]),
+        batch["resets"],
+        messages=messages,
+    )
+    losses = optax.softmax_cross_entropy_with_integer_labels(logits, batch["targets"])
+    mask = batch["mask"]
+    loss = (losses * mask).sum() / jnp.maximum(mask.sum(), 1)
+    payload = mask * (batch["targets"] < 256)
+    byte_nll = (losses * payload).sum()
+    return loss, {
+        "loss": loss,
+        "byte_nll": byte_nll,
+        "bytes": payload.sum(),
+        "positions": mask.sum(),
+    }
+
+
+def score(state, batch, config, messages=True):
+    return objective(state.params, state.apply_fn, batch, config, messages)[1]
+
+
+def make_train_step(config: Config):
+    @jax.jit
+    def step(state, batch):
+        (loss, metrics), gradients = jax.value_and_grad(objective, has_aux=True)(
+            state.params, state.apply_fn, batch, config
+        )
+        finite = jnp.isfinite(loss) & jnp.all(
+            jnp.stack([jnp.all(jnp.isfinite(g)) for g in jax.tree.leaves(gradients)])
+        )
+        candidate = state.apply_gradients(grads=gradients)
+        finite = finite & jnp.all(
+            jnp.stack([jnp.all(jnp.isfinite(p)) for p in jax.tree.leaves(candidate.params)])
+        )
+        state = jax.lax.cond(finite, lambda: candidate, lambda: state)
+        return state, {**metrics, "grad_norm": optax.tree.norm(gradients), "finite": finite}
+
+    return step

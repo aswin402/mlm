@@ -1,0 +1,71 @@
+The red bird runs.
+
+The red bird rests.
+
+The red bird plays.
+
+The red cat runs.
+
+The red cat rests.
+
+The red cat plays.
+
+The red dog runs.
+
+The red dog rests.
+
+The red dog plays.
+
+The blue bird runs.
+
+The blue bird rests.
+
+The blue bird plays.
+
+The blue cat runs.
+
+The blue cat rests.
+
+The blue cat plays.
+
+The blue dog runs.
+
+The blue dog rests.
+
+The blue dog plays.
+
+The small bird runs.
+
+The small bird rests.
+
+The small bird plays.
+
+The small cat runs.
+
+The small cat rests.
+
+The small cat plays.
+
+The small dog runs.
+
+The small dog rests.
+
+The small dog plays.
+
+The happy bird runs.
+
+The happy bird rests.
+
+The happy bird plays.
+
+The happy cat runs.
+
+The happy cat rests.
+
+The happy cat plays.
+
+The happy dog runs.
+
+The happy dog rests.
+
+The happy dog plays.

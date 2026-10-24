@@ -1,0 +1,112 @@
+{
+  "scope": "focused binding, one seed; no validated model upgrade",
+  "models": {
+    "graph": {
+      "parameters": 366722,
+      "best_step": 1750,
+      "development_group_accuracy": 0.0,
+      "test": {
+        "questions": 224,
+        "pairs": 112,
+        "binding_groups": 56,
+        "accuracy": 0.5133928571428571,
+        "pair_accuracy": 0.10714285714285714,
+        "binding_group_accuracy": 0.0,
+        "query_flip_fraction": 0.2767857142857143,
+        "correct_query_pair_fraction": 0.15178571428571427,
+        "context_flip_fraction": 0.1875,
+        "both_wrong_pair_fraction": 0.08035714285714286
+      },
+      "training_diagnostic": {
+        "questions": 960,
+        "pairs": 480,
+        "binding_groups": 240,
+        "accuracy": 0.503125,
+        "pair_accuracy": 0.06041666666666667,
+        "binding_group_accuracy": 0.0,
+        "query_flip_fraction": 0.14791666666666667,
+        "correct_query_pair_fraction": 0.07708333333333334,
+        "context_flip_fraction": 0.11458333333333333,
+        "both_wrong_pair_fraction": 0.05416666666666667
+      },
+      "test_target_loss": 0.11746479003202348,
+      "story_test_loss": 7.439664620343618,
+      "raw_greedy_accuracy": 0.5,
+      "raw_greedy_samples": 4
+    },
+    "gru": {
+      "parameters": 368210,
+      "best_step": 2000,
+      "development_group_accuracy": 0.0,
+      "test": {
+        "questions": 224,
+        "pairs": 112,
+        "binding_groups": 56,
+        "accuracy": 0.5401785714285714,
+        "pair_accuracy": 0.16071428571428573,
+        "binding_group_accuracy": 0.017857142857142856,
+        "query_flip_fraction": 0.1875,
+        "correct_query_pair_fraction": 0.13392857142857142,
+        "context_flip_fraction": 0.24107142857142858,
+        "both_wrong_pair_fraction": 0.08035714285714286
+      },
+      "training_diagnostic": {
+        "questions": 960,
+        "pairs": 480,
+        "binding_groups": 240,
+        "accuracy": 0.5208333333333334,
+        "pair_accuracy": 0.09375,
+        "binding_group_accuracy": 0.029166666666666667,
+        "query_flip_fraction": 0.19583333333333333,
+        "correct_query_pair_fraction": 0.11875,
+        "context_flip_fraction": 0.14583333333333334,
+        "both_wrong_pair_fraction": 0.052083333333333336
+      },
+      "test_target_loss": 0.11676797270774841,
+      "story_test_loss": 8.119604748550461,
+      "raw_greedy_accuracy": 0.75,
+      "raw_greedy_samples": 4
+    },
+    "attention": {
+      "parameters": 374978,
+      "best_step": 2000,
+      "development_group_accuracy": 0.0,
+      "test": {
+        "questions": 224,
+        "pairs": 112,
+        "binding_groups": 56,
+        "accuracy": 0.4955357142857143,
+        "pair_accuracy": 0.08928571428571429,
+        "binding_group_accuracy": 0.0,
+        "query_flip_fraction": 0.24107142857142858,
+        "correct_query_pair_fraction": 0.11607142857142858,
+        "context_flip_fraction": 0.1875,
+        "both_wrong_pair_fraction": 0.09821428571428571
+      },
+      "training_diagnostic": {
+        "questions": 960,
+        "pairs": 480,
+        "binding_groups": 240,
+        "accuracy": 0.50625,
+        "pair_accuracy": 0.09583333333333334,
+        "binding_group_accuracy": 0.004166666666666667,
+        "query_flip_fraction": 0.17916666666666667,
+        "correct_query_pair_fraction": 0.09583333333333334,
+        "context_flip_fraction": 0.17916666666666667,
+        "both_wrong_pair_fraction": 0.08333333333333333
+      },
+      "test_target_loss": 0.11687666248707544,
+      "story_test_loss": 7.6683989218565465,
+      "raw_greedy_accuracy": 0.75,
+      "raw_greedy_samples": 4
+    }
+  },
+  "training_only_sanity": {
+    "steps": 500,
+    "learning_rate": 0.003,
+    "ranking_accuracy": 1.0,
+    "binding_group_accuracy": 1.0,
+    "raw_greedy_accuracy": 1.0,
+    "scope": "post-hoc training-only overfit sanity; no held-out claim or checkpoint selection"
+  }
+}

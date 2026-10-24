@@ -1,0 +1,60 @@
+{
+  "protocol": {
+    "updates": 4000,
+    "seed": 42,
+    "scorer_version": 2,
+    "identical_optimizer_settings": {
+      "batch_size": 4,
+      "length": 128,
+      "learning_rate": 0.001,
+      "weight_decay": 0.01,
+      "clip_norm": 1.0,
+      "seed": 42
+    },
+    "same_corpora": true,
+    "identical_final_sampler_snapshot": true,
+    "training_payload_bytes_each": 1916320,
+    "note": "Exploratory single-seed, approximately parameter-matched study; not compute-matched"
+  },
+  "models": [
+    {
+      "model": "graph",
+      "architecture": "graph",
+      "parameters": 366722,
+      "recurrent_state_scalars_per_sequence": 512,
+      "best_step": 4000,
+      "development_loss": 1.1557040961972767,
+      "test_loss": 1.121557189597038,
+      "test_bits_per_byte": 1.6157525002127118,
+      "reading_accuracy": 0.5,
+      "reading_pair_accuracy": 0.0,
+      "checkpoint": "runs/english-v1/best.mlm"
+    },
+    {
+      "model": "no-messages",
+      "architecture": "graph",
+      "parameters": 366722,
+      "recurrent_state_scalars_per_sequence": 512,
+      "best_step": 4000,
+      "development_loss": 1.1929712305611961,
+      "test_loss": 1.1573980598921163,
+      "test_bits_per_byte": 1.6676431791748303,
+      "reading_accuracy": 0.5,
+      "reading_pair_accuracy": 0.0,
+      "checkpoint": "runs/baseline-no-messages/best.mlm"
+    },
+    {
+      "model": "gru",
+      "architecture": "gru",
+      "parameters": 368210,
+      "recurrent_state_scalars_per_sequence": 208,
+      "best_step": 4000,
+      "development_loss": 1.1365249503278418,
+      "test_loss": 1.0988901000968363,
+      "test_bits_per_byte": 1.5834088462736102,
+      "reading_accuracy": 0.5,
+      "reading_pair_accuracy": 0.0,
+      "checkpoint": "runs/baseline-gru/best.mlm"
+    }
+  ]
+}

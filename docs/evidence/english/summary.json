@@ -1,0 +1,92 @@
+{
+  "scope": "full-document truncated BPTT; fixed graph; no growth",
+  "steps": 4000,
+  "session_steps": 4000,
+  "parameters": 366722,
+  "messages": true,
+  "best_step": 4000,
+  "best_validation_loss": 1.1557040961972767,
+  "compile_seconds": 0.9080521059986495,
+  "training_loop_seconds": 290.6098431790015,
+  "update_seconds": 276.3537832357397,
+  "training_payload_bytes": 1916320,
+  "update_bytes_per_second": 6934.299858545126,
+  "epoch_restarts": 2,
+  "initial_train_probe": {
+    "loss": 6.019068003319299,
+    "bits_per_byte": 8.68148377440465,
+    "perplexity_with_markers": 411.1951845383316,
+    "positions": 11179,
+    "payload_bytes": 11163,
+    "documents": 16,
+    "coverage": "complete documents",
+    "chunk_length": 128
+  },
+  "train_probe": {
+    "loss": 1.1184589831045717,
+    "bits_per_byte": 1.6120494238246459,
+    "perplexity_with_markers": 3.060134848420434,
+    "positions": 11179,
+    "payload_bytes": 11163,
+    "documents": 16,
+    "coverage": "complete documents",
+    "chunk_length": 128
+  },
+  "initial_validation": {
+    "loss": 6.007099737156227,
+    "bits_per_byte": 8.663372934282785,
+    "perplexity_with_markers": 406.3032236630309,
+    "positions": 21761,
+    "payload_bytes": 21729,
+    "documents": 32,
+    "coverage": "complete documents",
+    "chunk_length": 128
+  },
+  "validation": {
+    "loss": 1.1557040961972767,
+    "bits_per_byte": 1.6648462280881184,
+    "perplexity_with_markers": 3.176259022293997,
+    "positions": 21761,
+    "payload_bytes": 21729,
+    "documents": 32,
+    "coverage": "complete documents",
+    "chunk_length": 128
+  },
+  "best_validation": {
+    "loss": 1.1557040961972767,
+    "bits_per_byte": 1.6648462280881184,
+    "perplexity_with_markers": 3.176259022293997,
+    "positions": 21761,
+    "payload_bytes": 21729,
+    "documents": 32,
+    "coverage": "complete documents",
+    "chunk_length": 128
+  },
+  "corpora": {
+    "train": "42c0a4f386bc67d94a9ce686c826eb9166dd9c6227a7cf7a3c9c59040c36e13d",
+    "validation": "b213f515e2ffbbed55d035605fd83df0d4b39f464bfbaff08cc4843f5b0bfa38",
+    "test": "05da0f256cdbe93942595ee94898d8c4c4af0582ff37d9a18977dbfe72ec1e99"
+  },
+  "initialization": {
+    "mode": "stream",
+    "corpora": {
+      "train": "42c0a4f386bc67d94a9ce686c826eb9166dd9c6227a7cf7a3c9c59040c36e13d",
+      "validation": "b213f515e2ffbbed55d035605fd83df0d4b39f464bfbaff08cc4843f5b0bfa38",
+      "test": "05da0f256cdbe93942595ee94898d8c4c4af0582ff37d9a18977dbfe72ec1e99"
+    },
+    "messages": true,
+    "initialization": null,
+    "initialization_sha256": null
+  },
+  "checkpoint_bytes": 4451516,
+  "test": {
+    "loss": 1.121557189597038,
+    "bits_per_byte": 1.6157525002127118,
+    "perplexity_with_markers": 3.0696304801940175,
+    "positions": 22332,
+    "payload_bytes": 22300,
+    "documents": 32,
+    "coverage": "complete documents",
+    "chunk_length": 128
+  }
+}

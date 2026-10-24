@@ -1,0 +1,13 @@
+{
+  "nodes": 8,
+  "width": 64,
+  "degree": 2,
+  "rounds": 1,
+  "length": 128,
+  "batch_size": 4,
+  "learning_rate": 0.001,
+  "seed": 42,
+  "node_update": "dense",
+  "groups": 4,
+  "router_balance": 0.01
+}

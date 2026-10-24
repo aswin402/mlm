@@ -1,0 +1,351 @@
+{
+  "version": "0.0.1",
+  "markdown": {
+    "transfer-plan.md": {
+      "destination": "docs/archive/README.md#historical-plans",
+      "original_sha256": "49aa293d9f1bbae4714195c0771063e9134d8d547c1a7210401d2be2e85ec027",
+      "archived_working_plan": true
+    },
+    "stream-plan.md": {
+      "destination": "docs/archive/README.md#historical-plans",
+      "original_sha256": "f13c3325c517c3786774914c75742762eaaa51eef442cf906f27929d07c6f223",
+      "archived_working_plan": true
+    },
+    "memory-plan.md": {
+      "destination": "docs/archive/README.md#historical-plans",
+      "original_sha256": "cd50eb2b1b66acb647c7e64947ddd96a4b2af8f0008b590406810b4c44469676",
+      "archived_working_plan": true
+    },
+    "README.md": {
+      "destination": "docs/usage.md",
+      "original_sha256": "67ef00eeff4c71742ae7a7a207eff158f68627cea49f552a79a8bbb3335b6ede",
+      "archived_working_plan": false
+    },
+    "acquisition-plan.md": {
+      "destination": "docs/archive/README.md#historical-plans",
+      "original_sha256": "9a140e61893c389b64491dacd698bbdae8caea9e131746addbb9a1d96b720b2e",
+      "archived_working_plan": true
+    },
+    "scratch-plan.md": {
+      "destination": "docs/archive/README.md#historical-plans",
+      "original_sha256": "a816a2eb8380214b40b061ad256460082e93335f85d15eaf3437ba9b21a97180",
+      "archived_working_plan": true
+    },
+    "associative-plan.md": {
+      "destination": "docs/archive/README.md#historical-plans",
+      "original_sha256": "3a6bcd5f6c4c70c1d83d5532ac67b9c3271ae37bf4e214998e529c992f126f72",
+      "archived_working_plan": true
+    },
+    "gradual-plan.md": {
+      "destination": "docs/archive/README.md#historical-plans",
+      "original_sha256": "61afad1330427b1854610fb7a8d8765d5e92fffe5bf7ea3dc263f9a52a3d59e1",
+      "archived_working_plan": true
+    },
+    "exposure-plan.md": {
+      "destination": "docs/archive/README.md#historical-plans",
+      "original_sha256": "8cdbe177dcd23cb03eadc25ade4d2e82beb8d5b7d28cb9cc09c9bcab6e83239d",
+      "archived_working_plan": true
+    },
+    "binding-plan.md": {
+      "destination": "docs/archive/README.md#historical-plans",
+      "original_sha256": "f46a07bacd37c2f0bfb63b8212e0eeebd227c067e581613c8a03a70216bfbf46",
+      "archived_working_plan": true
+    },
+    "implementation-plan.md": {
+      "destination": "docs/archive/README.md#historical-plans",
+      "original_sha256": "0cc74661cc59d6857131e5328d3c50695c07b20e350aae303338d7ca9c3c86cd",
+      "archived_working_plan": true
+    },
+    "retrieval-plan.md": {
+      "destination": "docs/archive/README.md#historical-plans",
+      "original_sha256": "9923bb65cfbfe8bf4b49cae5d70cf1b5b9b659ff15cc74817b4baac54e1f2833",
+      "archived_working_plan": true
+    },
+    "assistant-plan.md": {
+      "destination": "docs/archive/README.md#historical-plans",
+      "original_sha256": "2294bccde9d4891bd89cc8b58e92d1d7e1a7acf8d115cbd3bb3b6177c18835ca",
+      "archived_working_plan": true
+    },
+    "research.md": {
+      "destination": "docs/research.md",
+      "original_sha256": "b9750d3de673f338bf75b33f7332fae5e57100cb0d3017cd52d001dded3e406c",
+      "archived_working_plan": false
+    },
+    "prd.md": {
+      "destination": "docs/prd.md",
+      "original_sha256": "e89b333e09400801e8ef33c99db85aa6e580ac67fb887ea109e232b6c302bb13",
+      "archived_working_plan": false
+    },
+    "addressing-plan.md": {
+      "destination": "docs/archive/README.md#historical-plans",
+      "original_sha256": "34ca116d99117354bf69ff6e75c2735c0e414c114b5e5f8bd0c4d15ca063c983",
+      "archived_working_plan": true
+    },
+    "plasticity-plan.md": {
+      "destination": "docs/archive/README.md#historical-plans",
+      "original_sha256": "6f0f027f735bbc8fde37470511dfd5c5508c6e94ea75433c7d20172c2558c22a",
+      "archived_working_plan": true
+    },
+    "hierarchy-plan.md": {
+      "destination": "docs/archive/README.md#historical-plans",
+      "original_sha256": "74a1b53ca5c93e773dd71d73525e8e51d8ab14c45519c14939d3323f1199926c",
+      "archived_working_plan": true
+    },
+    "comparison-plan.md": {
+      "destination": "docs/archive/README.md#historical-plans",
+      "original_sha256": "7d1a9c90d34ccd53f5f70cbf63f09d79d7d13b12ddc030d376c8a312cd6013ef",
+      "archived_working_plan": true
+    },
+    "confirmation-plan.md": {
+      "destination": "docs/archive/README.md#historical-plans",
+      "original_sha256": "a75e5aaa6ea4ea9c78da4a0069fe812f511e6abfbab44d68494a4fac9b14fabe",
+      "archived_working_plan": true
+    },
+    "data/README.md": {
+      "destination": "docs/data/README.md",
+      "original_sha256": "cdc384ac2cb7c4a9b1a454034974c8cd98530f2865effb2eebf2d26952905b5c",
+      "archived_working_plan": false
+    },
+    "results/focused-binding/report.md": {
+      "destination": "docs/experiments/focused-binding/report.md",
+      "original_sha256": "ddf3eecaa2a562eaf4bbf02368fd7eb5a7cdb1180eab289283f12a95f2a211e8",
+      "archived_working_plan": false
+    },
+    "results/focused-binding/protocol.md": {
+      "destination": "docs/experiments/focused-binding/protocol.md",
+      "original_sha256": "497ba4b0241d57fa45f1045ca358f873322c136b17d04ea944461c0d29dd5771",
+      "archived_working_plan": false
+    },
+    "results/assistant-learning/report.md": {
+      "destination": "docs/experiments/assistant-learning/report.md",
+      "original_sha256": "c706f34444cb9037f3ed98831d2fa9c1f10ff4d557c5bf456eb225befe650c4d",
+      "archived_working_plan": false
+    },
+    "results/balanced-confirmation/report.md": {
+      "destination": "docs/experiments/balanced-confirmation/report.md",
+      "original_sha256": "0c87e8d175bc5d3452f5ebf72587d5569030c49dbb8ee5e5ee91f903d5a577f3",
+      "archived_working_plan": false
+    },
+    "results/balanced-confirmation/protocol.md": {
+      "destination": "docs/experiments/balanced-confirmation/protocol.md",
+      "original_sha256": "502c4b2021606a18db38984923127105128fa8f53481a3f3baa3a58788d75745",
+      "archived_working_plan": false
+    },
+    "results/exposure/report.md": {
+      "destination": "docs/experiments/exposure/report.md",
+      "original_sha256": "66ad739c6c93bf558223d81e32f2a108f6ce37c2195fe2f87c9342fd39f1958d",
+      "archived_working_plan": false
+    },
+    "results/schedule-components/report.md": {
+      "destination": "docs/experiments/schedule-components/report.md",
+      "original_sha256": "d2c29c39eaee92f81fedd58359ffd1862d6505e8d8fff74a2223518a744da99d",
+      "archived_working_plan": false
+    },
+    "results/schedule-components/plan.md": {
+      "destination": "docs/archive/README.md#historical-plans",
+      "original_sha256": "2d0c63396f4c6018e6675be83c65d5dafa39ece83fda674800291c0db6355bf9",
+      "archived_working_plan": true
+    },
+    "results/plasticity/report.md": {
+      "destination": "docs/experiments/plasticity/report.md",
+      "original_sha256": "11c139ef5a08b8a33065399e394aaf7bc166072aef8bbc042d1d1cb083906a7c",
+      "archived_working_plan": false
+    },
+    "results/retrieval-curriculum/report.md": {
+      "destination": "docs/experiments/retrieval-curriculum/report.md",
+      "original_sha256": "c285ced2bb0495c0284de7aa45258e39572c3162c1b4a749d384cae6f2a60506",
+      "archived_working_plan": false
+    },
+    "results/retrieval-curriculum/protocol.md": {
+      "destination": "docs/experiments/retrieval-curriculum/protocol.md",
+      "original_sha256": "b94064441e771eed83a121c6b9f76a0a43625a9a4e22b485f7b42bd2b34284d2",
+      "archived_working_plan": false
+    },
+    "results/associative/report.md": {
+      "destination": "docs/experiments/associative/report.md",
+      "original_sha256": "110d868f1638fc616b395c6f1e2942cb6a8aab07535f0de7ec032ba9ccf5a907",
+      "archived_working_plan": false
+    },
+    "results/addressing-replication/report.md": {
+      "destination": "docs/experiments/addressing-replication/report.md",
+      "original_sha256": "b2613b1c12fb0ab49e9f235a5f381674b469a9af1e009c51cc0a045f9af8ef4b",
+      "archived_working_plan": false
+    },
+    "results/addressing-replication/plan.md": {
+      "destination": "docs/archive/README.md#historical-plans",
+      "original_sha256": "d1dcbbff93b59be0b9c6e8399c22593c452af225ebdafc7b4e934d2171b54a00",
+      "archived_working_plan": true
+    },
+    "results/addressing-factorial/report.md": {
+      "destination": "docs/experiments/addressing-factorial/report.md",
+      "original_sha256": "da9afb7e2cdf700a1e12f1e10d42838d8af6b1f1444e838c99bc4a429a68aa24",
+      "archived_working_plan": false
+    },
+    "results/addressing-factorial/plan.md": {
+      "destination": "docs/archive/README.md#historical-plans",
+      "original_sha256": "b3f869091c9aa5d4bc3bfaaa9de9fa86ded9a9589c56f06eb383f9d8bcad7aa8",
+      "archived_working_plan": true
+    },
+    "results/addressing-exposure/report.md": {
+      "destination": "docs/experiments/addressing-exposure/report.md",
+      "original_sha256": "f9e3e69ed552db51f29e44c484e064f925e3576b7bf59c9c03c521f5451e7fb5",
+      "archived_working_plan": false
+    },
+    "results/addressing-exposure/plan.md": {
+      "destination": "docs/archive/README.md#historical-plans",
+      "original_sha256": "c05ea91a0fd01deb05aa95168f7f39e471b172b7cee965e2aa9d228a047ac80b",
+      "archived_working_plan": true
+    },
+    "results/addressing/report.md": {
+      "destination": "docs/experiments/addressing/report.md",
+      "original_sha256": "0229895ec21f2f4eb85b9996a3c4ea990582b6012b5a39557181bed9e79bb515",
+      "archived_working_plan": false
+    },
+    "results/memory-retention/report.md": {
+      "destination": "docs/experiments/memory-retention/report.md",
+      "original_sha256": "2a021bb6a74f9fcb1e6657c4d0c457175d13a40caeab9a1dd958f4c16c12ff86",
+      "archived_working_plan": false
+    },
+    "results/memory-retention/protocol.md": {
+      "destination": "docs/experiments/memory-retention/protocol.md",
+      "original_sha256": "c5c228d4c7b8e93c60d726f8f3f098fcbb099c5ed87996561fc23bf076cfa527",
+      "archived_working_plan": false
+    },
+    "results/transfer/report.md": {
+      "destination": "docs/experiments/transfer/report.md",
+      "original_sha256": "e9ac2cc83f99d3e28cd0fa2af91c8f6996afa168d74dd56dfc379411c2cd80df",
+      "archived_working_plan": false
+    },
+    "results/comparison/report.md": {
+      "destination": "docs/experiments/comparison/report.md",
+      "original_sha256": "a8371e177d200234f027cdf96a1fcdc085be61405ea84baacc92187ce4b03204",
+      "archived_working_plan": false
+    },
+    "results/english-chat/report.md": {
+      "destination": "docs/experiments/english-chat/report.md",
+      "original_sha256": "43985aebaac357ec481105d1c53f2879ca8d4440b0043fa9bb55b3fa6667dae1",
+      "archived_working_plan": false
+    },
+    "results/from-scratch/report.md": {
+      "destination": "docs/experiments/from-scratch/report.md",
+      "original_sha256": "f2e2c3a1a3b66964d1872d90ec08d7d15cf4bd4c2575d1cd41578593881b54b0",
+      "archived_working_plan": false
+    },
+    "results/from-scratch/protocol.md": {
+      "destination": "docs/experiments/from-scratch/protocol.md",
+      "original_sha256": "0b7a11f5c423cf6f889aa941594d73da0e8b2a7d30c644a0881169df0bdae4f7",
+      "archived_working_plan": false
+    },
+    "results/hierarchical-routing/report.md": {
+      "destination": "docs/experiments/hierarchical-routing/report.md",
+      "original_sha256": "c58d80c7322e50985e4e68f36e85402372b2a56a5792b76b730881b723a455e9",
+      "archived_working_plan": false
+    },
+    "results/hierarchical-routing/protocol.md": {
+      "destination": "docs/experiments/hierarchical-routing/protocol.md",
+      "original_sha256": "c2300d426079b80ade8c1b22e8aeac6c774878e14f8e01505a34b4e92662fcc3",
+      "archived_working_plan": false
+    },
+    "results/acquisition/report.md": {
+      "destination": "docs/experiments/acquisition/report.md",
+      "original_sha256": "75c70ab13f23196ebf4014979898da10629d87936f2a79e9e6438995eba2a961",
+      "archived_working_plan": false
+    },
+    "results/smoke/report.md": {
+      "destination": "docs/experiments/smoke/report.md",
+      "original_sha256": "3c76f3afb96875efd10cfa709fa666a7e125f16cb1943c4dd52eaba6e22b81c8",
+      "archived_working_plan": false
+    },
+    "results/gradual-binding/report.md": {
+      "destination": "docs/experiments/gradual-binding/report.md",
+      "original_sha256": "5e3595ba62fe6a979bbd7cacc5c88a82562a0c51d4b2aa4dec663aab1f3eef50",
+      "archived_working_plan": false
+    },
+    "results/gradual-binding/protocol.md": {
+      "destination": "docs/experiments/gradual-binding/protocol.md",
+      "original_sha256": "ea8432483f7d1e213eac73e0390c0ed3795ec301b500266df9f21acc5e3822c0",
+      "archived_working_plan": false
+    },
+    "results/comparison/superseded-separator-scorer/README.md": {
+      "destination": "docs/experiments/comparison/superseded-separator-scorer/README.md",
+      "original_sha256": "c5f2cae944f6dd8143b892ccc69df526e725694a762597b215ae71cf042e68da",
+      "archived_working_plan": false
+    },
+    "results/addressing/snapshot/addressing-plan.md": {
+      "destination": "docs/archive/README.md#historical-plans",
+      "original_sha256": "34ca116d99117354bf69ff6e75c2735c0e414c114b5e5f8bd0c4d15ca063c983",
+      "archived_working_plan": true
+    },
+    "data/evaluation/README.md": {
+      "destination": "docs/data/evaluation.md",
+      "original_sha256": "3e05734cd4d3072ff6e69098c9eb042308ad66fbfb04e3e2663feb3eb6594ef0",
+      "archived_working_plan": false
+    },
+    "data/smoke/README.md": {
+      "destination": "docs/data/smoke.md",
+      "original_sha256": "0bcf6131544e7b22600029607bdc94665516231c53b56e5a48c150d76cc4cac9",
+      "archived_working_plan": false
+    }
+  },
+  "removed_markdown_plans": [
+    "transfer-plan.md",
+    "stream-plan.md",
+    "memory-plan.md",
+    "acquisition-plan.md",
+    "scratch-plan.md",
+    "associative-plan.md",
+    "gradual-plan.md",
+    "exposure-plan.md",
+    "binding-plan.md",
+    "implementation-plan.md",
+    "retrieval-plan.md",
+    "assistant-plan.md",
+    "addressing-plan.md",
+    "plasticity-plan.md",
+    "hierarchy-plan.md",
+    "comparison-plan.md",
+    "confirmation-plan.md",
+    "results/schedule-components/plan.md",
+    "results/addressing-replication/plan.md",
+    "results/addressing-factorial/plan.md",
+    "results/addressing-exposure/plan.md",
+    "results/addressing/snapshot/addressing-plan.md"
+  ],
+  "local_only_links": [
+    {
+      "document": "docs/experiments/addressing-replication/report.md",
+      "original_target": "analysis-type-amendment.json",
+      "resolved": "results/addressing-replication/analysis-type-amendment.json"
+    },
+    {
+      "document": "docs/experiments/addressing/report.md",
+      "original_target": "integrity.json",
+      "resolved": "results/addressing/integrity.json"
+    },
+    {
+      "document": "docs/experiments/addressing/report.md",
+      "original_target": "prior-input-integrity.json",
+      "resolved": "results/addressing/prior-input-integrity.json"
+    },
+    {
+      "document": "docs/experiments/english-chat/report.md",
+      "original_target": "../datasets.json",
+      "resolved": "results/datasets.json"
+    },
+    {
+      "document": "docs/experiments/english-chat/report.md",
+      "original_target": "chat-probes.json",
+      "resolved": "results/english-chat/chat-probes.json"
+    },
+    {
+      "document": "docs/experiments/english-chat/report.md",
+      "original_target": "english/samples.json",
+      "resolved": "results/english-chat/english/samples.json"
+    },
+    {
+      "document": "docs/experiments/english-chat/report.md",
+      "original_target": "conversation/samples.json",
+      "resolved": "results/english-chat/conversation/samples.json"
+    }
+  ]
+}

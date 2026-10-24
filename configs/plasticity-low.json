@@ -1,0 +1,16 @@
+{
+  "nodes": 8,
+  "width": 64,
+  "degree": 2,
+  "rounds": 1,
+  "length": 128,
+  "batch_size": 4,
+  "learning_rate": 0.0003,
+  "seed": 42,
+  "node_update": "hierarchical",
+  "groups": 4,
+  "router_balance": 0.01,
+  "shared_lr_scale": 1.0,
+  "node_lr_scale": 1.0,
+  "router_lr_scale": 1.0
+}

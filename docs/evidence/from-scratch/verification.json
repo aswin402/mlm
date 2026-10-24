@@ -1,0 +1,1 @@
+{"pytest": {"passed":56,"seconds":167.76,"command":"uv run pytest -q"}, "scope":"implementation regression checks; research outcomes reported separately"}

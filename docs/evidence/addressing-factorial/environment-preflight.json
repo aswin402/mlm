@@ -1,0 +1,35 @@
+{
+  "current": {
+    "python": "3.12.3",
+    "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.43",
+    "devices": [
+      "cpu:0"
+    ],
+    "versions": {
+      "jax": "0.12.0.1",
+      "flax": "0.12.10",
+      "optax": "0.2.8"
+    },
+    "source_sha256": "eaa19f97bfc86e72a980377fd17bcbdcf0bc57de352b1a83ec516d2544bbc62c"
+  },
+  "historical_recorded_fields_match": {
+    "runs/addressing-exposure-delta-g4-v1/environment.json": true,
+    "runs/addressing-replication-delta-s43-v1/environment.json": true
+  },
+  "current_numerical_settings": {
+    "jax_enable_x64": "False",
+    "jax_default_matmul_precision": "None",
+    "jax_disable_jit": "False"
+  },
+  "current_execution_environment": {
+    "JAX_ENABLE_X64": null,
+    "JAX_DEFAULT_MATMUL_PRECISION": null,
+    "JAX_PLATFORMS": null,
+    "JAX_PLATFORM_NAME": null,
+    "XLA_FLAGS": null,
+    "OMP_NUM_THREADS": null,
+    "OPENBLAS_NUM_THREADS": null,
+    "MKL_NUM_THREADS": null
+  },
+  "limit": "Historical artifacts did not record these numerical/thread flags; only recorded source/software/backend/platform fields can be checked. Historical-versus-new execution equivalence is not fully proven."
+}

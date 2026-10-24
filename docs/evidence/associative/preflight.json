@@ -1,0 +1,53 @@
+{
+  "initial_english": {
+    "none": {
+      "loss": 1.3526960339354908,
+      "bits_per_byte": 1.950685824767642,
+      "perplexity_with_markers": 3.8678393124781016,
+      "positions": 21761,
+      "payload_bytes": 21729,
+      "consumed_payload_bytes": 21729,
+      "loss_scope": "all targets",
+      "documents": 32,
+      "coverage": "complete documents",
+      "chunk_length": 128
+    },
+    "delta": {
+      "loss": 1.3526960409474797,
+      "bits_per_byte": 1.9506858328724896,
+      "perplexity_with_markers": 3.8678393395993482,
+      "positions": 21761,
+      "payload_bytes": 21729,
+      "consumed_payload_bytes": 21729,
+      "loss_scope": "all targets",
+      "documents": 32,
+      "coverage": "complete documents",
+      "chunk_length": 128
+    }
+  },
+  "initial_english_absolute_loss_difference": 7.011988989447104e-09,
+  "shared_base_parameters_identical": true,
+  "parameters": {
+    "none": 368270,
+    "delta": 384784
+  },
+  "state_bytes_per_sequence": {
+    "none": 2048,
+    "delta": 6144
+  },
+  "initial_memory_gain": 0.0,
+  "delta_memory_roles": {
+    "memory_key_kernel": "memory",
+    "memory_query_kernel": "memory",
+    "memory_value_kernel": "memory",
+    "memory_write_kernel": "memory",
+    "memory_write_bias": "memory",
+    "memory_output_kernel": "memory",
+    "memory_gain": "memory"
+  },
+  "source_sha256": "3a398daafee2e068f9bdb5868bde977120cc76aab1ee9ee5f4b32c649f527311",
+  "initial_parameter_sha256": {
+    "none": "5f419346bb7e9169f9736f27c43e983c4830e051b613a20217e66b73221b5c54",
+    "delta": "8f2acbfe9d52ddb5afe77fca0ea4545f50e0fc3396b3b1504197f6614ef0ac2e"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "nodes": 8,
+  "width": 208,
+  "degree": 2,
+  "rounds": 1,
+  "length": 128,
+  "batch_size": 4,
+  "learning_rate": 0.001,
+  "seed": 42,
+  "architecture": "gru"
+}

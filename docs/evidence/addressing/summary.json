@@ -1,0 +1,2215 @@
+{
+  "pilot_initial_trace": {
+    "prompts": [
+      {
+        "id": "train-0000-Bon-0",
+        "group": "train-0000",
+        "assignment": 0,
+        "query_entity": "Bon",
+        "regions": {
+          "bos": {
+            "beta_mean": 0.17195236682891846,
+            "coefficient_sum": 0.029415519296598375,
+            "absolute_coefficient_sum": 0.029415519296598375,
+            "absolute_coefficient_share": 0.01841956475338363,
+            "contribution_norm_sum": 0.033820841965868105
+          },
+          "user_header": {
+            "beta_mean": 0.12319633033540514,
+            "coefficient_sum": -0.013586651377543134,
+            "absolute_coefficient_sum": 0.1442407226284967,
+            "absolute_coefficient_share": 0.09032141515984324,
+            "contribution_norm_sum": 0.13109053994820766
+          },
+          "fact_1": {
+            "beta_mean": 0.1115124549716711,
+            "coefficient_sum": 0.037920265404220124,
+            "absolute_coefficient_sum": 0.266540379751458,
+            "absolute_coefficient_share": 0.1669036583961034,
+            "contribution_norm_sum": 0.3746616526204509
+          },
+          "fact_2": {
+            "beta_mean": 0.11500677466392517,
+            "coefficient_sum": -0.04144093639790151,
+            "absolute_coefficient_sum": 0.3718008881751388,
+            "absolute_coefficient_share": 0.23281623778436805,
+            "contribution_norm_sum": 0.5172699585890923
+          },
+          "question": {
+            "beta_mean": 0.11594994973253321,
+            "coefficient_sum": -0.059295693152945486,
+            "absolute_coefficient_sum": 0.504758256379136,
+            "absolute_coefficient_share": 0.3160721826609285,
+            "contribution_norm_sum": 0.7286221486990956
+          },
+          "assistant_header": {
+            "beta_mean": 0.11640157103538513,
+            "coefficient_sum": -0.14271209734654128,
+            "absolute_coefficient_sum": 0.2802156981027589,
+            "absolute_coefficient_share": 0.1754669412453731,
+            "contribution_norm_sum": 0.29413333871360786
+          }
+        },
+        "memory_gain": 0.0,
+        "final_residual_to_base_norm": 0.0,
+        "full_prompt_logit_max_difference": 0.0,
+        "full_prompt_state_max_difference": 0.0,
+        "max_memory_reconstruction_error": 0.0,
+        "max_logit_reconstruction_error": 0.0,
+        "read_reconstruction_error": 4.2424406376806445e-08
+      },
+      {
+        "id": "train-0000-Bom-0",
+        "group": "train-0000",
+        "assignment": 0,
+        "query_entity": "Bom",
+        "regions": {
+          "bos": {
+            "beta_mean": 0.17195236682891846,
+            "coefficient_sum": 0.02816693334581914,
+            "absolute_coefficient_sum": 0.02816693334581914,
+            "absolute_coefficient_share": 0.017428385658378818,
+            "contribution_norm_sum": 0.03238526546979071
+          },
+          "user_header": {
+            "beta_mean": 0.12319633033540514,
+            "coefficient_sum": -0.011292674789935227,
+            "absolute_coefficient_sum": 0.14569182195131322,
+            "absolute_coefficient_share": 0.09014730957980702,
+            "contribution_norm_sum": 0.132448070298493
+          },
+          "fact_1": {
+            "beta_mean": 0.1115124549716711,
+            "coefficient_sum": 0.045321968827707795,
+            "absolute_coefficient_sum": 0.2683118957158212,
+            "absolute_coefficient_share": 0.16601889662085464,
+            "contribution_norm_sum": 0.3767761308609943
+          },
+          "fact_2": {
+            "beta_mean": 0.11500677466392517,
+            "coefficient_sum": -0.035913925903980605,
+            "absolute_coefficient_sum": 0.3657800495482872,
+            "absolute_coefficient_share": 0.22632764779182843,
+            "contribution_norm_sum": 0.5109402696721129
+          },
+          "question": {
+            "beta_mean": 0.11673838065730201,
+            "coefficient_sum": -0.08413001381800653,
+            "absolute_coefficient_sum": 0.5252457481118474,
+            "absolute_coefficient_share": 0.3249975902994688,
+            "contribution_norm_sum": 0.753276374524508
+          },
+          "assistant_header": {
+            "beta_mean": 0.11761397620042165,
+            "coefficient_sum": -0.14558433975606572,
+            "absolute_coefficient_sum": 0.2829562976530005,
+            "absolute_coefficient_share": 0.17508017004966242,
+            "contribution_norm_sum": 0.29843181872321384
+          }
+        },
+        "memory_gain": 0.0,
+        "final_residual_to_base_norm": 0.0,
+        "full_prompt_logit_max_difference": 0.0,
+        "full_prompt_state_max_difference": 0.0,
+        "max_memory_reconstruction_error": 0.0,
+        "max_logit_reconstruction_error": 0.0,
+        "read_reconstruction_error": 3.7906962180311865e-08
+      },
+      {
+        "id": "train-0000-Bon-1",
+        "group": "train-0000",
+        "assignment": 1,
+        "query_entity": "Bon",
+        "regions": {
+          "bos": {
+            "beta_mean": 0.17195236682891846,
+            "coefficient_sum": 0.029313924333447542,
+            "absolute_coefficient_sum": 0.029313924333447542,
+            "absolute_coefficient_share": 0.018287599392875505,
+            "contribution_norm_sum": 0.0337040319528064
+          },
+          "user_header": {
+            "beta_mean": 0.12319633033540514,
+            "coefficient_sum": -0.01261886201286578,
+            "absolute_coefficient_sum": 0.14406547223707394,
+            "absolute_coefficient_share": 0.08987577414228748,
+            "contribution_norm_sum": 0.13044119360326495
+          },
+          "fact_1": {
+            "beta_mean": 0.11184714511036872,
+            "coefficient_sum": -0.037844587408272276,
+            "absolute_coefficient_sum": 0.2732350897969985,
+            "absolute_coefficient_share": 0.17045871461783263,
+            "contribution_norm_sum": 0.37988942793065644
+          },
+          "fact_2": {
+            "beta_mean": 0.11427800605694453,
+            "coefficient_sum": 0.01011850851724207,
+            "absolute_coefficient_sum": 0.3691490862298262,
+            "absolute_coefficient_share": 0.2302950136742461,
+            "contribution_norm_sum": 0.5199291332146995
+          },
+          "question": {
+            "beta_mean": 0.11564947609548215,
+            "coefficient_sum": -0.041484256548314016,
+            "absolute_coefficient_sum": 0.5033632177659539,
+            "absolute_coefficient_share": 0.31402499272706236,
+            "contribution_norm_sum": 0.7208778726463968
+          },
+          "assistant_header": {
+            "beta_mean": 0.11647664358218511,
+            "coefficient_sum": -0.14829787368976355,
+            "absolute_coefficient_sum": 0.2838131966569581,
+            "absolute_coefficient_share": 0.17705790544569602,
+            "contribution_norm_sum": 0.29821660667718997
+          }
+        },
+        "memory_gain": 0.0,
+        "final_residual_to_base_norm": 0.0,
+        "full_prompt_logit_max_difference": 0.0,
+        "full_prompt_state_max_difference": 0.0,
+        "max_memory_reconstruction_error": 0.0,
+        "max_logit_reconstruction_error": 0.0,
+        "read_reconstruction_error": 3.426356857960666e-08
+      },
+      {
+        "id": "train-0000-Bom-1",
+        "group": "train-0000",
+        "assignment": 1,
+        "query_entity": "Bom",
+        "regions": {
+          "bos": {
+            "beta_mean": 0.17195236682891846,
+            "coefficient_sum": 0.028060720083816423,
+            "absolute_coefficient_sum": 0.028060720083816423,
+            "absolute_coefficient_share": 0.01731973754141675,
+            "contribution_norm_sum": 0.03226314551288454
+          },
+          "user_header": {
+            "beta_mean": 0.12319633033540514,
+            "coefficient_sum": -0.010605376242765075,
+            "absolute_coefficient_sum": 0.14546177898101467,
+            "absolute_coefficient_share": 0.0897824370412984,
+            "contribution_norm_sum": 0.13184270643885332
+          },
+          "fact_1": {
+            "beta_mean": 0.11184714511036872,
+            "coefficient_sum": -0.032707400449025016,
+            "absolute_coefficient_sum": 0.2710278881683359,
+            "absolute_coefficient_share": 0.16728479794740883,
+            "contribution_norm_sum": 0.3781696800750942
+          },
+          "fact_2": {
+            "beta_mean": 0.11427800605694453,
+            "coefficient_sum": 0.017926611360742323,
+            "absolute_coefficient_sum": 0.36639400705336317,
+            "absolute_coefficient_share": 0.22614701333242387,
+            "contribution_norm_sum": 0.5162132422042255
+          },
+          "question": {
+            "beta_mean": 0.116437374441712,
+            "coefficient_sum": -0.063557255087832,
+            "absolute_coefficient_sum": 0.5225254478114043,
+            "absolute_coefficient_share": 0.322515016997879,
+            "contribution_norm_sum": 0.7433014541260762
+          },
+          "assistant_header": {
+            "beta_mean": 0.11769145826498667,
+            "coefficient_sum": -0.15185789275487033,
+            "absolute_coefficient_sum": 0.28668866300150614,
+            "absolute_coefficient_share": 0.17695099713957307,
+            "contribution_norm_sum": 0.30303556114660146
+          }
+        },
+        "memory_gain": 0.0,
+        "final_residual_to_base_norm": 0.0,
+        "full_prompt_logit_max_difference": 0.0,
+        "full_prompt_state_max_difference": 0.0,
+        "max_memory_reconstruction_error": 0.0,
+        "max_logit_reconstruction_error": 0.0,
+        "read_reconstruction_error": 3.4513841007388635e-08
+      },
+      {
+        "id": "train-0001-Bon-0",
+        "group": "train-0001",
+        "assignment": 0,
+        "query_entity": "Bon",
+        "regions": {
+          "bos": {
+            "beta_mean": 0.17195236682891846,
+            "coefficient_sum": 0.029268734357822245,
+            "absolute_coefficient_sum": 0.029268734357822245,
+            "absolute_coefficient_share": 0.01816670266972096,
+            "contribution_norm_sum": 0.033652074242706026
+          },
+          "user_header": {
+            "beta_mean": 0.12319633033540514,
+            "coefficient_sum": -0.010479159986384094,
+            "absolute_coefficient_sum": 0.1435292889747497,
+            "absolute_coefficient_share": 0.08908666447013207,
+            "contribution_norm_sum": 0.12944155181671177
+          },
+          "fact_1": {
+            "beta_mean": 0.11310594268143177,
+            "coefficient_sum": -0.06075639978382227,
+            "absolute_coefficient_sum": 0.3043822671272739,
+            "absolute_coefficient_share": 0.18892590561774464,
+            "contribution_norm_sum": 0.4183601939758646
+          },
+          "fact_2": {
+            "beta_mean": 0.11306450835296086,
+            "coefficient_sum": 0.0349047734859333,
+            "absolute_coefficient_sum": 0.3460117845922443,
+            "absolute_coefficient_share": 0.2147647771187925,
+            "contribution_norm_sum": 0.4920628234287901
+          },
+          "question": {
+            "beta_mean": 0.11556475637135682,
+            "coefficient_sum": -0.04085210510737969,
+            "absolute_coefficient_sum": 0.5030187812147503,
+            "absolute_coefficient_share": 0.3122168701897269,
+            "contribution_norm_sum": 0.7207962392801343
+          },
+          "assistant_header": {
+            "beta_mean": 0.11651167919238409,
+            "coefficient_sum": -0.1494877424720469,
+            "absolute_coefficient_sum": 0.2849089429582224,
+            "absolute_coefficient_share": 0.17683907993388298,
+            "contribution_norm_sum": 0.299371807555038
+          }
+        },
+        "memory_gain": 0.0,
+        "final_residual_to_base_norm": 0.0,
+        "full_prompt_logit_max_difference": 0.0,
+        "full_prompt_state_max_difference": 0.0,
+        "max_memory_reconstruction_error": 0.0,
+        "max_logit_reconstruction_error": 0.0,
+        "read_reconstruction_error": 2.928654294076516e-08
+      },
+      {
+        "id": "train-0001-Bom-0",
+        "group": "train-0001",
+        "assignment": 0,
+        "query_entity": "Bom",
+        "regions": {
+          "bos": {
+            "beta_mean": 0.17195236682891846,
+            "coefficient_sum": 0.028011281892054284,
+            "absolute_coefficient_sum": 0.028011281892054284,
+            "absolute_coefficient_share": 0.01722381626241545,
+            "contribution_norm_sum": 0.032206303365927814
+          },
+          "user_header": {
+            "beta_mean": 0.12319633033540514,
+            "coefficient_sum": -0.008544540451887775,
+            "absolute_coefficient_sum": 0.14486084081949444,
+            "absolute_coefficient_share": 0.08907327110230306,
+            "contribution_norm_sum": 0.1308068455433262
+          },
+          "fact_1": {
+            "beta_mean": 0.11310594268143177,
+            "coefficient_sum": -0.055719759328422075,
+            "absolute_coefficient_sum": 0.300943340468349,
+            "absolute_coefficient_share": 0.18504661163310437,
+            "contribution_norm_sum": 0.41502741250904257
+          },
+          "fact_2": {
+            "beta_mean": 0.11306450835296086,
+            "coefficient_sum": 0.04310637415388026,
+            "absolute_coefficient_sum": 0.3423672632376475,
+            "absolute_coefficient_share": 0.21051770707944564,
+            "contribution_norm_sum": 0.48693386932197136
+          },
+          "question": {
+            "beta_mean": 0.11635297867986891,
+            "coefficient_sum": -0.06278059941210153,
+            "absolute_coefficient_sum": 0.5222602361419044,
+            "absolute_coefficient_share": 0.32113183477781104,
+            "contribution_norm_sum": 0.743294478306848
+          },
+          "assistant_header": {
+            "beta_mean": 0.11773442576328913,
+            "coefficient_sum": -0.15308245868596776,
+            "absolute_coefficient_sum": 0.28786803990859533,
+            "absolute_coefficient_share": 0.17700675914492042,
+            "contribution_norm_sum": 0.3043151437269076
+          }
+        },
+        "memory_gain": 0.0,
+        "final_residual_to_base_norm": 0.0,
+        "full_prompt_logit_max_difference": 0.0,
+        "full_prompt_state_max_difference": 0.0,
+        "max_memory_reconstruction_error": 0.0,
+        "max_logit_reconstruction_error": 0.0,
+        "read_reconstruction_error": 2.338181914751658e-08
+      },
+      {
+        "id": "train-0001-Bon-1",
+        "group": "train-0001",
+        "assignment": 1,
+        "query_entity": "Bon",
+        "regions": {
+          "bos": {
+            "beta_mean": 0.17195236682891846,
+            "coefficient_sum": 0.029186125756440074,
+            "absolute_coefficient_sum": 0.029186125756440074,
+            "absolute_coefficient_share": 0.01821652673931159,
+            "contribution_norm_sum": 0.03355709402412831
+          },
+          "user_header": {
+            "beta_mean": 0.12319633033540514,
+            "coefficient_sum": -0.01172193221943306,
+            "absolute_coefficient_sum": 0.1439892547601436,
+            "absolute_coefficient_share": 0.08987092467841262,
+            "contribution_norm_sum": 0.13030459852508802
+          },
+          "fact_1": {
+            "beta_mean": 0.11275197118520737,
+            "coefficient_sum": 0.013362062661666261,
+            "absolute_coefficient_sum": 0.29538206842264386,
+            "absolute_coefficient_share": 0.18436278225611866,
+            "contribution_norm_sum": 0.410401031882868
+          },
+          "fact_2": {
+            "beta_mean": 0.11370401332775752,
+            "coefficient_sum": -0.00949500362762087,
+            "absolute_coefficient_sum": 0.3489587101120535,
+            "absolute_coefficient_share": 0.21780265482030411,
+            "contribution_norm_sum": 0.49024800528516316
+          },
+          "question": {
+            "beta_mean": 0.11589535215386639,
+            "coefficient_sum": -0.05781116799593243,
+            "absolute_coefficient_sum": 0.5041640867742256,
+            "absolute_coefficient_share": 0.3146741244235462,
+            "contribution_norm_sum": 0.7285151847032991
+          },
+          "assistant_header": {
+            "beta_mean": 0.11645450492699941,
+            "coefficient_sum": -0.1422540828283659,
+            "absolute_coefficient_sum": 0.28049815920797816,
+            "absolute_coefficient_share": 0.17507298708230676,
+            "contribution_norm_sum": 0.2943509985254367
+          }
+        },
+        "memory_gain": 0.0,
+        "final_residual_to_base_norm": 0.0,
+        "full_prompt_logit_max_difference": 0.0,
+        "full_prompt_state_max_difference": 0.0,
+        "max_memory_reconstruction_error": 0.0,
+        "max_logit_reconstruction_error": 0.0,
+        "read_reconstruction_error": 3.82523908659671e-08
+      },
+      {
+        "id": "train-0001-Bom-1",
+        "group": "train-0001",
+        "assignment": 1,
+        "query_entity": "Bom",
+        "regions": {
+          "bos": {
+            "beta_mean": 0.17195236682891846,
+            "coefficient_sum": 0.027937123588972126,
+            "absolute_coefficient_sum": 0.027937123588972126,
+            "absolute_coefficient_share": 0.017239545636137905,
+            "contribution_norm_sum": 0.032121038977979764
+          },
+          "user_header": {
+            "beta_mean": 0.12319633033540514,
+            "coefficient_sum": -0.009492077677183413,
+            "absolute_coefficient_sum": 0.1453614976480241,
+            "absolute_coefficient_share": 0.08970022144404542,
+            "contribution_norm_sum": 0.1316064034173514
+          },
+          "fact_1": {
+            "beta_mean": 0.11275197118520737,
+            "coefficient_sum": 0.020759695005223722,
+            "absolute_coefficient_sum": 0.29553026216142375,
+            "absolute_coefficient_share": 0.1823669292640701,
+            "contribution_norm_sum": 0.4102419062230843
+          },
+          "fact_2": {
+            "beta_mean": 0.11370401332775752,
+            "coefficient_sum": -0.0033384094104383913,
+            "absolute_coefficient_sum": 0.3436155016127484,
+            "absolute_coefficient_share": 0.21203955025905888,
+            "contribution_norm_sum": 0.4848030393591496
+          },
+          "question": {
+            "beta_mean": 0.11668445721820549,
+            "coefficient_sum": -0.08250698003540076,
+            "absolute_coefficient_sum": 0.524772403104479,
+            "absolute_coefficient_share": 0.3238285345695562,
+            "contribution_norm_sum": 0.7533050671660758
+          },
+          "assistant_header": {
+            "beta_mean": 0.11767616073290507,
+            "coefficient_sum": -0.14505901899750173,
+            "absolute_coefficient_sum": 0.2833087279634844,
+            "absolute_coefficient_share": 0.17482521882713148,
+            "contribution_norm_sum": 0.29871660104642944
+          }
+        },
+        "memory_gain": 0.0,
+        "final_residual_to_base_norm": 0.0,
+        "full_prompt_logit_max_difference": 0.0,
+        "full_prompt_state_max_difference": 0.0,
+        "max_memory_reconstruction_error": 0.0,
+        "max_logit_reconstruction_error": 0.0,
+        "read_reconstruction_error": 3.419648569868983e-08
+      }
+    ],
+    "query_swaps": [
+      {
+        "ids": [
+          "train-0000-Bon-0",
+          "train-0000-Bom-0"
+        ],
+        "queries_cosine": 0.9989336805043716,
+        "queries_l2_difference": 0.046180436931214604,
+        "last_recalled_cosine": 0.9975343018257427,
+        "last_recalled_l2_difference": 0.047501645960270455
+      },
+      {
+        "ids": [
+          "train-0000-Bon-1",
+          "train-0000-Bom-1"
+        ],
+        "queries_cosine": 0.9989243977094742,
+        "queries_l2_difference": 0.046381013230420064,
+        "last_recalled_cosine": 0.9974519567433809,
+        "last_recalled_l2_difference": 0.048410559538255446
+      },
+      {
+        "ids": [
+          "train-0001-Bon-0",
+          "train-0001-Bom-0"
+        ],
+        "queries_cosine": 0.9989183777772523,
+        "queries_l2_difference": 0.04651062648473813,
+        "last_recalled_cosine": 0.9974219806200812,
+        "last_recalled_l2_difference": 0.04926834341768178
+      },
+      {
+        "ids": [
+          "train-0001-Bon-1",
+          "train-0001-Bom-1"
+        ],
+        "queries_cosine": 0.9989327438869623,
+        "queries_l2_difference": 0.04620071330946597,
+        "last_recalled_cosine": 0.9974716695011212,
+        "last_recalled_l2_difference": 0.04857023964053174
+      }
+    ]
+  },
+  "pilot_trained_trace": {
+    "prompts": [
+      {
+        "id": "train-0000-Bon-0",
+        "group": "train-0000",
+        "assignment": 0,
+        "query_entity": "Bon",
+        "regions": {
+          "bos": {
+            "beta_mean": 0.4545390009880066,
+            "coefficient_sum": -0.016954184708369666,
+            "absolute_coefficient_sum": 0.016954184708369666,
+            "absolute_coefficient_share": 0.003462090407830452,
+            "contribution_norm_sum": 0.05867497618061933
+          },
+          "user_header": {
+            "beta_mean": 0.5787169138590494,
+            "coefficient_sum": 0.024892482759618036,
+            "absolute_coefficient_sum": 0.1525410532253132,
+            "absolute_coefficient_share": 0.03114929595588292,
+            "contribution_norm_sum": 0.49437441729001474
+          },
+          "fact_1": {
+            "beta_mean": 0.7725512444972992,
+            "coefficient_sum": 0.6012201643317585,
+            "absolute_coefficient_sum": 0.7125885417709712,
+            "absolute_coefficient_share": 0.145512509013617,
+            "contribution_norm_sum": 3.502715486330239
+          },
+          "fact_2": {
+            "beta_mean": 0.8696476902280535,
+            "coefficient_sum": -0.15638800490626442,
+            "absolute_coefficient_sum": 0.4459045776489592,
+            "absolute_coefficient_share": 0.09105492169871497,
+            "contribution_norm_sum": 2.0659073013939424
+          },
+          "question": {
+            "beta_mean": 0.8802192586439627,
+            "coefficient_sum": -0.0957518537929341,
+            "absolute_coefficient_sum": 2.1449506806775007,
+            "absolute_coefficient_share": 0.4380047347942966,
+            "contribution_norm_sum": 12.406422258504723
+          },
+          "assistant_header": {
+            "beta_mean": 0.8288740932941436,
+            "coefficient_sum": -1.3488790223018983,
+            "absolute_coefficient_sum": 1.4241556969946383,
+            "absolute_coefficient_share": 0.29081644812965807,
+            "contribution_norm_sum": 7.715069977388896
+          }
+        },
+        "memory_gain": 0.021160028874874115,
+        "final_residual_to_base_norm": 0.0850983412649657,
+        "full_prompt_logit_max_difference": 0.0,
+        "full_prompt_state_max_difference": 0.0,
+        "max_memory_reconstruction_error": 0.0,
+        "max_logit_reconstruction_error": 0.0,
+        "read_reconstruction_error": 4.4465037873919755e-07
+      },
+      {
+        "id": "train-0000-Bom-0",
+        "group": "train-0000",
+        "assignment": 0,
+        "query_entity": "Bom",
+        "regions": {
+          "bos": {
+            "beta_mean": 0.4545390009880066,
+            "coefficient_sum": -0.014434869792915615,
+            "absolute_coefficient_sum": 0.014434869792915615,
+            "absolute_coefficient_share": 0.0028183416787238205,
+            "contribution_norm_sum": 0.04995614096686991
+          },
+          "user_header": {
+            "beta_mean": 0.5787169138590494,
+            "coefficient_sum": 0.004121796226686167,
+            "absolute_coefficient_sum": 0.1909038444669252,
+            "absolute_coefficient_share": 0.037273094195404664,
+            "contribution_norm_sum": 0.6078409922200045
+          },
+          "fact_1": {
+            "beta_mean": 0.7725512444972992,
+            "coefficient_sum": 0.6497013232674056,
+            "absolute_coefficient_sum": 0.7745966607023023,
+            "absolute_coefficient_share": 0.15123642155255249,
+            "contribution_norm_sum": 3.8237790648602465
+          },
+          "fact_2": {
+            "beta_mean": 0.8696476902280535,
+            "coefficient_sum": -0.208483906052321,
+            "absolute_coefficient_sum": 0.5786565990307355,
+            "absolute_coefficient_share": 0.11298002920104577,
+            "contribution_norm_sum": 2.7685718116379965
+          },
+          "question": {
+            "beta_mean": 0.8879463783016911,
+            "coefficient_sum": -0.04668404940476634,
+            "absolute_coefficient_sum": 2.152882862699902,
+            "absolute_coefficient_share": 0.4203404387017914,
+            "contribution_norm_sum": 12.163406386799672
+          },
+          "assistant_header": {
+            "beta_mean": 0.8261310299237569,
+            "coefficient_sum": -1.3216171579937108,
+            "absolute_coefficient_sum": 1.4102852046418457,
+            "absolute_coefficient_share": 0.2753516746704818,
+            "contribution_norm_sum": 7.63017880799345
+          }
+        },
+        "memory_gain": 0.021160028874874115,
+        "final_residual_to_base_norm": 0.07341846390676968,
+        "full_prompt_logit_max_difference": 0.0,
+        "full_prompt_state_max_difference": 0.0,
+        "max_memory_reconstruction_error": 0.0,
+        "max_logit_reconstruction_error": 0.0,
+        "read_reconstruction_error": 2.9335258644458406e-07
+      },
+      {
+        "id": "train-0000-Bon-1",
+        "group": "train-0000",
+        "assignment": 1,
+        "query_entity": "Bon",
+        "regions": {
+          "bos": {
+            "beta_mean": 0.4545390009880066,
+            "coefficient_sum": -0.016834406651156004,
+            "absolute_coefficient_sum": 0.016834406651156004,
+            "absolute_coefficient_share": 0.0035194173258933765,
+            "contribution_norm_sum": 0.058260448748315076
+          },
+          "user_header": {
+            "beta_mean": 0.5787169138590494,
+            "coefficient_sum": 0.06519375659792419,
+            "absolute_coefficient_sum": 0.19328633118383065,
+            "absolute_coefficient_share": 0.04040862721942304,
+            "contribution_norm_sum": 0.5747220723177044
+          },
+          "fact_1": {
+            "beta_mean": 0.8087168365716935,
+            "coefficient_sum": 0.372438612597932,
+            "absolute_coefficient_sum": 0.5750247099543082,
+            "absolute_coefficient_share": 0.12021522165683436,
+            "contribution_norm_sum": 2.749924295592965
+          },
+          "fact_2": {
+            "beta_mean": 0.9119255287306649,
+            "coefficient_sum": 0.14639192601775144,
+            "absolute_coefficient_sum": 0.4409775902258647,
+            "absolute_coefficient_share": 0.09219120124231076,
+            "contribution_norm_sum": 2.3113668029831818
+          },
+          "question": {
+            "beta_mean": 0.8884260345388342,
+            "coefficient_sum": -0.12605703971184756,
+            "absolute_coefficient_sum": 2.146535645434512,
+            "absolute_coefficient_share": 0.4487568167822047,
+            "contribution_norm_sum": 12.514096129419732
+          },
+          "assistant_header": {
+            "beta_mean": 0.8381844699382782,
+            "coefficient_sum": -1.3745922890669293,
+            "absolute_coefficient_sum": 1.410634996245653,
+            "absolute_coefficient_share": 0.294908715773334,
+            "contribution_norm_sum": 7.670757765976478
+          }
+        },
+        "memory_gain": 0.021160028874874115,
+        "final_residual_to_base_norm": 0.08875876541519619,
+        "full_prompt_logit_max_difference": 0.0,
+        "full_prompt_state_max_difference": 0.0,
+        "max_memory_reconstruction_error": 0.0,
+        "max_logit_reconstruction_error": 0.0,
+        "read_reconstruction_error": 4.214292075310766e-07
+      },
+      {
+        "id": "train-0000-Bom-1",
+        "group": "train-0000",
+        "assignment": 1,
+        "query_entity": "Bom",
+        "regions": {
+          "bos": {
+            "beta_mean": 0.4545390009880066,
+            "coefficient_sum": -0.014288333217098154,
+            "absolute_coefficient_sum": 0.014288333217098154,
+            "absolute_coefficient_share": 0.0028609252065775466,
+            "contribution_norm_sum": 0.049449007757955736
+          },
+          "user_header": {
+            "beta_mean": 0.5787169138590494,
+            "coefficient_sum": 0.06371325211041713,
+            "absolute_coefficient_sum": 0.2537309609586723,
+            "absolute_coefficient_share": 0.05080405746886932,
+            "contribution_norm_sum": 0.7444440098760766
+          },
+          "fact_1": {
+            "beta_mean": 0.8087168365716935,
+            "coefficient_sum": 0.3809990542389224,
+            "absolute_coefficient_sum": 0.6549911958226144,
+            "absolute_coefficient_share": 0.13114761489275079,
+            "contribution_norm_sum": 3.0924862747849398
+          },
+          "fact_2": {
+            "beta_mean": 0.9119255287306649,
+            "coefficient_sum": 0.13195447524173706,
+            "absolute_coefficient_sum": 0.5355093383378132,
+            "absolute_coefficient_share": 0.10722399464865372,
+            "contribution_norm_sum": 2.811731029712893
+          },
+          "question": {
+            "beta_mean": 0.8955024458743908,
+            "coefficient_sum": -0.08753204352443267,
+            "absolute_coefficient_sum": 2.1379820273174217,
+            "absolute_coefficient_share": 0.42808398853987606,
+            "contribution_norm_sum": 12.19405148665004
+          },
+          "assistant_header": {
+            "beta_mean": 0.8355543633302053,
+            "coefficient_sum": -1.3484766216836122,
+            "absolute_coefficient_sum": 1.3978031979171195,
+            "absolute_coefficient_share": 0.2798794192432725,
+            "contribution_norm_sum": 7.585771237038527
+          }
+        },
+        "memory_gain": 0.021160028874874115,
+        "final_residual_to_base_norm": 0.07656509244792449,
+        "full_prompt_logit_max_difference": 0.0,
+        "full_prompt_state_max_difference": 0.0,
+        "max_memory_reconstruction_error": 0.0,
+        "max_logit_reconstruction_error": 0.0,
+        "read_reconstruction_error": 2.7563914750672325e-07
+      },
+      {
+        "id": "train-0001-Bon-0",
+        "group": "train-0001",
+        "assignment": 0,
+        "query_entity": "Bon",
+        "regions": {
+          "bos": {
+            "beta_mean": 0.4545390009880066,
+            "coefficient_sum": -0.01674919377564454,
+            "absolute_coefficient_sum": 0.01674919377564454,
+            "absolute_coefficient_share": 0.0034532996834185092,
+            "contribution_norm_sum": 0.05796554436176272
+          },
+          "user_header": {
+            "beta_mean": 0.5787169138590494,
+            "coefficient_sum": -0.04645602177583477,
+            "absolute_coefficient_sum": 0.11494318681594716,
+            "absolute_coefficient_share": 0.023698649377369815,
+            "contribution_norm_sum": 0.33844333852872177
+          },
+          "fact_1": {
+            "beta_mean": 0.829907301068306,
+            "coefficient_sum": 0.5373706512570474,
+            "absolute_coefficient_sum": 0.6836967183356122,
+            "absolute_coefficient_share": 0.14096258557924451,
+            "contribution_norm_sum": 3.224547859739074
+          },
+          "fact_2": {
+            "beta_mean": 0.9002982888902936,
+            "coefficient_sum": 0.16343958602127812,
+            "absolute_coefficient_sum": 0.4637577981784488,
+            "absolute_coefficient_share": 0.09561622362750852,
+            "contribution_norm_sum": 2.3458498022064407
+          },
+          "question": {
+            "beta_mean": 0.8834659589661492,
+            "coefficient_sum": -0.13767866253595967,
+            "absolute_coefficient_sum": 2.1553965823144003,
+            "absolute_coefficient_share": 0.4443933502143285,
+            "contribution_norm_sum": 12.528531097860835
+          },
+          "assistant_header": {
+            "beta_mean": 0.836335833867391,
+            "coefficient_sum": -1.3559096131762531,
+            "absolute_coefficient_sum": 1.4156564195542776,
+            "absolute_coefficient_share": 0.29187589151813015,
+            "contribution_norm_sum": 7.675806505143599
+          }
+        },
+        "memory_gain": 0.021160028874874115,
+        "final_residual_to_base_norm": 0.08724092106292368,
+        "full_prompt_logit_max_difference": 0.0,
+        "full_prompt_state_max_difference": 0.0,
+        "max_memory_reconstruction_error": 0.0,
+        "max_logit_reconstruction_error": 0.0,
+        "read_reconstruction_error": 3.1860066473932136e-07
+      },
+      {
+        "id": "train-0001-Bom-0",
+        "group": "train-0001",
+        "assignment": 0,
+        "query_entity": "Bom",
+        "regions": {
+          "bos": {
+            "beta_mean": 0.4545390009880066,
+            "coefficient_sum": -0.014496236197312246,
+            "absolute_coefficient_sum": 0.014496236197312246,
+            "absolute_coefficient_share": 0.002853777265514279,
+            "contribution_norm_sum": 0.05016851757938169
+          },
+          "user_header": {
+            "beta_mean": 0.5787169138590494,
+            "coefficient_sum": -0.08596998318063198,
+            "absolute_coefficient_sum": 0.1378404835504429,
+            "absolute_coefficient_share": 0.0271357359848126,
+            "contribution_norm_sum": 0.4161019612709953
+          },
+          "fact_1": {
+            "beta_mean": 0.829907301068306,
+            "coefficient_sum": 0.6281367407159884,
+            "absolute_coefficient_sum": 0.812384532263215,
+            "absolute_coefficient_share": 0.1599287206328815,
+            "contribution_norm_sum": 3.7840930125343406
+          },
+          "fact_2": {
+            "beta_mean": 0.9002982888902936,
+            "coefficient_sum": 0.10596467431283069,
+            "absolute_coefficient_sum": 0.563350411676657,
+            "absolute_coefficient_share": 0.11090303548303343,
+            "contribution_norm_sum": 2.861177859424759
+          },
+          "question": {
+            "beta_mean": 0.8906167679362826,
+            "coefficient_sum": -0.10216582297483079,
+            "absolute_coefficient_sum": 2.151335591613751,
+            "absolute_coefficient_share": 0.4235190789025188,
+            "contribution_norm_sum": 12.236884449902902
+          },
+          "assistant_header": {
+            "beta_mean": 0.8332992295424143,
+            "coefficient_sum": -1.3264140953855743,
+            "absolute_coefficient_sum": 1.4002590425867578,
+            "absolute_coefficient_share": 0.2756596517312394,
+            "contribution_norm_sum": 7.575714304099586
+          }
+        },
+        "memory_gain": 0.021160028874874115,
+        "final_residual_to_base_norm": 0.07335734530987274,
+        "full_prompt_logit_max_difference": 0.0,
+        "full_prompt_state_max_difference": 0.0,
+        "max_memory_reconstruction_error": 0.0,
+        "max_logit_reconstruction_error": 0.0,
+        "read_reconstruction_error": 2.5725733693304775e-07
+      },
+      {
+        "id": "train-0001-Bon-1",
+        "group": "train-0001",
+        "assignment": 1,
+        "query_entity": "Bon",
+        "regions": {
+          "bos": {
+            "beta_mean": 0.4545390009880066,
+            "coefficient_sum": -0.01760794966392863,
+            "absolute_coefficient_sum": 0.01760794966392863,
+            "absolute_coefficient_share": 0.0036075294024421082,
+            "contribution_norm_sum": 0.060937523383859896
+          },
+          "user_header": {
+            "beta_mean": 0.5787169138590494,
+            "coefficient_sum": -0.06024968512592946,
+            "absolute_coefficient_sum": 0.13392405030111884,
+            "absolute_coefficient_share": 0.02743845583254732,
+            "contribution_norm_sum": 0.40861870090564245
+          },
+          "fact_1": {
+            "beta_mean": 0.7978816121816635,
+            "coefficient_sum": 0.6942514698291222,
+            "absolute_coefficient_sum": 0.7708802474690211,
+            "absolute_coefficient_share": 0.15793850002896137,
+            "contribution_norm_sum": 3.7069635248675423
+          },
+          "fact_2": {
+            "beta_mean": 0.8598770924976894,
+            "coefficient_sum": -0.09180237628135698,
+            "absolute_coefficient_sum": 0.3776488328767128,
+            "absolute_coefficient_share": 0.07737296473487974,
+            "contribution_norm_sum": 1.8014962716102338
+          },
+          "question": {
+            "beta_mean": 0.8795826457164906,
+            "coefficient_sum": -0.10345651202870887,
+            "absolute_coefficient_sum": 2.1520706284935485,
+            "absolute_coefficient_share": 0.44091777955993666,
+            "contribution_norm_sum": 12.428454027743165
+          },
+          "assistant_header": {
+            "beta_mean": 0.8280749718348185,
+            "coefficient_sum": -1.3356469349566318,
+            "absolute_coefficient_sum": 1.4287570379399015,
+            "absolute_coefficient_share": 0.2927247704412328,
+            "contribution_norm_sum": 7.727819098780159
+          }
+        },
+        "memory_gain": 0.021160028874874115,
+        "final_residual_to_base_norm": 0.08549054201606483,
+        "full_prompt_logit_max_difference": 0.0,
+        "full_prompt_state_max_difference": 0.0,
+        "max_memory_reconstruction_error": 0.0,
+        "max_logit_reconstruction_error": 0.0,
+        "read_reconstruction_error": 4.401107758233991e-07
+      },
+      {
+        "id": "train-0001-Bom-1",
+        "group": "train-0001",
+        "assignment": 1,
+        "query_entity": "Bom",
+        "regions": {
+          "bos": {
+            "beta_mean": 0.4545390009880066,
+            "coefficient_sum": -0.01541694412879821,
+            "absolute_coefficient_sum": 0.01541694412879821,
+            "absolute_coefficient_share": 0.002983843473815149,
+            "contribution_norm_sum": 0.05335489999047913
+          },
+          "user_header": {
+            "beta_mean": 0.5787169138590494,
+            "coefficient_sum": -0.10921355525298786,
+            "absolute_coefficient_sum": 0.15059116978872578,
+            "absolute_coefficient_share": 0.029145884906524967,
+            "contribution_norm_sum": 0.47267918724933233
+          },
+          "fact_1": {
+            "beta_mean": 0.7978816121816635,
+            "coefficient_sum": 0.8114315146651966,
+            "absolute_coefficient_sum": 0.8762707611530388,
+            "absolute_coefficient_share": 0.16959617743424663,
+            "contribution_norm_sum": 4.203211010996156
+          },
+          "fact_2": {
+            "beta_mean": 0.8598770924976894,
+            "coefficient_sum": -0.17403931685290172,
+            "absolute_coefficient_sum": 0.5457497686583089,
+            "absolute_coefficient_share": 0.10562611318707314,
+            "contribution_norm_sum": 2.648031635844035
+          },
+          "question": {
+            "beta_mean": 0.8873103746661434,
+            "coefficient_sum": -0.05532762291242599,
+            "absolute_coefficient_sum": 2.1645353561373986,
+            "absolute_coefficient_share": 0.4189309270563072,
+            "contribution_norm_sum": 12.207635637355153
+          },
+          "assistant_header": {
+            "beta_mean": 0.8253124952316284,
+            "coefficient_sum": -1.3068067052225334,
+            "absolute_coefficient_sum": 1.4142432620059726,
+            "absolute_coefficient_share": 0.27371705394203305,
+            "contribution_norm_sum": 7.639461066578659
+          }
+        },
+        "memory_gain": 0.021160028874874115,
+        "final_residual_to_base_norm": 0.07393555678370109,
+        "full_prompt_logit_max_difference": 0.0,
+        "full_prompt_state_max_difference": 0.0,
+        "max_memory_reconstruction_error": 0.0,
+        "max_logit_reconstruction_error": 0.0,
+        "read_reconstruction_error": 4.643913742441441e-07
+      }
+    ],
+    "query_swaps": [
+      {
+        "ids": [
+          "train-0000-Bon-0",
+          "train-0000-Bom-0"
+        ],
+        "queries_cosine": 0.9999754108285451,
+        "queries_l2_difference": 0.0070127267017654205,
+        "last_recalled_cosine": 0.9821166422492983,
+        "last_recalled_l2_difference": 1.2259385490593568
+      },
+      {
+        "ids": [
+          "train-0000-Bon-1",
+          "train-0000-Bom-1"
+        ],
+        "queries_cosine": 0.9999717065464574,
+        "queries_l2_difference": 0.007522426387519561,
+        "last_recalled_cosine": 0.9867569845162218,
+        "last_recalled_l2_difference": 1.0508171152180201
+      },
+      {
+        "ids": [
+          "train-0001-Bon-0",
+          "train-0001-Bom-0"
+        ],
+        "queries_cosine": 0.9999737666940418,
+        "queries_l2_difference": 0.007243383396098997,
+        "last_recalled_cosine": 0.9794276028981741,
+        "last_recalled_l2_difference": 1.2786861827934384
+      },
+      {
+        "ids": [
+          "train-0001-Bon-1",
+          "train-0001-Bom-1"
+        ],
+        "queries_cosine": 0.999976782715293,
+        "queries_l2_difference": 0.006814291241382146,
+        "last_recalled_cosine": 0.9797040252317583,
+        "last_recalled_l2_difference": 1.2857323856439808
+      }
+    ]
+  },
+  "pilot_ablation": {
+    "on": {
+      "training": {
+        "questions": 512,
+        "pairs": 256,
+        "binding_groups": 128,
+        "accuracy": 0.517578125,
+        "pair_accuracy": 0.03515625,
+        "binding_group_accuracy": 0.0,
+        "query_flip_fraction": 0.03515625,
+        "correct_query_pair_fraction": 0.03515625,
+        "context_flip_fraction": 0.03515625,
+        "both_wrong_pair_fraction": 0.0
+      },
+      "answer_training_loss": 0.12337606120854616,
+      "english_development_loss": 1.2910936475320531,
+      "mean_correct_minus_wrong_margin": 0.005022884070058353
+    },
+    "off": {
+      "training": {
+        "questions": 512,
+        "pairs": 256,
+        "binding_groups": 128,
+        "accuracy": 0.5,
+        "pair_accuracy": 0.0,
+        "binding_group_accuracy": 0.0,
+        "query_flip_fraction": 0.0,
+        "correct_query_pair_fraction": 0.0,
+        "context_flip_fraction": 0.0,
+        "both_wrong_pair_fraction": 0.0
+      },
+      "answer_training_loss": 0.22165928424025574,
+      "english_development_loss": 1.2892527648847247,
+      "mean_correct_minus_wrong_margin": 0.00018538394942879677
+    },
+    "prediction_flips": 9
+  },
+  "probes": {
+    "addressing-none-g1-v1": {
+      "groups": 1,
+      "initial": {
+        "training": {
+          "questions": 4,
+          "pairs": 2,
+          "binding_groups": 1,
+          "accuracy": 0.5,
+          "pair_accuracy": 0.0,
+          "binding_group_accuracy": 0.0,
+          "query_flip_fraction": 0.0,
+          "correct_query_pair_fraction": 0.0,
+          "context_flip_fraction": 0.0,
+          "both_wrong_pair_fraction": 0.0
+        },
+        "development": {
+          "questions": 8,
+          "pairs": 4,
+          "binding_groups": 2,
+          "accuracy": 0.5,
+          "pair_accuracy": 0.0,
+          "binding_group_accuracy": 0.0,
+          "query_flip_fraction": 0.0,
+          "correct_query_pair_fraction": 0.0,
+          "context_flip_fraction": 0.0,
+          "both_wrong_pair_fraction": 0.0
+        },
+        "development_order_robust": {
+          "familiar-names-new-pairs/base": {
+            "cases": 1,
+            "all_correct": 0,
+            "accuracy": 0.0,
+            "correct_count_histogram": {
+              "4": 1
+            },
+            "definition": "all eight assignment/query/fact-order conditions correct"
+          }
+        },
+        "qa_development_loss": 6.229966799418132,
+        "english_development_loss": 1.3526960339354908,
+        "fixed_training_raw_samples": [
+          {
+            "id": "train-0000-Bon-0",
+            "prompt": "<|user|>\nBon's color is gold. Bom's color is lime.\nWhat color belongs to Bon?\n<|assistant|>\n",
+            "raw": "\"One day, th",
+            "expected": "gold"
+          },
+          {
+            "id": "train-0000-Bom-0",
+            "prompt": "<|user|>\nBon's color is gold. Bom's color is lime.\nWhat color belongs to Bom?\n<|assistant|>\n",
+            "raw": "\"On, I was s",
+            "expected": "lime"
+          },
+          {
+            "id": "train-0000-Bon-1",
+            "prompt": "<|user|>\nBon's color is lime. Bom's color is gold.\nWhat color belongs to Bon?\n<|assistant|>\n",
+            "raw": "\"One day, th",
+            "expected": "lime"
+          },
+          {
+            "id": "train-0000-Bom-1",
+            "prompt": "<|user|>\nBon's color is lime. Bom's color is gold.\nWhat color belongs to Bom?\n<|assistant|>\n",
+            "raw": "\"On, I was s",
+            "expected": "gold"
+          }
+        ]
+      },
+      "final": {
+        "training": {
+          "questions": 4,
+          "pairs": 2,
+          "binding_groups": 1,
+          "accuracy": 1.0,
+          "pair_accuracy": 1.0,
+          "binding_group_accuracy": 1.0,
+          "query_flip_fraction": 1.0,
+          "correct_query_pair_fraction": 1.0,
+          "context_flip_fraction": 1.0,
+          "both_wrong_pair_fraction": 0.0
+        },
+        "development": {
+          "questions": 8,
+          "pairs": 4,
+          "binding_groups": 2,
+          "accuracy": 0.5,
+          "pair_accuracy": 0.0,
+          "binding_group_accuracy": 0.0,
+          "query_flip_fraction": 0.0,
+          "correct_query_pair_fraction": 0.0,
+          "context_flip_fraction": 0.0,
+          "both_wrong_pair_fraction": 0.0
+        },
+        "development_order_robust": {
+          "familiar-names-new-pairs/base": {
+            "cases": 1,
+            "all_correct": 0,
+            "accuracy": 0.0,
+            "correct_count_histogram": {
+              "4": 1
+            },
+            "definition": "all eight assignment/query/fact-order conditions correct"
+          }
+        },
+        "qa_development_loss": 2.2074167728424072,
+        "english_development_loss": 1.3617801298130348,
+        "fixed_training_raw_samples": [
+          {
+            "id": "train-0000-Bon-0",
+            "prompt": "<|user|>\nBon's color is gold. Bom's color is lime.\nWhat color belongs to Bon?\n<|assistant|>\n",
+            "raw": "gold\n",
+            "expected": "gold"
+          },
+          {
+            "id": "train-0000-Bom-0",
+            "prompt": "<|user|>\nBon's color is gold. Bom's color is lime.\nWhat color belongs to Bom?\n<|assistant|>\n",
+            "raw": "lime\n",
+            "expected": "lime"
+          },
+          {
+            "id": "train-0000-Bon-1",
+            "prompt": "<|user|>\nBon's color is lime. Bom's color is gold.\nWhat color belongs to Bon?\n<|assistant|>\n",
+            "raw": "lime\n",
+            "expected": "lime"
+          },
+          {
+            "id": "train-0000-Bom-1",
+            "prompt": "<|user|>\nBon's color is lime. Bom's color is gold.\nWhat color belongs to Bom?\n<|assistant|>\n",
+            "raw": "gold\n",
+            "expected": "gold"
+          }
+        ]
+      },
+      "optimizer_updates": 1000,
+      "counters": {
+        "qa": {
+          "updates": 500,
+          "input_bytes": 194000,
+          "supervised_bytes": 10000
+        },
+        "english": {
+          "updates": 500,
+          "input_bytes": 239609,
+          "supervised_bytes": 239609
+        }
+      },
+      "initial_parameters_sha256": "5f419346bb7e9169f9736f27c43e983c4830e051b613a20217e66b73221b5c54"
+    },
+    "addressing-delta-g1-v1": {
+      "groups": 1,
+      "initial": {
+        "training": {
+          "questions": 4,
+          "pairs": 2,
+          "binding_groups": 1,
+          "accuracy": 0.5,
+          "pair_accuracy": 0.0,
+          "binding_group_accuracy": 0.0,
+          "query_flip_fraction": 0.0,
+          "correct_query_pair_fraction": 0.0,
+          "context_flip_fraction": 0.0,
+          "both_wrong_pair_fraction": 0.0
+        },
+        "development": {
+          "questions": 8,
+          "pairs": 4,
+          "binding_groups": 2,
+          "accuracy": 0.5,
+          "pair_accuracy": 0.0,
+          "binding_group_accuracy": 0.0,
+          "query_flip_fraction": 0.0,
+          "correct_query_pair_fraction": 0.0,
+          "context_flip_fraction": 0.0,
+          "both_wrong_pair_fraction": 0.0
+        },
+        "development_order_robust": {
+          "familiar-names-new-pairs/base": {
+            "cases": 1,
+            "all_correct": 0,
+            "accuracy": 0.0,
+            "correct_count_histogram": {
+              "4": 1
+            },
+            "definition": "all eight assignment/query/fact-order conditions correct"
+          }
+        },
+        "qa_development_loss": 6.229966799418132,
+        "english_development_loss": 1.3526960409474797,
+        "fixed_training_raw_samples": [
+          {
+            "id": "train-0000-Bon-0",
+            "prompt": "<|user|>\nBon's color is gold. Bom's color is lime.\nWhat color belongs to Bon?\n<|assistant|>\n",
+            "raw": "\"One day, th",
+            "expected": "gold"
+          },
+          {
+            "id": "train-0000-Bom-0",
+            "prompt": "<|user|>\nBon's color is gold. Bom's color is lime.\nWhat color belongs to Bom?\n<|assistant|>\n",
+            "raw": "\"On, I was s",
+            "expected": "lime"
+          },
+          {
+            "id": "train-0000-Bon-1",
+            "prompt": "<|user|>\nBon's color is lime. Bom's color is gold.\nWhat color belongs to Bon?\n<|assistant|>\n",
+            "raw": "\"One day, th",
+            "expected": "lime"
+          },
+          {
+            "id": "train-0000-Bom-1",
+            "prompt": "<|user|>\nBon's color is lime. Bom's color is gold.\nWhat color belongs to Bom?\n<|assistant|>\n",
+            "raw": "\"On, I was s",
+            "expected": "gold"
+          }
+        ]
+      },
+      "final": {
+        "training": {
+          "questions": 4,
+          "pairs": 2,
+          "binding_groups": 1,
+          "accuracy": 1.0,
+          "pair_accuracy": 1.0,
+          "binding_group_accuracy": 1.0,
+          "query_flip_fraction": 1.0,
+          "correct_query_pair_fraction": 1.0,
+          "context_flip_fraction": 1.0,
+          "both_wrong_pair_fraction": 0.0
+        },
+        "development": {
+          "questions": 8,
+          "pairs": 4,
+          "binding_groups": 2,
+          "accuracy": 0.5,
+          "pair_accuracy": 0.0,
+          "binding_group_accuracy": 0.0,
+          "query_flip_fraction": 0.0,
+          "correct_query_pair_fraction": 0.0,
+          "context_flip_fraction": 0.0,
+          "both_wrong_pair_fraction": 0.0
+        },
+        "development_order_robust": {
+          "familiar-names-new-pairs/base": {
+            "cases": 1,
+            "all_correct": 0,
+            "accuracy": 0.0,
+            "correct_count_histogram": {
+              "4": 1
+            },
+            "definition": "all eight assignment/query/fact-order conditions correct"
+          }
+        },
+        "qa_development_loss": 2.2522186438242593,
+        "english_development_loss": 1.3599720428513777,
+        "fixed_training_raw_samples": [
+          {
+            "id": "train-0000-Bon-0",
+            "prompt": "<|user|>\nBon's color is gold. Bom's color is lime.\nWhat color belongs to Bon?\n<|assistant|>\n",
+            "raw": "gold\n",
+            "expected": "gold"
+          },
+          {
+            "id": "train-0000-Bom-0",
+            "prompt": "<|user|>\nBon's color is gold. Bom's color is lime.\nWhat color belongs to Bom?\n<|assistant|>\n",
+            "raw": "lime\n",
+            "expected": "lime"
+          },
+          {
+            "id": "train-0000-Bon-1",
+            "prompt": "<|user|>\nBon's color is lime. Bom's color is gold.\nWhat color belongs to Bon?\n<|assistant|>\n",
+            "raw": "lime\n",
+            "expected": "lime"
+          },
+          {
+            "id": "train-0000-Bom-1",
+            "prompt": "<|user|>\nBon's color is lime. Bom's color is gold.\nWhat color belongs to Bom?\n<|assistant|>\n",
+            "raw": "gold\n",
+            "expected": "gold"
+          }
+        ]
+      },
+      "optimizer_updates": 1000,
+      "counters": {
+        "qa": {
+          "updates": 500,
+          "input_bytes": 194000,
+          "supervised_bytes": 10000
+        },
+        "english": {
+          "updates": 500,
+          "input_bytes": 239609,
+          "supervised_bytes": 239609
+        }
+      },
+      "initial_parameters_sha256": "8f2acbfe9d52ddb5afe77fca0ea4545f50e0fc3396b3b1504197f6614ef0ac2e",
+      "trace": {
+        "prompts": [
+          {
+            "id": "train-0000-Bon-0",
+            "group": "train-0000",
+            "assignment": 0,
+            "query_entity": "Bon",
+            "regions": {
+              "bos": {
+                "beta_mean": 0.25687339901924133,
+                "coefficient_sum": -0.0037494639821180837,
+                "absolute_coefficient_sum": 0.0037494639821180837,
+                "absolute_coefficient_share": 0.0007678745194118602,
+                "contribution_norm_sum": 0.006291581343111322
+              },
+              "user_header": {
+                "beta_mean": 0.28965406285391915,
+                "coefficient_sum": 0.015707389193873586,
+                "absolute_coefficient_sum": 0.1013527429701616,
+                "absolute_coefficient_share": 0.020756617257947994,
+                "contribution_norm_sum": 0.20254710135273465
+              },
+              "fact_1": {
+                "beta_mean": 0.5472353175282478,
+                "coefficient_sum": -0.359049723371897,
+                "absolute_coefficient_sum": 0.40879309715800294,
+                "absolute_coefficient_share": 0.08371911412301747,
+                "contribution_norm_sum": 1.49390424802496
+              },
+              "fact_2": {
+                "beta_mean": 0.7294151825564248,
+                "coefficient_sum": -0.46777603130253426,
+                "absolute_coefficient_sum": 0.6704634387925572,
+                "absolute_coefficient_share": 0.13730810411871938,
+                "contribution_norm_sum": 3.0324999421904844
+              },
+              "question": {
+                "beta_mean": 0.8315921094682481,
+                "coefficient_sum": -0.8280380442388774,
+                "absolute_coefficient_sum": 1.914267599089966,
+                "absolute_coefficient_share": 0.3920339866410831,
+                "contribution_norm_sum": 8.810354192634845
+              },
+              "assistant_header": {
+                "beta_mean": 0.8398450493812561,
+                "coefficient_sum": -1.010128519236799,
+                "absolute_coefficient_sum": 1.784286018466712,
+                "absolute_coefficient_share": 0.3654143033398203,
+                "contribution_norm_sum": 8.289101210757286
+              }
+            },
+            "memory_gain": 0.006929971743375063,
+            "final_residual_to_base_norm": 0.23149581613060122,
+            "full_prompt_logit_max_difference": 0.0,
+            "full_prompt_state_max_difference": 0.0,
+            "max_memory_reconstruction_error": 0.0,
+            "max_logit_reconstruction_error": 0.0,
+            "read_reconstruction_error": 4.2300791314175967e-07
+          },
+          {
+            "id": "train-0000-Bom-0",
+            "group": "train-0000",
+            "assignment": 0,
+            "query_entity": "Bom",
+            "regions": {
+              "bos": {
+                "beta_mean": 0.25687339901924133,
+                "coefficient_sum": -0.0052473779623412094,
+                "absolute_coefficient_sum": 0.0052473779623412094,
+                "absolute_coefficient_share": 0.00108832356115465,
+                "contribution_norm_sum": 0.00880507332396605
+              },
+              "user_header": {
+                "beta_mean": 0.28965406285391915,
+                "coefficient_sum": -0.16206065035051687,
+                "absolute_coefficient_sum": 0.1784219456285687,
+                "absolute_coefficient_share": 0.03700530220010835,
+                "contribution_norm_sum": 0.3876123853488601
+              },
+              "fact_1": {
+                "beta_mean": 0.5472353175282478,
+                "coefficient_sum": -0.4225253824119434,
+                "absolute_coefficient_sum": 0.5544175975961322,
+                "absolute_coefficient_share": 0.11498804517474043,
+                "contribution_norm_sum": 1.9463915450987492
+              },
+              "fact_2": {
+                "beta_mean": 0.7294151825564248,
+                "coefficient_sum": -0.5638381586702932,
+                "absolute_coefficient_sum": 0.9122290891494057,
+                "absolute_coefficient_share": 0.1891993330796756,
+                "contribution_norm_sum": 4.356805631813029
+              },
+              "question": {
+                "beta_mean": 0.8302442343146713,
+                "coefficient_sum": -0.3550696739936229,
+                "absolute_coefficient_sum": 1.386330460372706,
+                "absolute_coefficient_share": 0.28752952701292017,
+                "contribution_norm_sum": 6.48364769323201
+              },
+              "assistant_header": {
+                "beta_mean": 0.7769912679990133,
+                "coefficient_sum": -1.769178371960318,
+                "absolute_coefficient_sum": 1.78487733860178,
+                "absolute_coefficient_share": 0.37018946897140076,
+                "contribution_norm_sum": 8.231250184123983
+              }
+            },
+            "memory_gain": 0.006929971743375063,
+            "final_residual_to_base_norm": 0.3091911303666024,
+            "full_prompt_logit_max_difference": 0.0,
+            "full_prompt_state_max_difference": 0.0,
+            "max_memory_reconstruction_error": 0.0,
+            "max_logit_reconstruction_error": 0.0,
+            "read_reconstruction_error": 4.002687883364331e-07
+          },
+          {
+            "id": "train-0000-Bon-1",
+            "group": "train-0000",
+            "assignment": 1,
+            "query_entity": "Bon",
+            "regions": {
+              "bos": {
+                "beta_mean": 0.25687339901924133,
+                "coefficient_sum": -0.00022694855772454912,
+                "absolute_coefficient_sum": 0.00022694855772454912,
+                "absolute_coefficient_share": 4.811940129604266e-05,
+                "contribution_norm_sum": 0.0003808185165761189
+              },
+              "user_header": {
+                "beta_mean": 0.28965406285391915,
+                "coefficient_sum": -0.07567874094859943,
+                "absolute_coefficient_sum": 0.09265053206070213,
+                "absolute_coefficient_share": 0.019644487619665262,
+                "contribution_norm_sum": 0.21704770449849808
+              },
+              "fact_1": {
+                "beta_mean": 0.540382131934166,
+                "coefficient_sum": -0.24518442530207615,
+                "absolute_coefficient_sum": 0.524261465230357,
+                "absolute_coefficient_share": 0.11115800021998569,
+                "contribution_norm_sum": 1.8303313187046764
+              },
+              "fact_2": {
+                "beta_mean": 0.6935794239952451,
+                "coefficient_sum": -0.9200732363839643,
+                "absolute_coefficient_sum": 1.0569612079336825,
+                "absolute_coefficient_share": 0.22410514976984705,
+                "contribution_norm_sum": 4.863636716385593
+              },
+              "question": {
+                "beta_mean": 0.7632605058175547,
+                "coefficient_sum": -0.7266475210671339,
+                "absolute_coefficient_sum": 1.4111640766898805,
+                "absolute_coefficient_share": 0.2992060014905071,
+                "contribution_norm_sum": 6.111345534296349
+              },
+              "assistant_header": {
+                "beta_mean": 0.7332519968350728,
+                "coefficient_sum": -1.6310986421308376,
+                "absolute_coefficient_sum": 1.6310986421308376,
+                "absolute_coefficient_share": 0.345838241498699,
+                "contribution_norm_sum": 7.12499347002883
+              }
+            },
+            "memory_gain": 0.006929971743375063,
+            "final_residual_to_base_norm": 0.33573085545373127,
+            "full_prompt_logit_max_difference": 0.0,
+            "full_prompt_state_max_difference": 0.0,
+            "max_memory_reconstruction_error": 0.0,
+            "max_logit_reconstruction_error": 0.0,
+            "read_reconstruction_error": 2.9728136174966835e-07
+          },
+          {
+            "id": "train-0000-Bom-1",
+            "group": "train-0000",
+            "assignment": 1,
+            "query_entity": "Bom",
+            "regions": {
+              "bos": {
+                "beta_mean": 0.25687339901924133,
+                "coefficient_sum": 0.005781305159775775,
+                "absolute_coefficient_sum": 0.005781305159775775,
+                "absolute_coefficient_share": 0.0012617455757122653,
+                "contribution_norm_sum": 0.00970100042447426
+              },
+              "user_header": {
+                "beta_mean": 0.28965406285391915,
+                "coefficient_sum": 0.013727493857109967,
+                "absolute_coefficient_sum": 0.07711805110701014,
+                "absolute_coefficient_share": 0.016830690839297658,
+                "contribution_norm_sum": 0.1267530271918354
+              },
+              "fact_1": {
+                "beta_mean": 0.540382131934166,
+                "coefficient_sum": -0.43644720389230346,
+                "absolute_coefficient_sum": 0.5650084981475383,
+                "absolute_coefficient_share": 0.12331073227851155,
+                "contribution_norm_sum": 2.143444088125034
+              },
+              "fact_2": {
+                "beta_mean": 0.6935794239952451,
+                "coefficient_sum": -0.42421606374626375,
+                "absolute_coefficient_sum": 0.6144292945069967,
+                "absolute_coefficient_share": 0.13409661356853186,
+                "contribution_norm_sum": 2.582343681347022
+              },
+              "question": {
+                "beta_mean": 0.7630452270861026,
+                "coefficient_sum": -0.5532253941854817,
+                "absolute_coefficient_sum": 1.3928537234970717,
+                "absolute_coefficient_share": 0.30398447663069667,
+                "contribution_norm_sum": 5.9248179424875875
+              },
+              "assistant_header": {
+                "beta_mean": 0.7608970165252685,
+                "coefficient_sum": -1.2729005163785487,
+                "absolute_coefficient_sum": 1.9267987703922698,
+                "absolute_coefficient_share": 0.42051574110725015,
+                "contribution_norm_sum": 7.619181854415686
+              }
+            },
+            "memory_gain": 0.006929971743375063,
+            "final_residual_to_base_norm": 0.24573392109047587,
+            "full_prompt_logit_max_difference": 0.0,
+            "full_prompt_state_max_difference": 0.0,
+            "max_memory_reconstruction_error": 0.0,
+            "max_logit_reconstruction_error": 0.0,
+            "read_reconstruction_error": 5.496432204932233e-07
+          }
+        ],
+        "query_swaps": [
+          {
+            "ids": [
+              "train-0000-Bon-0",
+              "train-0000-Bom-0"
+            ],
+            "queries_cosine": 0.9131001014222607,
+            "queries_l2_difference": 0.41689294216497363,
+            "last_recalled_cosine": 0.9336246010006393,
+            "last_recalled_l2_difference": 4.903991353880144
+          },
+          {
+            "ids": [
+              "train-0000-Bon-1",
+              "train-0000-Bom-1"
+            ],
+            "queries_cosine": 0.9510095610481684,
+            "queries_l2_difference": 0.31301889779713576,
+            "last_recalled_cosine": 0.9471658011986078,
+            "last_recalled_l2_difference": 5.3737777869733545
+          }
+        ]
+      },
+      "ablation": {
+        "on": {
+          "training": {
+            "questions": 4,
+            "pairs": 2,
+            "binding_groups": 1,
+            "accuracy": 1.0,
+            "pair_accuracy": 1.0,
+            "binding_group_accuracy": 1.0,
+            "query_flip_fraction": 1.0,
+            "correct_query_pair_fraction": 1.0,
+            "context_flip_fraction": 1.0,
+            "both_wrong_pair_fraction": 0.0
+          },
+          "answer_training_loss": 0.0015972057978312175,
+          "english_development_loss": 1.3599720428513777,
+          "mean_correct_minus_wrong_margin": 2.0550257223076187
+        },
+        "off": {
+          "training": {
+            "questions": 4,
+            "pairs": 2,
+            "binding_groups": 1,
+            "accuracy": 1.0,
+            "pair_accuracy": 1.0,
+            "binding_group_accuracy": 1.0,
+            "query_flip_fraction": 1.0,
+            "correct_query_pair_fraction": 1.0,
+            "context_flip_fraction": 1.0,
+            "both_wrong_pair_fraction": 0.0
+          },
+          "answer_training_loss": 0.011597355206807455,
+          "english_development_loss": 1.3595157527927966,
+          "mean_correct_minus_wrong_margin": 1.9240478819119744
+        },
+        "prediction_flips": 0
+      }
+    },
+    "addressing-none-g4-v1": {
+      "groups": 4,
+      "initial": {
+        "training": {
+          "questions": 16,
+          "pairs": 8,
+          "binding_groups": 4,
+          "accuracy": 0.5,
+          "pair_accuracy": 0.0,
+          "binding_group_accuracy": 0.0,
+          "query_flip_fraction": 0.0,
+          "correct_query_pair_fraction": 0.0,
+          "context_flip_fraction": 0.0,
+          "both_wrong_pair_fraction": 0.0
+        },
+        "development": {
+          "questions": 8,
+          "pairs": 4,
+          "binding_groups": 2,
+          "accuracy": 0.5,
+          "pair_accuracy": 0.0,
+          "binding_group_accuracy": 0.0,
+          "query_flip_fraction": 0.0,
+          "correct_query_pair_fraction": 0.0,
+          "context_flip_fraction": 0.0,
+          "both_wrong_pair_fraction": 0.0
+        },
+        "development_order_robust": {
+          "familiar-names-new-pairs/base": {
+            "cases": 1,
+            "all_correct": 0,
+            "accuracy": 0.0,
+            "correct_count_histogram": {
+              "4": 1
+            },
+            "definition": "all eight assignment/query/fact-order conditions correct"
+          }
+        },
+        "qa_development_loss": 6.229966799418132,
+        "english_development_loss": 1.3526960339354908,
+        "fixed_training_raw_samples": [
+          {
+            "id": "train-0000-Bon-0",
+            "prompt": "<|user|>\nBon's color is gold. Bom's color is lime.\nWhat color belongs to Bon?\n<|assistant|>\n",
+            "raw": "\"One day, th",
+            "expected": "gold"
+          },
+          {
+            "id": "train-0000-Bom-0",
+            "prompt": "<|user|>\nBon's color is gold. Bom's color is lime.\nWhat color belongs to Bom?\n<|assistant|>\n",
+            "raw": "\"On, I was s",
+            "expected": "lime"
+          },
+          {
+            "id": "train-0000-Bon-1",
+            "prompt": "<|user|>\nBon's color is lime. Bom's color is gold.\nWhat color belongs to Bon?\n<|assistant|>\n",
+            "raw": "\"One day, th",
+            "expected": "lime"
+          },
+          {
+            "id": "train-0000-Bom-1",
+            "prompt": "<|user|>\nBon's color is lime. Bom's color is gold.\nWhat color belongs to Bom?\n<|assistant|>\n",
+            "raw": "\"On, I was s",
+            "expected": "gold"
+          }
+        ]
+      },
+      "final": {
+        "training": {
+          "questions": 16,
+          "pairs": 8,
+          "binding_groups": 4,
+          "accuracy": 0.5,
+          "pair_accuracy": 0.125,
+          "binding_group_accuracy": 0.0,
+          "query_flip_fraction": 0.25,
+          "correct_query_pair_fraction": 0.125,
+          "context_flip_fraction": 0.25,
+          "both_wrong_pair_fraction": 0.125
+        },
+        "development": {
+          "questions": 8,
+          "pairs": 4,
+          "binding_groups": 2,
+          "accuracy": 0.5,
+          "pair_accuracy": 0.25,
+          "binding_group_accuracy": 0.0,
+          "query_flip_fraction": 0.0,
+          "correct_query_pair_fraction": 0.0,
+          "context_flip_fraction": 0.5,
+          "both_wrong_pair_fraction": 0.25
+        },
+        "development_order_robust": {
+          "familiar-names-new-pairs/base": {
+            "cases": 1,
+            "all_correct": 0,
+            "accuracy": 0.0,
+            "correct_count_histogram": {
+              "4": 1
+            },
+            "definition": "all eight assignment/query/fact-order conditions correct"
+          }
+        },
+        "qa_development_loss": 0.3456499973932902,
+        "english_development_loss": 1.3670698700733008,
+        "fixed_training_raw_samples": [
+          {
+            "id": "train-0000-Bon-0",
+            "prompt": "<|user|>\nBon's color is gold. Bom's color is lime.\nWhat color belongs to Bon?\n<|assistant|>\n",
+            "raw": "lime\n",
+            "expected": "gold"
+          },
+          {
+            "id": "train-0000-Bom-0",
+            "prompt": "<|user|>\nBon's color is gold. Bom's color is lime.\nWhat color belongs to Bom?\n<|assistant|>\n",
+            "raw": "lime\n",
+            "expected": "lime"
+          },
+          {
+            "id": "train-0000-Bon-1",
+            "prompt": "<|user|>\nBon's color is lime. Bom's color is gold.\nWhat color belongs to Bon?\n<|assistant|>\n",
+            "raw": "lime\n",
+            "expected": "lime"
+          },
+          {
+            "id": "train-0000-Bom-1",
+            "prompt": "<|user|>\nBon's color is lime. Bom's color is gold.\nWhat color belongs to Bom?\n<|assistant|>\n",
+            "raw": "lime\n",
+            "expected": "gold"
+          }
+        ]
+      },
+      "optimizer_updates": 1000,
+      "counters": {
+        "qa": {
+          "updates": 500,
+          "input_bytes": 194000,
+          "supervised_bytes": 10000
+        },
+        "english": {
+          "updates": 500,
+          "input_bytes": 239609,
+          "supervised_bytes": 239609
+        }
+      },
+      "initial_parameters_sha256": "5f419346bb7e9169f9736f27c43e983c4830e051b613a20217e66b73221b5c54"
+    },
+    "addressing-delta-g4-v1": {
+      "groups": 4,
+      "initial": {
+        "training": {
+          "questions": 16,
+          "pairs": 8,
+          "binding_groups": 4,
+          "accuracy": 0.5,
+          "pair_accuracy": 0.0,
+          "binding_group_accuracy": 0.0,
+          "query_flip_fraction": 0.0,
+          "correct_query_pair_fraction": 0.0,
+          "context_flip_fraction": 0.0,
+          "both_wrong_pair_fraction": 0.0
+        },
+        "development": {
+          "questions": 8,
+          "pairs": 4,
+          "binding_groups": 2,
+          "accuracy": 0.5,
+          "pair_accuracy": 0.0,
+          "binding_group_accuracy": 0.0,
+          "query_flip_fraction": 0.0,
+          "correct_query_pair_fraction": 0.0,
+          "context_flip_fraction": 0.0,
+          "both_wrong_pair_fraction": 0.0
+        },
+        "development_order_robust": {
+          "familiar-names-new-pairs/base": {
+            "cases": 1,
+            "all_correct": 0,
+            "accuracy": 0.0,
+            "correct_count_histogram": {
+              "4": 1
+            },
+            "definition": "all eight assignment/query/fact-order conditions correct"
+          }
+        },
+        "qa_development_loss": 6.229966799418132,
+        "english_development_loss": 1.3526960409474797,
+        "fixed_training_raw_samples": [
+          {
+            "id": "train-0000-Bon-0",
+            "prompt": "<|user|>\nBon's color is gold. Bom's color is lime.\nWhat color belongs to Bon?\n<|assistant|>\n",
+            "raw": "\"One day, th",
+            "expected": "gold"
+          },
+          {
+            "id": "train-0000-Bom-0",
+            "prompt": "<|user|>\nBon's color is gold. Bom's color is lime.\nWhat color belongs to Bom?\n<|assistant|>\n",
+            "raw": "\"On, I was s",
+            "expected": "lime"
+          },
+          {
+            "id": "train-0000-Bon-1",
+            "prompt": "<|user|>\nBon's color is lime. Bom's color is gold.\nWhat color belongs to Bon?\n<|assistant|>\n",
+            "raw": "\"One day, th",
+            "expected": "lime"
+          },
+          {
+            "id": "train-0000-Bom-1",
+            "prompt": "<|user|>\nBon's color is lime. Bom's color is gold.\nWhat color belongs to Bom?\n<|assistant|>\n",
+            "raw": "\"On, I was s",
+            "expected": "gold"
+          }
+        ]
+      },
+      "final": {
+        "training": {
+          "questions": 16,
+          "pairs": 8,
+          "binding_groups": 4,
+          "accuracy": 0.5,
+          "pair_accuracy": 0.125,
+          "binding_group_accuracy": 0.0,
+          "query_flip_fraction": 0.25,
+          "correct_query_pair_fraction": 0.125,
+          "context_flip_fraction": 0.25,
+          "both_wrong_pair_fraction": 0.125
+        },
+        "development": {
+          "questions": 8,
+          "pairs": 4,
+          "binding_groups": 2,
+          "accuracy": 0.375,
+          "pair_accuracy": 0.0,
+          "binding_group_accuracy": 0.0,
+          "query_flip_fraction": 0.25,
+          "correct_query_pair_fraction": 0.0,
+          "context_flip_fraction": 0.25,
+          "both_wrong_pair_fraction": 0.25
+        },
+        "development_order_robust": {
+          "familiar-names-new-pairs/base": {
+            "cases": 1,
+            "all_correct": 0,
+            "accuracy": 0.0,
+            "correct_count_histogram": {
+              "3": 1
+            },
+            "definition": "all eight assignment/query/fact-order conditions correct"
+          }
+        },
+        "qa_development_loss": 0.3941243886947632,
+        "english_development_loss": 1.3639141605770395,
+        "fixed_training_raw_samples": [
+          {
+            "id": "train-0000-Bon-0",
+            "prompt": "<|user|>\nBon's color is gold. Bom's color is lime.\nWhat color belongs to Bon?\n<|assistant|>\n",
+            "raw": "lime\n",
+            "expected": "gold"
+          },
+          {
+            "id": "train-0000-Bom-0",
+            "prompt": "<|user|>\nBon's color is gold. Bom's color is lime.\nWhat color belongs to Bom?\n<|assistant|>\n",
+            "raw": "lime\n",
+            "expected": "lime"
+          },
+          {
+            "id": "train-0000-Bon-1",
+            "prompt": "<|user|>\nBon's color is lime. Bom's color is gold.\nWhat color belongs to Bon?\n<|assistant|>\n",
+            "raw": "lime\n",
+            "expected": "lime"
+          },
+          {
+            "id": "train-0000-Bom-1",
+            "prompt": "<|user|>\nBon's color is lime. Bom's color is gold.\nWhat color belongs to Bom?\n<|assistant|>\n",
+            "raw": "lime\n",
+            "expected": "gold"
+          }
+        ]
+      },
+      "optimizer_updates": 1000,
+      "counters": {
+        "qa": {
+          "updates": 500,
+          "input_bytes": 194000,
+          "supervised_bytes": 10000
+        },
+        "english": {
+          "updates": 500,
+          "input_bytes": 239609,
+          "supervised_bytes": 239609
+        }
+      },
+      "initial_parameters_sha256": "8f2acbfe9d52ddb5afe77fca0ea4545f50e0fc3396b3b1504197f6614ef0ac2e",
+      "trace": {
+        "prompts": [
+          {
+            "id": "train-0000-Bon-0",
+            "group": "train-0000",
+            "assignment": 0,
+            "query_entity": "Bon",
+            "regions": {
+              "bos": {
+                "beta_mean": 0.4488014578819275,
+                "coefficient_sum": -0.008643257029856346,
+                "absolute_coefficient_sum": 0.008643257029856346,
+                "absolute_coefficient_share": 0.0015381204545674037,
+                "contribution_norm_sum": 0.01607823305566536
+              },
+              "user_header": {
+                "beta_mean": 0.4129503220319748,
+                "coefficient_sum": -0.007406990884289102,
+                "absolute_coefficient_sum": 0.11604527844085501,
+                "absolute_coefficient_share": 0.020650967084431992,
+                "contribution_norm_sum": 0.22462321304063065
+              },
+              "fact_1": {
+                "beta_mean": 0.6979081124067307,
+                "coefficient_sum": 0.44489502265676223,
+                "absolute_coefficient_sum": 0.5721553948774644,
+                "absolute_coefficient_share": 0.10181855208195104,
+                "contribution_norm_sum": 1.955059414422532
+              },
+              "fact_2": {
+                "beta_mean": 0.7388091427939278,
+                "coefficient_sum": -0.19783759784409682,
+                "absolute_coefficient_sum": 1.0049521817008262,
+                "absolute_coefficient_share": 0.1788373874798294,
+                "contribution_norm_sum": 3.868629007086638
+              },
+              "question": {
+                "beta_mean": 0.8151395442309203,
+                "coefficient_sum": -1.5194721762345924,
+                "absolute_coefficient_sum": 2.4089874552446173,
+                "absolute_coefficient_share": 0.42869405212743134,
+                "contribution_norm_sum": 10.41498078839263
+              },
+              "assistant_header": {
+                "beta_mean": 0.7926637967427571,
+                "coefficient_sum": -1.5085793403320122,
+                "absolute_coefficient_sum": 1.5085793403320122,
+                "absolute_coefficient_share": 0.2684609207717885,
+                "contribution_norm_sum": 7.264099681389394
+              }
+            },
+            "memory_gain": 0.016618546098470688,
+            "final_residual_to_base_norm": 0.4061629103115908,
+            "full_prompt_logit_max_difference": 0.0,
+            "full_prompt_state_max_difference": 0.0,
+            "max_memory_reconstruction_error": 0.0,
+            "max_logit_reconstruction_error": 0.0,
+            "read_reconstruction_error": 3.040952596400359e-07
+          },
+          {
+            "id": "train-0000-Bom-0",
+            "group": "train-0000",
+            "assignment": 0,
+            "query_entity": "Bom",
+            "regions": {
+              "bos": {
+                "beta_mean": 0.4488014578819275,
+                "coefficient_sum": -0.010762675936069247,
+                "absolute_coefficient_sum": 0.010762675936069247,
+                "absolute_coefficient_share": 0.0018975975516320282,
+                "contribution_norm_sum": 0.020020787465301
+              },
+              "user_header": {
+                "beta_mean": 0.4129503220319748,
+                "coefficient_sum": -0.012888677902235461,
+                "absolute_coefficient_sum": 0.11974407482500074,
+                "absolute_coefficient_share": 0.021112413358917084,
+                "contribution_norm_sum": 0.24464631328619746
+              },
+              "fact_1": {
+                "beta_mean": 0.6979081124067307,
+                "coefficient_sum": 0.4398650022013157,
+                "absolute_coefficient_sum": 0.576146366404838,
+                "absolute_coefficient_share": 0.10158198024039025,
+                "contribution_norm_sum": 1.964988531089806
+              },
+              "fact_2": {
+                "beta_mean": 0.7388091427939278,
+                "coefficient_sum": -0.17978769352417667,
+                "absolute_coefficient_sum": 0.9860889048595293,
+                "absolute_coefficient_share": 0.1738600978667348,
+                "contribution_norm_sum": 3.8093423495212777
+              },
+              "question": {
+                "beta_mean": 0.8124920118738104,
+                "coefficient_sum": -1.5037102850185913,
+                "absolute_coefficient_sum": 2.484650742462529,
+                "absolute_coefficient_share": 0.4380757344701362,
+                "contribution_norm_sum": 10.78275717751078
+              },
+              "assistant_header": {
+                "beta_mean": 0.7799732446670532,
+                "coefficient_sum": -1.494345126832989,
+                "absolute_coefficient_sum": 1.494345126832989,
+                "absolute_coefficient_share": 0.2634721765121897,
+                "contribution_norm_sum": 7.136988721250556
+              }
+            },
+            "memory_gain": 0.016618546098470688,
+            "final_residual_to_base_norm": 0.40575660409552533,
+            "full_prompt_logit_max_difference": 0.0,
+            "full_prompt_state_max_difference": 0.0,
+            "max_memory_reconstruction_error": 0.0,
+            "max_logit_reconstruction_error": 0.0,
+            "read_reconstruction_error": 4.825363064675514e-07
+          },
+          {
+            "id": "train-0000-Bon-1",
+            "group": "train-0000",
+            "assignment": 1,
+            "query_entity": "Bon",
+            "regions": {
+              "bos": {
+                "beta_mean": 0.4488014578819275,
+                "coefficient_sum": -0.0049735881221144515,
+                "absolute_coefficient_sum": 0.0049735881221144515,
+                "absolute_coefficient_share": 0.0009191160063382507,
+                "contribution_norm_sum": 0.00925189528368963
+              },
+              "user_header": {
+                "beta_mean": 0.4129503220319748,
+                "coefficient_sum": 0.003466730457934924,
+                "absolute_coefficient_sum": 0.10946712078516488,
+                "absolute_coefficient_share": 0.02022945616144697,
+                "contribution_norm_sum": 0.23990335346019157
+              },
+              "fact_1": {
+                "beta_mean": 0.683742319047451,
+                "coefficient_sum": 0.36551885157222863,
+                "absolute_coefficient_sum": 0.4560586393894494,
+                "absolute_coefficient_share": 0.08427935426093999,
+                "contribution_norm_sum": 1.5704039101924034
+              },
+              "fact_2": {
+                "beta_mean": 0.7094720971016657,
+                "coefficient_sum": -0.286289895696855,
+                "absolute_coefficient_sum": 0.9169050125947361,
+                "absolute_coefficient_share": 0.1694434787674612,
+                "contribution_norm_sum": 3.275861681718053
+              },
+              "question": {
+                "beta_mean": 0.7937237973566409,
+                "coefficient_sum": -1.5726443009994793,
+                "absolute_coefficient_sum": 2.3954549619828422,
+                "absolute_coefficient_share": 0.4426785941986675,
+                "contribution_norm_sum": 10.121700447026223
+              },
+              "assistant_header": {
+                "beta_mean": 0.7773945391178131,
+                "coefficient_sum": -1.5284142136721615,
+                "absolute_coefficient_sum": 1.5284142136721615,
+                "absolute_coefficient_share": 0.2824500006051462,
+                "contribution_norm_sum": 7.140799093383669
+              }
+            },
+            "memory_gain": 0.016618546098470688,
+            "final_residual_to_base_norm": 0.4074157269202454,
+            "full_prompt_logit_max_difference": 0.0,
+            "full_prompt_state_max_difference": 0.0,
+            "max_memory_reconstruction_error": 0.0,
+            "max_logit_reconstruction_error": 0.0,
+            "read_reconstruction_error": 6.24515162250816e-07
+          },
+          {
+            "id": "train-0000-Bom-1",
+            "group": "train-0000",
+            "assignment": 1,
+            "query_entity": "Bom",
+            "regions": {
+              "bos": {
+                "beta_mean": 0.4488014578819275,
+                "coefficient_sum": -0.006936882617316982,
+                "absolute_coefficient_sum": 0.006936882617316982,
+                "absolute_coefficient_share": 0.001271513041446687,
+                "contribution_norm_sum": 0.012904026227121243
+              },
+              "user_header": {
+                "beta_mean": 0.4129503220319748,
+                "coefficient_sum": -0.004135751628055965,
+                "absolute_coefficient_sum": 0.0978165296160576,
+                "absolute_coefficient_share": 0.017929522515688544,
+                "contribution_norm_sum": 0.20262371075977031
+              },
+              "fact_1": {
+                "beta_mean": 0.683742319047451,
+                "coefficient_sum": 0.35999673946828553,
+                "absolute_coefficient_sum": 0.44065313059758554,
+                "absolute_coefficient_share": 0.08077060449465254,
+                "contribution_norm_sum": 1.523005308195948
+              },
+              "fact_2": {
+                "beta_mean": 0.7094720971016657,
+                "coefficient_sum": -0.2690610802560083,
+                "absolute_coefficient_sum": 0.910179170819846,
+                "absolute_coefficient_share": 0.16683354030836742,
+                "contribution_norm_sum": 3.2652423240643214
+              },
+              "question": {
+                "beta_mean": 0.7909540578171059,
+                "coefficient_sum": -1.5630409148313906,
+                "absolute_coefficient_sum": 2.4864186857994155,
+                "absolute_coefficient_share": 0.455754257337208,
+                "contribution_norm_sum": 10.556396772479895
+              },
+              "assistant_header": {
+                "beta_mean": 0.7640518188476563,
+                "coefficient_sum": -1.5136082377779578,
+                "absolute_coefficient_sum": 1.5136082377779578,
+                "absolute_coefficient_share": 0.2774405623026369,
+                "contribution_norm_sum": 7.019099152464606
+              }
+            },
+            "memory_gain": 0.016618546098470688,
+            "final_residual_to_base_norm": 0.4086575748974987,
+            "full_prompt_logit_max_difference": 0.0,
+            "full_prompt_state_max_difference": 0.0,
+            "max_memory_reconstruction_error": 0.0,
+            "max_logit_reconstruction_error": 0.0,
+            "read_reconstruction_error": 4.632755077338402e-07
+          }
+        ],
+        "query_swaps": [
+          {
+            "ids": [
+              "train-0000-Bon-0",
+              "train-0000-Bom-0"
+            ],
+            "queries_cosine": 0.999923436636125,
+            "queries_l2_difference": 0.012374437055948474,
+            "last_recalled_cosine": 0.9997257470378943,
+            "last_recalled_l2_difference": 0.38136477347671943
+          },
+          {
+            "ids": [
+              "train-0000-Bon-1",
+              "train-0000-Bom-1"
+            ],
+            "queries_cosine": 0.9999123628338243,
+            "queries_l2_difference": 0.013239119724946546,
+            "last_recalled_cosine": 0.9997166868879149,
+            "last_recalled_l2_difference": 0.36459982908905136
+          }
+        ]
+      },
+      "ablation": {
+        "on": {
+          "training": {
+            "questions": 16,
+            "pairs": 8,
+            "binding_groups": 4,
+            "accuracy": 0.5,
+            "pair_accuracy": 0.125,
+            "binding_group_accuracy": 0.0,
+            "query_flip_fraction": 0.25,
+            "correct_query_pair_fraction": 0.125,
+            "context_flip_fraction": 0.25,
+            "both_wrong_pair_fraction": 0.125
+          },
+          "answer_training_loss": 0.11896240711212158,
+          "english_development_loss": 1.3639141605770395,
+          "mean_correct_minus_wrong_margin": 5.158036947250366e-05
+        },
+        "off": {
+          "training": {
+            "questions": 16,
+            "pairs": 8,
+            "binding_groups": 4,
+            "accuracy": 0.5,
+            "pair_accuracy": 0.0,
+            "binding_group_accuracy": 0.0,
+            "query_flip_fraction": 0.0,
+            "correct_query_pair_fraction": 0.0,
+            "context_flip_fraction": 0.0,
+            "both_wrong_pair_fraction": 0.0
+          },
+          "answer_training_loss": 0.3070339659849803,
+          "english_development_loss": 1.3662501449921536,
+          "mean_correct_minus_wrong_margin": -8.17691907286644e-05
+        },
+        "prediction_flips": 2
+      }
+    }
+  }
+}

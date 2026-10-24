@@ -1,0 +1,24 @@
+{
+  "checks": {
+    "initial_parameters_sha256": true,
+    "initial_optimizer_step": true,
+    "group_ids": true,
+    "update_group_ids": true,
+    "counters": true,
+    "final": true,
+    "initial": true,
+    "english_stream": true,
+    "parameter_delta_l2_by_role": true,
+    "all_params_and_moments_bitwise_equal": true,
+    "english_carry_equal": true,
+    "actual_final_step": true,
+    "new_seed_policy": true
+  },
+  "budget_per_driver": {
+    "qa": 8,
+    "english": 8
+  },
+  "legacy_driver_sha256": "e6da7ab1c1e88edfeaf890d051523be8f48b8654f290ef21e09c416b28c75a83",
+  "source_sha256": "39eb75caf320bddb7414844d7172373b13b247bb10ebea22c881270b522963d8",
+  "limit": "Eight QA/replay pairs verify default compatibility, not full endpoint replication."
+}

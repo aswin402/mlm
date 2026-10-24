@@ -1,0 +1,30 @@
+{
+  "sizes": [
+    16
+  ],
+  "steps": 2000,
+  "presentations_per_group": 125,
+  "learning_rate": 0.003,
+  "seed": 42,
+  "rehearsal": false,
+  "selection": "none; fixed endpoint; development-only",
+  "comparison": "existing 16-group/500-update and 4-group/500-update trials; extra compute explicitly counted",
+  "sha256": {
+    "exposure-plan.md": "8cdbe177dcd23cb03eadc25ade4d2e82beb8d5b7d28cb9cc09c9bcab6e83239d",
+    "src/mlm/acquisition_run.py": "2bdfc2df295100e0f41d9c6ad69888cc66676083e89b90fc2e69ac31d4f3f9fe",
+    "src/mlm/model.py": "ae4b18e5dbad9d985996a544306d4dcb7d58ba86cf46cfb8704737c9d2856783",
+    "src/mlm/hierarchy_run.py": "0fb49003ce9338d5845090ac122b4915cb8691dc32309cce8eb14cc9b269d677",
+    "src/mlm/binding_run.py": "9549ad43bc3ad841b2dc61fb73b982fa2d6fa84e1e9ff1beabe0a98833bc6850",
+    "configs/acquisition-dense.json": "34d0c46d3fbdaa4372c6e9b33f7793cf61ab3d56edf6f59425c7896ce48f3cf7",
+    "runs/scratch-english-dense-v1/best.mlm": "dfae9accdc256aa890b195d704eee166f1878416b1dcfd06d4f5cac411dde4a2",
+    "runs/acquisition-dense-v1/summary.json": "fd56d1252d3a968a393553d0339edc34f55e317fee9138dc4d1496a9ed0dba34",
+    "configs/acquisition-hierarchical.json": "bdc66ad999636e083d18ada550dcf0bc54e51fa36c30c87a02bad6ae9782ae1a",
+    "runs/scratch-english-hierarchical-v1/best.mlm": "3a398daafee2e068f9bdb5868bde977120cc76aab1ee9ee5f4b32c649f527311",
+    "runs/acquisition-hierarchical-v1/summary.json": "02e72a2c52cc6c821a7916b738c7b0ff073b7800cb0c9a80a3eedb9434314e8f",
+    "data/scratch-binding-v1/train.jsonl": "4a089b1c173dbe8cdf54554232d3b02e0afa8100ff2fb61a74a1e6f338a8db21",
+    "data/scratch-binding-v1/train-questions.json": "dc26af607685cfb3a0d6c3f256a27660d8b62d1889fe9ce2512a00614b5b4432",
+    "data/scratch-binding-v1/validation.jsonl": "ba72ca51ead7f704d7dd9a7bf4a837cc6e3fea35955f419d4666a71f3e4391bf",
+    "data/scratch-binding-v1/validation-questions.json": "1f404914aefdc47cb50de6bf6468f9f9856f9c7591974e5ef1a22d869266d5b8",
+    "data/hf/stories/validation.jsonl": "ebbb289dd01d26521b15346246aff449d35da4dbf5e267c3d43203b1650072b4"
+  }
+}

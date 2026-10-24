@@ -1,0 +1,13 @@
+{
+  "full_regression": {
+    "passed": 68,
+    "seconds": 178.86
+  },
+  "targeted": {
+    "passed": 16,
+    "seconds": 69.22
+  },
+  "static": "Ruff+format+ty passed",
+  "review": "three test gaps addressed; none unresolved",
+  "numerics": "eager zero gate bitwise equal; packed scan logits within1e-6; real source English loss diff7.01e-9"
+}

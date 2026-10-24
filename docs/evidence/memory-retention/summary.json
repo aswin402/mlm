@@ -1,0 +1,35 @@
+{
+  "scope": "one-seed exploratory retention intervention; not a validated model upgrade",
+  "models": {
+    "graph": {
+      "best_step": 2000,
+      "best_development_loss": 0.27861336236856243,
+      "test_target_loss": 0.23005918247512563,
+      "story_test_loss": 1.8492693941204132,
+      "individual_accuracy": 0.515625,
+      "complete_pair_accuracy": 0.296875,
+      "answer_flip_fraction": 0.5625,
+      "pairs_both_correct": 19,
+      "pairs_both_wrong": 17,
+      "pairs_one_correct": 28,
+      "original_individual_accuracy": 0.625,
+      "original_pair_accuracy": 0.25,
+      "greedy_first16_accuracy": 0.375
+    },
+    "gru": {
+      "best_step": 500,
+      "best_development_loss": 0.4011772706967975,
+      "test_target_loss": 0.281643820238543,
+      "story_test_loss": 1.855627999432984,
+      "individual_accuracy": 0.484375,
+      "complete_pair_accuracy": 0.03125,
+      "answer_flip_fraction": 0.09375,
+      "pairs_both_correct": 2,
+      "pairs_both_wrong": 4,
+      "pairs_one_correct": 58,
+      "original_individual_accuracy": 0.5833333333333334,
+      "original_pair_accuracy": 0.16666666666666666,
+      "greedy_first16_accuracy": 0.3125
+    }
+  }
+}

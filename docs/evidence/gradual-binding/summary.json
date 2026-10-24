@@ -1,0 +1,302 @@
+{
+  "scope": "one-seed controlled binding; limited transfer, structural split imbalance, no English upgrade",
+  "source": {
+    "cells": {
+      "familiar-names-new-pairs": {
+        "questions": 192,
+        "pairs": 96,
+        "binding_groups": 48,
+        "accuracy": 0.4947916666666667,
+        "pair_accuracy": 0.041666666666666664,
+        "binding_group_accuracy": 0.0,
+        "query_flip_fraction": 0.09375,
+        "correct_query_pair_fraction": 0.041666666666666664,
+        "context_flip_fraction": 0.09375,
+        "both_wrong_pair_fraction": 0.052083333333333336
+      },
+      "new-names": {
+        "questions": 192,
+        "pairs": 96,
+        "binding_groups": 48,
+        "accuracy": 0.4947916666666667,
+        "pair_accuracy": 0.052083333333333336,
+        "binding_group_accuracy": 0.0,
+        "query_flip_fraction": 0.09375,
+        "correct_query_pair_fraction": 0.041666666666666664,
+        "context_flip_fraction": 0.11458333333333333,
+        "both_wrong_pair_fraction": 0.0625
+      }
+    },
+    "order_robust": {
+      "familiar-names-new-pairs": {
+        "cases": 24,
+        "all_correct": 0,
+        "accuracy": 0.0,
+        "correct_count_histogram": {
+          "3": 1,
+          "4": 23
+        },
+        "definition": "all eight assignment/query/fact-order conditions correct"
+      },
+      "new-names": {
+        "cases": 24,
+        "all_correct": 0,
+        "accuracy": 0.0,
+        "correct_count_histogram": {
+          "3": 1,
+          "4": 23
+        },
+        "definition": "all eight assignment/query/fact-order conditions correct"
+      }
+    },
+    "raw_greedy_accuracy": 0.625
+  },
+  "arms": {
+    "curriculum": {
+      "budget": {
+        "strategy": "curriculum",
+        "steps": 3000,
+        "best_step": 2500,
+        "best_development_group_accuracy": 0.20833333333333334,
+        "best_development_target_loss": 0.17227455166478953,
+        "consumed_payload_bytes": 1164000,
+        "supervised_payload_bytes": 60000,
+        "training_seconds": 351.4585846319969,
+        "parameters": 366722
+      },
+      "selected_active_groups": 32,
+      "selected_training": {
+        "questions": 128,
+        "pairs": 64,
+        "binding_groups": 32,
+        "accuracy": 0.96875,
+        "pair_accuracy": 0.9375,
+        "binding_group_accuracy": 0.90625,
+        "query_flip_fraction": 0.9375,
+        "correct_query_pair_fraction": 0.9375,
+        "context_flip_fraction": 0.9375,
+        "both_wrong_pair_fraction": 0.0
+      },
+      "selected_development": {
+        "familiar-names-new-pairs": {
+          "questions": 192,
+          "pairs": 96,
+          "binding_groups": 48,
+          "accuracy": 0.4947916666666667,
+          "pair_accuracy": 0.16666666666666666,
+          "binding_group_accuracy": 0.0,
+          "query_flip_fraction": 0.13541666666666666,
+          "correct_query_pair_fraction": 0.0625,
+          "context_flip_fraction": 0.34375,
+          "both_wrong_pair_fraction": 0.17708333333333334
+        },
+        "new-names": {
+          "questions": 192,
+          "pairs": 96,
+          "binding_groups": 48,
+          "accuracy": 0.734375,
+          "pair_accuracy": 0.59375,
+          "binding_group_accuracy": 0.4166666666666667,
+          "query_flip_fraction": 0.5520833333333334,
+          "correct_query_pair_fraction": 0.5104166666666666,
+          "context_flip_fraction": 0.71875,
+          "both_wrong_pair_fraction": 0.125
+        }
+      },
+      "selected_story_loss": 12.834513957197684,
+      "source_story_loss": 4.7437155072927775,
+      "final_story_loss": 13.096500734947242,
+      "test_target_loss": 0.07464935216638777,
+      "test": {
+        "questions": 384,
+        "pairs": 192,
+        "binding_groups": 96,
+        "accuracy": 0.8020833333333334,
+        "pair_accuracy": 0.6666666666666666,
+        "binding_group_accuracy": 0.5416666666666666,
+        "query_flip_fraction": 0.7395833333333334,
+        "correct_query_pair_fraction": 0.671875,
+        "context_flip_fraction": 0.7291666666666666,
+        "both_wrong_pair_fraction": 0.0625
+      },
+      "cells": {
+        "familiar-names-new-pairs": {
+          "questions": 192,
+          "pairs": 96,
+          "binding_groups": 48,
+          "accuracy": 0.96875,
+          "pair_accuracy": 0.9375,
+          "binding_group_accuracy": 0.875,
+          "query_flip_fraction": 0.9375,
+          "correct_query_pair_fraction": 0.9375,
+          "context_flip_fraction": 0.9375,
+          "both_wrong_pair_fraction": 0.0
+        },
+        "new-names": {
+          "questions": 192,
+          "pairs": 96,
+          "binding_groups": 48,
+          "accuracy": 0.6354166666666666,
+          "pair_accuracy": 0.3958333333333333,
+          "binding_group_accuracy": 0.20833333333333334,
+          "query_flip_fraction": 0.5416666666666666,
+          "correct_query_pair_fraction": 0.40625,
+          "context_flip_fraction": 0.5208333333333334,
+          "both_wrong_pair_fraction": 0.125
+        }
+      },
+      "order_robust": {
+        "familiar-names-new-pairs": {
+          "cases": 24,
+          "all_correct": 18,
+          "accuracy": 0.75,
+          "correct_count_histogram": {
+            "7": 6,
+            "8": 18
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        },
+        "new-names": {
+          "cases": 24,
+          "all_correct": 1,
+          "accuracy": 0.041666666666666664,
+          "correct_count_histogram": {
+            "3": 2,
+            "4": 9,
+            "5": 3,
+            "6": 6,
+            "7": 3,
+            "8": 1
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        }
+      },
+      "raw_greedy_accuracy": 0.875,
+      "raw_greedy_samples": 8
+    },
+    "flat": {
+      "budget": {
+        "strategy": "flat",
+        "steps": 3000,
+        "best_step": 2000,
+        "best_development_group_accuracy": 0.53125,
+        "best_development_target_loss": 0.11812340219815572,
+        "consumed_payload_bytes": 1164000,
+        "supervised_payload_bytes": 60000,
+        "training_seconds": 358.3974067379968,
+        "parameters": 366722
+      },
+      "selected_active_groups": 64,
+      "selected_training": {
+        "questions": 256,
+        "pairs": 128,
+        "binding_groups": 64,
+        "accuracy": 1.0,
+        "pair_accuracy": 1.0,
+        "binding_group_accuracy": 1.0,
+        "query_flip_fraction": 1.0,
+        "correct_query_pair_fraction": 1.0,
+        "context_flip_fraction": 1.0,
+        "both_wrong_pair_fraction": 0.0
+      },
+      "selected_development": {
+        "familiar-names-new-pairs": {
+          "questions": 192,
+          "pairs": 96,
+          "binding_groups": 48,
+          "accuracy": 0.75,
+          "pair_accuracy": 0.6666666666666666,
+          "binding_group_accuracy": 0.4583333333333333,
+          "query_flip_fraction": 0.5,
+          "correct_query_pair_fraction": 0.5,
+          "context_flip_fraction": 0.8333333333333334,
+          "both_wrong_pair_fraction": 0.16666666666666666
+        },
+        "new-names": {
+          "questions": 192,
+          "pairs": 96,
+          "binding_groups": 48,
+          "accuracy": 0.8489583333333334,
+          "pair_accuracy": 0.71875,
+          "binding_group_accuracy": 0.6041666666666666,
+          "query_flip_fraction": 0.71875,
+          "correct_query_pair_fraction": 0.7083333333333334,
+          "context_flip_fraction": 0.7395833333333334,
+          "both_wrong_pair_fraction": 0.020833333333333332
+        }
+      },
+      "selected_story_loss": 10.170838844043773,
+      "source_story_loss": 4.7437155072927775,
+      "final_story_loss": 11.69748002287523,
+      "test_target_loss": 0.1146065214027961,
+      "test": {
+        "questions": 384,
+        "pairs": 192,
+        "binding_groups": 96,
+        "accuracy": 0.7682291666666666,
+        "pair_accuracy": 0.65625,
+        "binding_group_accuracy": 0.4583333333333333,
+        "query_flip_fraction": 0.5572916666666666,
+        "correct_query_pair_fraction": 0.546875,
+        "context_flip_fraction": 0.7760416666666666,
+        "both_wrong_pair_fraction": 0.11979166666666667
+      },
+      "cells": {
+        "familiar-names-new-pairs": {
+          "questions": 192,
+          "pairs": 96,
+          "binding_groups": 48,
+          "accuracy": 0.7552083333333334,
+          "pair_accuracy": 0.65625,
+          "binding_group_accuracy": 0.4791666666666667,
+          "query_flip_fraction": 0.53125,
+          "correct_query_pair_fraction": 0.5208333333333334,
+          "context_flip_fraction": 0.8020833333333334,
+          "both_wrong_pair_fraction": 0.14583333333333334
+        },
+        "new-names": {
+          "questions": 192,
+          "pairs": 96,
+          "binding_groups": 48,
+          "accuracy": 0.78125,
+          "pair_accuracy": 0.65625,
+          "binding_group_accuracy": 0.4375,
+          "query_flip_fraction": 0.5833333333333334,
+          "correct_query_pair_fraction": 0.5729166666666666,
+          "context_flip_fraction": 0.75,
+          "both_wrong_pair_fraction": 0.09375
+        }
+      },
+      "order_robust": {
+        "familiar-names-new-pairs": {
+          "cases": 24,
+          "all_correct": 11,
+          "accuracy": 0.4583333333333333,
+          "correct_count_histogram": {
+            "4": 10,
+            "5": 2,
+            "7": 1,
+            "8": 11
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        },
+        "new-names": {
+          "cases": 24,
+          "all_correct": 9,
+          "accuracy": 0.375,
+          "correct_count_histogram": {
+            "3": 1,
+            "4": 4,
+            "5": 3,
+            "6": 5,
+            "7": 2,
+            "8": 9
+          },
+          "definition": "all eight assignment/query/fact-order conditions correct"
+        }
+      },
+      "raw_greedy_accuracy": 0.75,
+      "raw_greedy_samples": 8
+    }
+  }
+}

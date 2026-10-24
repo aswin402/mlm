@@ -1,0 +1,53 @@
+{
+  "current": {
+    "python": "3.12.3",
+    "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.43",
+    "devices": [
+      "cpu:0"
+    ],
+    "versions": {
+      "jax": "0.12.0.1",
+      "flax": "0.12.10",
+      "optax": "0.2.8"
+    },
+    "source_sha256": "107bd800f1d16987cb001bf4f260e6916fee3428940cb006f51c657cac824a40"
+  },
+  "current_numerical_settings": {
+    "jax_enable_x64": "False",
+    "jax_default_matmul_precision": "None",
+    "jax_disable_jit": "False"
+  },
+  "current_execution_environment": {
+    "JAX_ENABLE_X64": null,
+    "JAX_DEFAULT_MATMUL_PRECISION": null,
+    "JAX_PLATFORMS": null,
+    "JAX_PLATFORM_NAME": null,
+    "XLA_FLAGS": null,
+    "OMP_NUM_THREADS": null,
+    "OPENBLAS_NUM_THREADS": null,
+    "MKL_NUM_THREADS": null
+  },
+  "legacy_source_digest": "eaa19f97bfc86e72a980377fd17bcbdcf0bc57de352b1a83ec516d2544bbc62c",
+  "checks": {
+    "runs/addressing-exposure-delta-g4-v1/environment.json:software_backend": true,
+    "runs/addressing-exposure-delta-g4-v1/environment.json:only_driver_source_change": true,
+    "runs/addressing-factorial-i42-s43-v1/environment.json:software_backend": true,
+    "runs/addressing-factorial-i42-s43-v1/environment.json:only_driver_source_change": true,
+    "only_authorized_driver_and_test_changed": true,
+    "src/mlm/plasticity_run.py:legacy_preserved": true,
+    "tests/test_plasticity.py:legacy_preserved": true,
+    "source_module_set_unchanged": true,
+    "known_historical_flags_match": true
+  },
+  "intentional_source_changes": {
+    "src/mlm/plasticity_run.py": {
+      "old": "e6da7ab1c1e88edfeaf890d051523be8f48b8654f290ef21e09c416b28c75a83",
+      "new": "cbdd84b423330f45e16ba8462950c5542cd353301ab96394698c9a518215776d"
+    },
+    "tests/test_plasticity.py": {
+      "old": "2eba43f99ac4f8244ad1e39b91428979c3a2474c81202d626f555e9f75808094",
+      "new": "37409b72502743964b9876e937af0c3ab12b612feb389b74502aba2290a6d773"
+    }
+  },
+  "limit": "QA42/English43 historical numerical flags were not recorded; source version differs only in reviewed sampler controls and metadata."
+}

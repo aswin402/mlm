@@ -1,0 +1,14 @@
+{
+  "red": "qa_override integration failed on actual QAtrace before implementation",
+  "targeted": "9 passed in59.02s",
+  "full": "75 passed in234.90s",
+  "legacy_compatibility": "13 actual old/new-default checks; params and Adam moments bitwise equal after8QA+8English each",
+  "source_environment": "9 checks; only intentionaldriver/test changes; historicaloldQA42/E43flagsmissing",
+  "review": "code/protocolscripts no material findings; final frozen protocol mapping pending",
+  "prelaunch_review": "115 frozen hashes/mappings/threshold/budgets independently verified",
+  "execution": "Both new crossed trials exited0",
+  "endpoint_audit": "219 input/endpoint checks passed",
+  "result": "E43 fits4/4 both QAorders;E44 fits0/4;developmentgroups0/2 throughout",
+  "final_review": "No material errors/overclaims;219checks,contrasts,counters,checkpoint hashes verified independently",
+  "final_integrity": "118checks passed; historical artifacts/data preserved; only intentional driver/test changes archived"
+}

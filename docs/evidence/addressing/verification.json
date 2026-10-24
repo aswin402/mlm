@@ -1,0 +1,6 @@
+{
+  "pytest": "71 passed in 185.74s",
+  "ruff": "new helper/tests/runner passed",
+  "ty": "helper/tests passed",
+  "review": "helper no material issues; runner review requested projected region contributions; separate postprocessor added without changing frozen recipe"
+}

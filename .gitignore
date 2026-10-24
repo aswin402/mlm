@@ -1,0 +1,28 @@
+# Local environments and tooling
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.ty_cache/
+*.egg-info/
+
+# Local training outputs and large evidence
+/runs/
+/results/
+*.mlm
+*.npy
+*.npz
+
+# Generated/downloaded data; publish only original lightweight fixtures
+/data/*
+!/data/smoke/
+!/data/evaluation/
+
+# Packaging and local settings
+/dist/
+/build/
+.env
+.env.*
+!.env.example
+.DS_Store

@@ -1,0 +1,10 @@
+{
+  "nodes": 8,
+  "width": 32,
+  "degree": 2,
+  "rounds": 1,
+  "batch_size": 4,
+  "length": 64,
+  "learning_rate": 0.003,
+  "seed": 42
+}

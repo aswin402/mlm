@@ -1,0 +1,105 @@
+{
+  "seed": 42,
+  "updates_each": 2000,
+  "validation_interval": 250,
+  "batch": "one complete four-question group per update",
+  "selection": [
+    "maximum development complete-group accuracy",
+    "minimum development target loss",
+    "earlier step on exact ties"
+  ],
+  "unroll": 128,
+  "rehearsal": false,
+  "fallback_trigger": "both graph and GRU development complete-group accuracy below 0.90",
+  "fallback": "one state-conditioned additive node readout variant, zero initial score vector, same data/source/budget",
+  "test_policy": "lock all selected checkpoints before test scoring; no tuning after test",
+  "data": {
+    "version": 1,
+    "seed": 91827,
+    "names": {
+      "train": [
+        "Ada",
+        "Ben",
+        "Cal",
+        "Dan",
+        "Eli",
+        "Fay",
+        "Gus",
+        "Hal",
+        "Ian",
+        "Jan",
+        "Kim",
+        "Lou",
+        "Max",
+        "Ned",
+        "Ora",
+        "Pam"
+      ],
+      "validation": [
+        "Ira",
+        "Jen",
+        "Kit",
+        "Lee",
+        "Moe",
+        "Neo",
+        "Ona",
+        "Pip"
+      ],
+      "test": [
+        "Ida",
+        "Jay",
+        "Kay",
+        "Len",
+        "Mel",
+        "Nia",
+        "Oli",
+        "Pat"
+      ]
+    },
+    "colors": [
+      "blue",
+      "gold",
+      "lime",
+      "pink"
+    ],
+    "rehearsal": false,
+    "group_batch_size": 4,
+    "unroll": 128,
+    "limits": "Shared grammar, disjoint task names; not globally unseen names.",
+    "splits": {
+      "train": {
+        "documents": 960,
+        "groups": 240,
+        "entity_pairs": 120,
+        "maximum_input_bytes": 98
+      },
+      "validation": {
+        "documents": 224,
+        "groups": 56,
+        "entity_pairs": 28,
+        "maximum_input_bytes": 98
+      },
+      "test": {
+        "documents": 224,
+        "groups": 56,
+        "entity_pairs": 28,
+        "maximum_input_bytes": 98
+      }
+    },
+    "sha256": {
+      "test-questions.json": "ec027449266658cb7be74edf5bf8b7966f877900019b23092f2f2017c7022a9d",
+      "test.jsonl": "3afbf2e31e73536c12da10ea9f5df4241a8ec31a5fe577dfaad2d56715d2a556",
+      "train-questions.json": "7b7daf7ca17420906a4c0869619158b2f2eeca1e5d5fed542161e2ffeb89170f",
+      "train.jsonl": "9789be983d95a8685c1601492439e91eaa9ef3b4cf9f54182ff1080d7755a745",
+      "validation-questions.json": "4150b9f7dc58dc83112c9f92c17b3c8891ab0f2243c9f58ecb29b9c9174b52be",
+      "validation.jsonl": "f913263078bd012801d71b4c6277222e10a1f418f44e360c0902528b17ceaf6f"
+    }
+  },
+  "sha256": {
+    "data/binding-v1/manifest.json": "73ddedee608ff5cdc389ad0d838ece8392b86266a2b4789bc4c3c0d14af28519",
+    "configs/binding-graph.json": "f9172ba890fca849fdd3867202bf5164a2e969d1727a8fe3b18142efa80e6ebc",
+    "configs/binding-gru.json": "abdb13b8e0c9f46b41edf572babe24513cb96de00bfe277ac68e1486188ef6d7",
+    "runs/retrieval-basic-graph-v1/best.mlm": "37814db9560528fc6b9f756649d38d1e55941d9eaa9afb573403e82488aa7083",
+    "runs/retrieval-basic-gru-v1/best.mlm": "579a1d3e4739a2db15c32cdb576d3e773e6c9ada51eda95871c13cab9520a11f"
+  }
+}

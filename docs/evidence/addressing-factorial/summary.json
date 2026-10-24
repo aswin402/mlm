@@ -1,0 +1,357 @@
+{
+  "cells": {
+    "i42-s42": {
+      "initialization_seed": 42,
+      "schedule_seed": 42,
+      "run": "runs/addressing-exposure-delta-g4-v1",
+      "kind": "historical_diagonal",
+      "final": {
+        "training": {
+          "questions": 16,
+          "pairs": 8,
+          "binding_groups": 4,
+          "accuracy": 1.0,
+          "pair_accuracy": 1.0,
+          "binding_group_accuracy": 1.0,
+          "query_flip_fraction": 1.0,
+          "correct_query_pair_fraction": 1.0,
+          "context_flip_fraction": 1.0,
+          "both_wrong_pair_fraction": 0.0
+        },
+        "development": {
+          "questions": 8,
+          "pairs": 4,
+          "binding_groups": 2,
+          "accuracy": 0.5,
+          "pair_accuracy": 0.25,
+          "binding_group_accuracy": 0.0,
+          "query_flip_fraction": 0.5,
+          "correct_query_pair_fraction": 0.25,
+          "context_flip_fraction": 0.5,
+          "both_wrong_pair_fraction": 0.25
+        },
+        "development_order_robust": {
+          "familiar-names-new-pairs/base": {
+            "cases": 1,
+            "all_correct": 0,
+            "accuracy": 0.0,
+            "correct_count_histogram": {
+              "4": 1
+            },
+            "definition": "all eight assignment/query/fact-order conditions correct"
+          }
+        },
+        "qa_development_loss": 0.510359525680542,
+        "english_development_loss": 1.286896403629844,
+        "fixed_training_raw_samples": [
+          {
+            "id": "train-0000-Bon-0",
+            "prompt": "<|user|>\nBon's color is gold. Bom's color is lime.\nWhat color belongs to Bon?\n<|assistant|>\n",
+            "raw": "gold\n",
+            "expected": "gold"
+          },
+          {
+            "id": "train-0000-Bom-0",
+            "prompt": "<|user|>\nBon's color is gold. Bom's color is lime.\nWhat color belongs to Bom?\n<|assistant|>\n",
+            "raw": "lime\n",
+            "expected": "lime"
+          },
+          {
+            "id": "train-0000-Bon-1",
+            "prompt": "<|user|>\nBon's color is lime. Bom's color is gold.\nWhat color belongs to Bon?\n<|assistant|>\n",
+            "raw": "lime\n",
+            "expected": "lime"
+          },
+          {
+            "id": "train-0000-Bom-1",
+            "prompt": "<|user|>\nBon's color is lime. Bom's color is gold.\nWhat color belongs to Bom?\n<|assistant|>\n",
+            "raw": "gold\n",
+            "expected": "gold"
+          }
+        ]
+      },
+      "acquisition_pass": true,
+      "retention_pass": true,
+      "raw_correct": 4,
+      "raw_count": 4,
+      "group_presentations": {
+        "train-0003": 500,
+        "train-0002": 500,
+        "train-0001": 500,
+        "train-0000": 500
+      },
+      "final_checkpoint_sha256": "7a0fbd05b822c35a69ed690c901f5f924a112d118ea76e67ee0f3927f538dd5a",
+      "source_sha256": "3a398daafee2e068f9bdb5868bde977120cc76aab1ee9ee5f4b32c649f527311"
+    },
+    "i43-s43": {
+      "initialization_seed": 43,
+      "schedule_seed": 43,
+      "run": "runs/addressing-replication-delta-s43-v1",
+      "kind": "historical_diagonal",
+      "final": {
+        "training": {
+          "questions": 16,
+          "pairs": 8,
+          "binding_groups": 4,
+          "accuracy": 0.5,
+          "pair_accuracy": 0.0,
+          "binding_group_accuracy": 0.0,
+          "query_flip_fraction": 0.0,
+          "correct_query_pair_fraction": 0.0,
+          "context_flip_fraction": 0.0,
+          "both_wrong_pair_fraction": 0.0
+        },
+        "development": {
+          "questions": 8,
+          "pairs": 4,
+          "binding_groups": 2,
+          "accuracy": 0.5,
+          "pair_accuracy": 0.25,
+          "binding_group_accuracy": 0.0,
+          "query_flip_fraction": 0.0,
+          "correct_query_pair_fraction": 0.0,
+          "context_flip_fraction": 0.5,
+          "both_wrong_pair_fraction": 0.25
+        },
+        "development_order_robust": {
+          "familiar-names-new-pairs/base": {
+            "cases": 1,
+            "all_correct": 0,
+            "accuracy": 0.0,
+            "correct_count_histogram": {
+              "4": 1
+            },
+            "definition": "all eight assignment/query/fact-order conditions correct"
+          }
+        },
+        "qa_development_loss": 0.40457292397816974,
+        "english_development_loss": 1.2644877277979227,
+        "fixed_training_raw_samples": [
+          {
+            "id": "train-0000-Bon-0",
+            "prompt": "<|user|>\nBon's color is gold. Bom's color is lime.\nWhat color belongs to Bon?\n<|assistant|>\n",
+            "raw": "lime\n",
+            "expected": "gold"
+          },
+          {
+            "id": "train-0000-Bom-0",
+            "prompt": "<|user|>\nBon's color is gold. Bom's color is lime.\nWhat color belongs to Bom?\n<|assistant|>\n",
+            "raw": "lime\n",
+            "expected": "lime"
+          },
+          {
+            "id": "train-0000-Bon-1",
+            "prompt": "<|user|>\nBon's color is lime. Bom's color is gold.\nWhat color belongs to Bon?\n<|assistant|>\n",
+            "raw": "lime\n",
+            "expected": "lime"
+          },
+          {
+            "id": "train-0000-Bom-1",
+            "prompt": "<|user|>\nBon's color is lime. Bom's color is gold.\nWhat color belongs to Bom?\n<|assistant|>\n",
+            "raw": "lime\n",
+            "expected": "gold"
+          }
+        ]
+      },
+      "acquisition_pass": false,
+      "retention_pass": true,
+      "raw_correct": 2,
+      "raw_count": 4,
+      "group_presentations": {
+        "train-0001": 500,
+        "train-0002": 500,
+        "train-0000": 500,
+        "train-0003": 500
+      },
+      "final_checkpoint_sha256": "6a47005e3c7cd8c9d320db340aefd21cc7ea0650f0a8df4719ed1c2a305b8e6b",
+      "source_sha256": "3a398daafee2e068f9bdb5868bde977120cc76aab1ee9ee5f4b32c649f527311"
+    },
+    "i42-s43": {
+      "initialization_seed": 42,
+      "schedule_seed": 43,
+      "run": "runs/addressing-factorial-i42-s43-v1",
+      "kind": "new_cross",
+      "final": {
+        "training": {
+          "questions": 16,
+          "pairs": 8,
+          "binding_groups": 4,
+          "accuracy": 0.5,
+          "pair_accuracy": 0.0,
+          "binding_group_accuracy": 0.0,
+          "query_flip_fraction": 0.5,
+          "correct_query_pair_fraction": 0.25,
+          "context_flip_fraction": 0.0,
+          "both_wrong_pair_fraction": 0.0
+        },
+        "development": {
+          "questions": 8,
+          "pairs": 4,
+          "binding_groups": 2,
+          "accuracy": 0.5,
+          "pair_accuracy": 0.5,
+          "binding_group_accuracy": 0.0,
+          "query_flip_fraction": 0.0,
+          "correct_query_pair_fraction": 0.0,
+          "context_flip_fraction": 1.0,
+          "both_wrong_pair_fraction": 0.5
+        },
+        "development_order_robust": {
+          "familiar-names-new-pairs/base": {
+            "cases": 1,
+            "all_correct": 0,
+            "accuracy": 0.0,
+            "correct_count_histogram": {
+              "4": 1
+            },
+            "definition": "all eight assignment/query/fact-order conditions correct"
+          }
+        },
+        "qa_development_loss": 0.6671056548754374,
+        "english_development_loss": 1.2703909779957927,
+        "fixed_training_raw_samples": [
+          {
+            "id": "train-0000-Bon-0",
+            "prompt": "<|user|>\nBon's color is gold. Bom's color is lime.\nWhat color belongs to Bon?\n<|assistant|>\n",
+            "raw": "lime\n",
+            "expected": "gold"
+          },
+          {
+            "id": "train-0000-Bom-0",
+            "prompt": "<|user|>\nBon's color is gold. Bom's color is lime.\nWhat color belongs to Bom?\n<|assistant|>\n",
+            "raw": "gold\n",
+            "expected": "lime"
+          },
+          {
+            "id": "train-0000-Bon-1",
+            "prompt": "<|user|>\nBon's color is lime. Bom's color is gold.\nWhat color belongs to Bon?\n<|assistant|>\n",
+            "raw": "lime\n",
+            "expected": "lime"
+          },
+          {
+            "id": "train-0000-Bom-1",
+            "prompt": "<|user|>\nBon's color is lime. Bom's color is gold.\nWhat color belongs to Bom?\n<|assistant|>\n",
+            "raw": "gold\n",
+            "expected": "gold"
+          }
+        ]
+      },
+      "acquisition_pass": false,
+      "retention_pass": true,
+      "raw_correct": 2,
+      "raw_count": 4,
+      "group_presentations": {
+        "train-0001": 500,
+        "train-0002": 500,
+        "train-0000": 500,
+        "train-0003": 500
+      },
+      "final_checkpoint_sha256": "be467454e686d7eb6f5d8c202599bec8e5fd0dc9210e0069eec73da8cd070711",
+      "source_sha256": "39eb75caf320bddb7414844d7172373b13b247bb10ebea22c881270b522963d8"
+    },
+    "i43-s42": {
+      "initialization_seed": 43,
+      "schedule_seed": 42,
+      "run": "runs/addressing-factorial-i43-s42-v1",
+      "kind": "new_cross",
+      "final": {
+        "training": {
+          "questions": 16,
+          "pairs": 8,
+          "binding_groups": 4,
+          "accuracy": 1.0,
+          "pair_accuracy": 1.0,
+          "binding_group_accuracy": 1.0,
+          "query_flip_fraction": 1.0,
+          "correct_query_pair_fraction": 1.0,
+          "context_flip_fraction": 1.0,
+          "both_wrong_pair_fraction": 0.0
+        },
+        "development": {
+          "questions": 8,
+          "pairs": 4,
+          "binding_groups": 2,
+          "accuracy": 0.375,
+          "pair_accuracy": 0.0,
+          "binding_group_accuracy": 0.0,
+          "query_flip_fraction": 0.75,
+          "correct_query_pair_fraction": 0.25,
+          "context_flip_fraction": 0.25,
+          "both_wrong_pair_fraction": 0.25
+        },
+        "development_order_robust": {
+          "familiar-names-new-pairs/base": {
+            "cases": 1,
+            "all_correct": 0,
+            "accuracy": 0.0,
+            "correct_count_histogram": {
+              "3": 1
+            },
+            "definition": "all eight assignment/query/fact-order conditions correct"
+          }
+        },
+        "qa_development_loss": 0.5793209870656332,
+        "english_development_loss": 1.2859074151843004,
+        "fixed_training_raw_samples": [
+          {
+            "id": "train-0000-Bon-0",
+            "prompt": "<|user|>\nBon's color is gold. Bom's color is lime.\nWhat color belongs to Bon?\n<|assistant|>\n",
+            "raw": "gold\n",
+            "expected": "gold"
+          },
+          {
+            "id": "train-0000-Bom-0",
+            "prompt": "<|user|>\nBon's color is gold. Bom's color is lime.\nWhat color belongs to Bom?\n<|assistant|>\n",
+            "raw": "lime\n",
+            "expected": "lime"
+          },
+          {
+            "id": "train-0000-Bon-1",
+            "prompt": "<|user|>\nBon's color is lime. Bom's color is gold.\nWhat color belongs to Bon?\n<|assistant|>\n",
+            "raw": "lime\n",
+            "expected": "lime"
+          },
+          {
+            "id": "train-0000-Bom-1",
+            "prompt": "<|user|>\nBon's color is lime. Bom's color is gold.\nWhat color belongs to Bom?\n<|assistant|>\n",
+            "raw": "gold\n",
+            "expected": "gold"
+          }
+        ]
+      },
+      "acquisition_pass": true,
+      "retention_pass": true,
+      "raw_correct": 4,
+      "raw_count": 4,
+      "group_presentations": {
+        "train-0003": 500,
+        "train-0002": 500,
+        "train-0001": 500,
+        "train-0000": 500
+      },
+      "final_checkpoint_sha256": "08770bd4300a07839f76453c3d18a0db5d82fcff531330a52a11b2af4dbee522",
+      "source_sha256": "2fffd1daa50dccba0ce12a0bc993cbcdd6702a7b007f588666be48470e381ff1"
+    }
+  },
+  "descriptive_contrasts": {
+    "binding_group_accuracy": {
+      "init43_minus42_at_schedule42": 0.0,
+      "init43_minus42_at_schedule43": 0.0,
+      "schedule43_minus42_at_init42": -1.0,
+      "schedule43_minus42_at_init43": -1.0,
+      "average_init43_minus42": 0.0,
+      "average_schedule43_minus42": -1.0,
+      "interaction_difference_in_differences": 0.0
+    },
+    "accuracy": {
+      "init43_minus42_at_schedule42": 0.0,
+      "init43_minus42_at_schedule43": 0.0,
+      "schedule43_minus42_at_init42": -0.5,
+      "schedule43_minus42_at_init43": -0.5,
+      "average_init43_minus42": 0.0,
+      "average_schedule43_minus42": -0.5,
+      "interaction_difference_in_differences": 0.0
+    }
+  },
+  "scope": "post-hoc selected2x2 with historical diagonals; one run per cell; no universal causal effect or independent replication"
+}

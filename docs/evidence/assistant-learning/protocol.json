@@ -1,0 +1,42 @@
+{
+  "date": "2026-10-23",
+  "updates_each": 2000,
+  "seed": 42,
+  "selection": "minimum assistant-target development loss every 500 supervised updates",
+  "graph_init": "runs/english-v1/best.mlm",
+  "gru_init": "runs/baseline-gru/best.mlm",
+  "evaluation_format": "chat",
+  "test_questions": "test-questions.json",
+  "original_suite": "data/evaluation/reading-v1.json",
+  "data_manifest_sha256": "7405563abe38c781a25946193beec746dc2814de5e3e4804fc7e6ed4ac448b2b",
+  "notes": [
+    "Same unroll 256 and learning rate 0.0005 for both models.",
+    "The original reading suite never enters training or checkpoint selection.",
+    "Synthetic data uses offline label rules, not an inference solver.",
+    "QA records are repeated 8x explicitly.",
+    "Zero-target chunks advance state but do not count as optimizer updates."
+  ],
+  "graph_config": {
+    "nodes": 8,
+    "width": 64,
+    "degree": 2,
+    "rounds": 1,
+    "length": 256,
+    "batch_size": 4,
+    "learning_rate": 0.0005,
+    "seed": 42
+  },
+  "graph_init_sha256": "79f54921c29a315a6e5c41ae077ab4b716b940ba530071da1284d3bdee0ec2d3",
+  "gru_config": {
+    "nodes": 8,
+    "width": 208,
+    "degree": 2,
+    "rounds": 1,
+    "length": 256,
+    "batch_size": 4,
+    "learning_rate": 0.0005,
+    "seed": 42,
+    "architecture": "gru"
+  },
+  "gru_init_sha256": "8f230b45232d0d586ade1d4e1c2c0bcee12e9e8ce989abb5ef544c07319071be"
+}

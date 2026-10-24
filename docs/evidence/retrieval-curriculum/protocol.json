@@ -1,0 +1,127 @@
+{
+  "stages": [
+    {
+      "name": "basic",
+      "updates": 500,
+      "eval_every": 250
+    },
+    {
+      "name": "binding",
+      "updates": 1500,
+      "eval_every": 500
+    }
+  ],
+  "selection": "minimum stage-specific development target loss on global interval, including step zero",
+  "source_policy": "English-derived retention initialization, not prior reading-selected checkpoint",
+  "test_policy": "lock both final checkpoint hashes before evaluating test; no tuning after test",
+  "seed": 42,
+  "unroll": 384,
+  "batch_size": 4,
+  "learning_rate": 0.0005,
+  "data": {
+    "version": 1,
+    "seed": 27182,
+    "names": {
+      "train": [
+        "Ada",
+        "Ben",
+        "Cal",
+        "Dan",
+        "Eli",
+        "Fay",
+        "Gus",
+        "Hal",
+        "Ian",
+        "Jan",
+        "Kim",
+        "Lou",
+        "Max",
+        "Ned",
+        "Ora",
+        "Pam"
+      ],
+      "validation": [
+        "Ali",
+        "Bea",
+        "Cam",
+        "Don",
+        "Eva",
+        "Flo",
+        "Gil",
+        "Huw"
+      ],
+      "test": [
+        "Ari",
+        "Bob",
+        "Cyd",
+        "Dee",
+        "Eve",
+        "Fox",
+        "Guy",
+        "Han"
+      ]
+    },
+    "colors": [
+      "blue",
+      "gold",
+      "lime",
+      "pink"
+    ],
+    "grammar": "shared across splits to isolate binding rather than wording transfer",
+    "distractors": [
+      0,
+      1,
+      3
+    ],
+    "delay_bytes": [
+      0,
+      64,
+      128
+    ],
+    "unroll": 384,
+    "rehearsal_stories": 32,
+    "source_manifest_sha256": "4e787aa617f8b40069d9683dd5f14356e187b325c6a57c4a3a411de7ad24c90d",
+    "limits": "Synthetic task. Names disjoint within task, not necessarily in pretraining.",
+    "files": {
+      "basic-test-questions.json": "66f3efcb0c3458c17a3e12a1ea89ee0ac916eb3bdebf14413530b4471e8737e7",
+      "basic-test.jsonl": "dd290ebc381c16084063f6713366d578cd8445ce3a5a3a553418b3d930850f03",
+      "basic-train-questions.json": "00c948d3a165549b89f36da676a4611e73c7809f90e564e1a45b84009d59baca",
+      "basic-train.jsonl": "593e26e863326b5526836e8d859532fd0b142e60d5eb44859851249c13108e5c",
+      "basic-validation-questions.json": "99e38ba2b9676dfd79123b74501232ea70c82833e0b64883664c3cf9812a0ec0",
+      "basic-validation.jsonl": "18ba0024780b5b67faec16b304dc24f4c4722def94ddca08fa1c06ff8f6989d6",
+      "test-questions.json": "ed71d6ecb3671d41a8fdaa5f368b7d5480ae9b04227654073d2ecaa32111da02",
+      "test.jsonl": "b34baefc8144c4ed2d98dc0a1e6ee051e77689320dd42797bcf26cd994a503f2",
+      "train-questions.json": "6e861ee166f6a55775fc88066e582245f810c270d34e21f23aceee90160b9a98",
+      "train.jsonl": "b4424b97733165fad7d6c1cfbf09a78f9ef17860995ff14ad8379c58cefaa7d4",
+      "validation-questions.json": "f70e6ebae7b948f594024c8216f63b5198c9aceb8a30563cdb8721bfcd187e32",
+      "validation.jsonl": "ececd9bc11070380a6bc057b1b8770adc6ccfd1561d4ad04c0b269a48ffcde31"
+    },
+    "splits": {
+      "train": {
+        "synthetic_records": 960,
+        "basic_records": 64,
+        "binding_groups": 192,
+        "maximum_synthetic_bytes_with_bos": 268
+      },
+      "validation": {
+        "synthetic_records": 480,
+        "basic_records": 32,
+        "binding_groups": 96,
+        "maximum_synthetic_bytes_with_bos": 268
+      },
+      "test": {
+        "synthetic_records": 480,
+        "basic_records": 32,
+        "binding_groups": 96,
+        "maximum_synthetic_bytes_with_bos": 268
+      }
+    }
+  },
+  "sha256": {
+    "data/retrieval-v1/manifest.json": "f1eeb725ddc833901b1a7dfbde4dfed992d90be987dd021d1ec64ba32f43b0d5",
+    "configs/retrieval-graph.json": "0ca811352c069af76edbc69ad8fd8007a6ed2f74e420fbce9a61b5928a7c5c92",
+    "configs/retrieval-gru.json": "f2c63b7c244025f5c6929f10278cabbc61d4f9b518e6588d746cb6799010fa89",
+    "runs/memory-init-graph/initial.mlm": "0ff73d4c06d71db37ed4cd6e5158ff523c85dec29d10c1523d30f3ee3c4163a9",
+    "runs/memory-init-gru/initial.mlm": "a348a134cdae97d85ce2f58f2a929dcb0fd281633644099575ea3c9b9fbf48b4"
+  }
+}

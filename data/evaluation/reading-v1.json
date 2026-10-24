@@ -1,0 +1,294 @@
+{
+  "version": 1,
+  "purpose": "Original evaluation-only counterfactual reading probes; never used for training or checkpoint selection",
+  "questions": [
+    {
+      "id": "hat-color-0",
+      "pair": "hat-color",
+      "category": "attribute",
+      "context": "Mia has a red hat.",
+      "question": "What color is Mia's hat?",
+      "choices": [
+        "red",
+        "blue"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "hat-color-1",
+      "pair": "hat-color",
+      "category": "attribute",
+      "context": "Mia has a blue hat.",
+      "question": "What color is Mia's hat?",
+      "choices": [
+        "red",
+        "blue"
+      ],
+      "answer_index": 1
+    },
+    {
+      "id": "ball-place-0",
+      "pair": "ball-place",
+      "category": "location",
+      "context": "The ball is in the box.",
+      "question": "Where is the ball?",
+      "choices": [
+        "box",
+        "bag"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "ball-place-1",
+      "pair": "ball-place",
+      "category": "location",
+      "context": "The ball is in the bag.",
+      "question": "Where is the ball?",
+      "choices": [
+        "box",
+        "bag"
+      ],
+      "answer_index": 1
+    },
+    {
+      "id": "pet-0",
+      "pair": "pet",
+      "category": "entity",
+      "context": "Tom has a pet cat.",
+      "question": "What pet does Tom have?",
+      "choices": [
+        "cat",
+        "dog"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "pet-1",
+      "pair": "pet",
+      "category": "entity",
+      "context": "Tom has a pet dog.",
+      "question": "What pet does Tom have?",
+      "choices": [
+        "cat",
+        "dog"
+      ],
+      "answer_index": 1
+    },
+    {
+      "id": "shape-0",
+      "pair": "shape",
+      "category": "attribute",
+      "context": "The drawing is a circle.",
+      "question": "What shape is the drawing?",
+      "choices": [
+        "circle",
+        "square"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "shape-1",
+      "pair": "shape",
+      "category": "attribute",
+      "context": "The drawing is a square.",
+      "question": "What shape is the drawing?",
+      "choices": [
+        "circle",
+        "square"
+      ],
+      "answer_index": 1
+    },
+    {
+      "id": "owner-0",
+      "pair": "owner",
+      "category": "binding",
+      "context": "Nora owns the kite. Lena owns the cup.",
+      "question": "Who owns the kite?",
+      "choices": [
+        "Nora",
+        "Lena"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "owner-1",
+      "pair": "owner",
+      "category": "binding",
+      "context": "Lena owns the kite. Nora owns the cup.",
+      "question": "Who owns the kite?",
+      "choices": [
+        "Nora",
+        "Lena"
+      ],
+      "answer_index": 1
+    },
+    {
+      "id": "count-0",
+      "pair": "count",
+      "category": "count",
+      "context": "There are two apples in the basket.",
+      "question": "How many apples are in the basket?",
+      "choices": [
+        "two",
+        "three"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "count-1",
+      "pair": "count",
+      "category": "count",
+      "context": "There are three apples in the basket.",
+      "question": "How many apples are in the basket?",
+      "choices": [
+        "two",
+        "three"
+      ],
+      "answer_index": 1
+    },
+    {
+      "id": "hand-0",
+      "pair": "hand",
+      "category": "location",
+      "context": "The coin is in the left hand.",
+      "question": "Which hand holds the coin?",
+      "choices": [
+        "left",
+        "right"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "hand-1",
+      "pair": "hand",
+      "category": "location",
+      "context": "The coin is in the right hand.",
+      "question": "Which hand holds the coin?",
+      "choices": [
+        "left",
+        "right"
+      ],
+      "answer_index": 1
+    },
+    {
+      "id": "object-0",
+      "pair": "object",
+      "category": "entity",
+      "context": "Sam picked up a cup.",
+      "question": "What did Sam pick up?",
+      "choices": [
+        "cup",
+        "key"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "object-1",
+      "pair": "object",
+      "category": "entity",
+      "context": "Sam picked up a key.",
+      "question": "What did Sam pick up?",
+      "choices": [
+        "cup",
+        "key"
+      ],
+      "answer_index": 1
+    },
+    {
+      "id": "size-0",
+      "pair": "size",
+      "category": "attribute",
+      "context": "The dog is big.",
+      "question": "What size is the dog?",
+      "choices": [
+        "big",
+        "small"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "size-1",
+      "pair": "size",
+      "category": "attribute",
+      "context": "The dog is small.",
+      "question": "What size is the dog?",
+      "choices": [
+        "big",
+        "small"
+      ],
+      "answer_index": 1
+    },
+    {
+      "id": "drink-0",
+      "pair": "drink",
+      "category": "contrast",
+      "context": "Dan chose tea instead of milk.",
+      "question": "What did Dan choose?",
+      "choices": [
+        "tea",
+        "milk"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "drink-1",
+      "pair": "drink",
+      "category": "contrast",
+      "context": "Dan chose milk instead of tea.",
+      "question": "What did Dan choose?",
+      "choices": [
+        "tea",
+        "milk"
+      ],
+      "answer_index": 1
+    },
+    {
+      "id": "two-objects-0",
+      "pair": "two-objects",
+      "category": "binding",
+      "context": "The bag is red and the box is blue.",
+      "question": "What color is the box?",
+      "choices": [
+        "blue",
+        "red"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "two-objects-1",
+      "pair": "two-objects",
+      "category": "binding",
+      "context": "The bag is blue and the box is red.",
+      "question": "What color is the box?",
+      "choices": [
+        "blue",
+        "red"
+      ],
+      "answer_index": 1
+    },
+    {
+      "id": "action-0",
+      "pair": "action",
+      "category": "action",
+      "context": "Lily will read after lunch.",
+      "question": "What will Lily do after lunch?",
+      "choices": [
+        "read",
+        "swim"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "action-1",
+      "pair": "action",
+      "category": "action",
+      "context": "Lily will swim after lunch.",
+      "question": "What will Lily do after lunch?",
+      "choices": [
+        "read",
+        "swim"
+      ],
+      "answer_index": 1
+    }
+  ]
+}

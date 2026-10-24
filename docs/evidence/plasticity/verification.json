@@ -1,0 +1,21 @@
+{
+  "regression_tests": {
+    "passed": 63,
+    "seconds": 161.72,
+    "command": "uv run pytest -q"
+  },
+  "targeted_tests": {
+    "passed": 5,
+    "seconds": 28.35
+  },
+  "static_checks": [
+    "ruff check src tests",
+    "ruff format --check src tests",
+    "ty check src"
+  ],
+  "review": {
+    "initial_findings": "three test-coverage gaps",
+    "resolution": "multi-group sampling, real English carry, populated optimizer resets and legacy continuation covered",
+    "unresolved_findings": 0
+  }
+}

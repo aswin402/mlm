@@ -1,0 +1,43 @@
+{
+  "date": "2026-10-24",
+  "modes": [
+    "dense",
+    "hierarchical"
+  ],
+  "learnability": "independent random initialization; 500 one-group then500 four-group updates; no pretraining transfer",
+  "english_updates_each": 4000,
+  "english_selection": "minimum full-document development prediction loss; every500 and initial",
+  "binding_qa_updates": 1000,
+  "binding_english_updates": 1000,
+  "binding_selection": "macro eight-condition development accuracy, QA-loss tiebreak; every250 and initial",
+  "source": "random initialization for English; each mode then adapts its own English best",
+  "inference_benchmark": "fresh processes after training; warmed forward batch1 lengths32/128/512;5 warmups,30 timings; no generation/Transformer speed claim",
+  "test_delays": [
+    0,
+    64,
+    128
+  ],
+  "test_policy": "lock pretraining/adapted best checkpoints before English and task tests",
+  "sha256": {
+    "src/mlm/pretrain_run.py": "431d5f9dd182382b4d5f415631abcfca8373ae9e4f8fdd5c8086937c00e7e411",
+    "src/mlm/learnability_run.py": "df816a81dbb8a72d35d59cf467a7ea4b042e0a10a80f88f2b1afbc922886c2ae",
+    "src/mlm/runtime_bench.py": "dc6285f57cf1ef428c47241f2633ad99b3929230bf59ea6fa1d8a2b0a0030aee",
+    "src/mlm/model.py": "ae4b18e5dbad9d985996a544306d4dcb7d58ba86cf46cfb8704737c9d2856783",
+    "src/mlm/hierarchy_run.py": "0fb49003ce9338d5845090ac122b4915cb8691dc32309cce8eb14cc9b269d677",
+    "data/hf/stories/train.jsonl": "c290447ca13c58cc325cedcdce6b3669a4d937b1b23bc736d40b8d50984a3a77",
+    "data/hf/stories/validation.jsonl": "ebbb289dd01d26521b15346246aff449d35da4dbf5e267c3d43203b1650072b4",
+    "configs/scratch-dense.json": "38ba318e30717d68e47a237a4b05e031e2fec5a47beaeb003f69be1da99e8808",
+    "configs/scratch-hierarchical.json": "7122a7fcd22070b8117d9295ba0280aa5db4d1c898a641c6a103f511b7b92a5e",
+    "configs/scratch-probe-dense.json": "34d0c46d3fbdaa4372c6e9b33f7793cf61ab3d56edf6f59425c7896ce48f3cf7",
+    "configs/scratch-probe-hierarchical.json": "bdc66ad999636e083d18ada550dcf0bc54e51fa36c30c87a02bad6ae9782ae1a",
+    "data/scratch-binding-v1/validation.jsonl": "ba72ca51ead7f704d7dd9a7bf4a837cc6e3fea35955f419d4666a71f3e4391bf",
+    "data/scratch-binding-v1/train.jsonl": "4a089b1c173dbe8cdf54554232d3b02e0afa8100ff2fb61a74a1e6f338a8db21",
+    "data/scratch-binding-v1/manifest.json": "f1484f208ea0b2662c5ac716eda5a31ffa0e1dcff38955bccfe234a38c5c09cc",
+    "data/scratch-binding-v1/test-delay128-questions.json": "47206ed5a73bb41df7358fce708a3918584f0e45449e9177174ad3e922e1f33f",
+    "data/scratch-binding-v1/validation-questions.json": "1f404914aefdc47cb50de6bf6468f9f9856f9c7591974e5ef1a22d869266d5b8",
+    "data/scratch-binding-v1/test.jsonl": "65462138e0982a4d01159a8bc2d06dcf03aeffa9b7dd4d0334a07a49c06dd931",
+    "data/scratch-binding-v1/test-questions.json": "a2ad2b17cdd26aa2b5486c9fdaa16e32091b0355e437532eb8f14df411a72655",
+    "data/scratch-binding-v1/test-delay64-questions.json": "53d8db1d0a7cd963718ae02778f8be740820c721424473448c231a547dfa5fd3",
+    "data/scratch-binding-v1/train-questions.json": "dc26af607685cfb3a0d6c3f256a27660d8b62d1889fe9ce2512a00614b5b4432"
+  }
+}

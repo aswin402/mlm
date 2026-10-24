@@ -1,0 +1,57 @@
+{
+  "scope": "fixed graph; independent prefix batches; no growth or online learning",
+  "steps": 300,
+  "session_steps": 300,
+  "parameters": 100546,
+  "best_step": 50,
+  "best_validation_loss": 1.6539097169719676,
+  "compile_seconds": 1.1347088139991683,
+  "session_seconds": 7.322508744999141,
+  "update_seconds": 4.3593090739850595,
+  "training_payload_bytes": 23101,
+  "update_payload_bytes_per_second": 5299.234261195028,
+  "peak_process_rss_mib": 418.09375,
+  "initial_train": {
+    "loss": 6.1294111342096524,
+    "perplexity_with_markers": 459.1656940841397,
+    "bits_per_byte": 8.75726590612896,
+    "payload_bytes": 693,
+    "positions": 729,
+    "documents": 36,
+    "prefix_limit": 64
+  },
+  "train": {
+    "loss": 0.2057982283364598,
+    "perplexity_with_markers": 1.2285053014279592,
+    "bits_per_byte": 0.3122264946527162,
+    "payload_bytes": 693,
+    "positions": 729,
+    "documents": 36,
+    "prefix_limit": 64
+  },
+  "initial_validation": {
+    "loss": 6.091121480578468,
+    "perplexity_with_markers": 441.91673438127026,
+    "bits_per_byte": 8.734793253083046,
+    "payload_bytes": 360,
+    "positions": 378,
+    "documents": 18,
+    "prefix_limit": 64
+  },
+  "validation": {
+    "loss": 2.0461379264397594,
+    "perplexity_with_markers": 7.737958757819116,
+    "bits_per_byte": 3.09945451776812,
+    "payload_bytes": 360,
+    "positions": 378,
+    "documents": 18,
+    "prefix_limit": 64
+  },
+  "corpora": {
+    "train": "397c760a34c00340081a75944e91154fee8658b2dd0fdd6c56226b2a50542af7",
+    "validation": "e6248fe3faf4e4c42e4e889de7f3dd3d7c5c236380f65073e0ea409a264f6637"
+  },
+  "checkpoint_bytes": 1208492,
+  "truncated_train_documents": 0,
+  "truncated_validation_documents": 0
+}

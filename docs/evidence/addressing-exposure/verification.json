@@ -1,0 +1,11 @@
+{
+  "analysis_sha256": "487f3efd86a813fa90df40344381c96d6fecf489ab29346fba287fdeba19d2b4",
+  "regression_basis": "71 tests passed in prior addressing diagnostic; model/training/test sources unchanged and frozen for this control",
+  "static": "Ruff lint and formatting passed for analyze.py and ablate.py",
+  "review": "No material protocol issues; additional rehearsal/compute confound explicitly retained",
+  "posthoc_ablation": "16 training questions only; memory_gain=0 in copied params",
+  "analysis_code_sha256": {
+    "results/addressing-exposure/analyze.py": "487f3efd86a813fa90df40344381c96d6fecf489ab29346fba287fdeba19d2b4",
+    "results/addressing-exposure/ablate.py": "49e827ab22f483cefe98bd158cac7a6dcdfda4b7b921509e6995edb2200c3c72"
+  }
+}

@@ -1,0 +1,35 @@
+The green bird runs.
+
+The green bird rests.
+
+The green bird plays.
+
+The green cat runs.
+
+The green cat rests.
+
+The green cat plays.
+
+The green dog runs.
+
+The green dog rests.
+
+The green dog plays.
+
+The quiet bird runs.
+
+The quiet bird rests.
+
+The quiet bird plays.
+
+The quiet cat runs.
+
+The quiet cat rests.
+
+The quiet cat plays.
+
+The quiet dog runs.
+
+The quiet dog rests.
+
+The quiet dog plays.

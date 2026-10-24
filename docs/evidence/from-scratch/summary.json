@@ -1,0 +1,807 @@
+{
+  "initialization": {
+    "shared_base_tensors_identical": true,
+    "shared_tensor_count": 10,
+    "extra_hierarchical_parameters": 1548
+  },
+  "checkpoint_lock": {
+    "english-dense": {
+      "path": "runs/scratch-english-dense-v1/best.mlm",
+      "sha256": "dfae9accdc256aa890b195d704eee166f1878416b1dcfd06d4f5cac411dde4a2",
+      "optimizer_step": 4000
+    },
+    "adapt-dense": {
+      "path": "runs/scratch-adapt-dense-v1/best.mlm",
+      "sha256": "d41562fbc9a161b3f7a003210ebdddb522f1d4725ce3ceb976b92b69e9ae118d",
+      "optimizer_step": 2000
+    },
+    "english-hierarchical": {
+      "path": "runs/scratch-english-hierarchical-v1/best.mlm",
+      "sha256": "3a398daafee2e068f9bdb5868bde977120cc76aab1ee9ee5f4b32c649f527311",
+      "optimizer_step": 4000
+    },
+    "adapt-hierarchical": {
+      "path": "runs/scratch-adapt-hierarchical-v1/best.mlm",
+      "sha256": "8a9bd88f13ea8adfbfc33d616b316bf5c93eb390227b191a9469f824dc3598f9",
+      "optimizer_step": 1500
+    }
+  },
+  "stream_audits": {
+    "english": {
+      "sampler_fields_equal": {
+        "stream": true
+      },
+      "accounting_equal": true
+    },
+    "adapt": {
+      "sampler_fields_equal": {
+        "qa_order": true,
+        "qa_position": true,
+        "qa_rng": true,
+        "english_stream": true
+      },
+      "accounting_equal": true
+    }
+  },
+  "models": {
+    "dense": {
+      "learnability": [
+        {
+          "steps": 500,
+          "training_groups": 1,
+          "metrics": {
+            "questions": 4,
+            "pairs": 2,
+            "binding_groups": 1,
+            "accuracy": 1.0,
+            "pair_accuracy": 1.0,
+            "binding_group_accuracy": 1.0,
+            "query_flip_fraction": 1.0,
+            "correct_query_pair_fraction": 1.0,
+            "context_flip_fraction": 1.0,
+            "both_wrong_pair_fraction": 0.0
+          },
+          "scope": "training-only sanity; no generalization and no pretraining transfer"
+        },
+        {
+          "steps": 1000,
+          "training_groups": 4,
+          "metrics": {
+            "questions": 16,
+            "pairs": 8,
+            "binding_groups": 4,
+            "accuracy": 0.625,
+            "pair_accuracy": 0.25,
+            "binding_group_accuracy": 0.25,
+            "query_flip_fraction": 0.5,
+            "correct_query_pair_fraction": 0.375,
+            "context_flip_fraction": 0.25,
+            "both_wrong_pair_fraction": 0.0
+          },
+          "scope": "training-only sanity; no generalization and no pretraining transfer"
+        }
+      ],
+      "english_training": {
+        "steps": 4000,
+        "best_step": 4000,
+        "best_development_loss": 1.1557040961972767,
+        "initial_development_loss": 6.007099737156227,
+        "input_payload_bytes": 1916320,
+        "training_seconds": 370.7992440529997,
+        "parameters": 366722,
+        "scope": "full-document English, truncated BPTT, routed auxiliary only in training"
+      },
+      "english_test": {
+        "loss": 1.121557189597038,
+        "bits_per_byte": 1.6157525002127118,
+        "perplexity_with_markers": 3.0696304801940175,
+        "positions": 22332,
+        "payload_bytes": 22300,
+        "consumed_payload_bytes": 22300,
+        "loss_scope": "all targets",
+        "documents": 32,
+        "coverage": "complete documents",
+        "chunk_length": 128
+      },
+      "adapt_training": {
+        "qa_updates": 1000,
+        "optimizer_updates": 2000,
+        "rehearsal": true,
+        "selected_qa_steps": {
+          "best": 1000
+        },
+        "selected_scores": {
+          "best": 0.0
+        },
+        "counters": {
+          "qa": {
+            "updates": 1000,
+            "input_bytes": 388000,
+            "supervised_bytes": 20000
+          },
+          "english": {
+            "updates": 1000,
+            "input_bytes": 479511,
+            "supervised_bytes": 479511
+          }
+        },
+        "parameters": 366722,
+        "nominal_write_mass": 8,
+        "execution": "dense; all candidate nodes computed"
+      },
+      "adapt_test": {
+        "loss": 1.1261284249285397,
+        "bits_per_byte": 1.6210611951564686,
+        "perplexity_with_markers": 3.083694604219516,
+        "positions": 22332,
+        "payload_bytes": 22300,
+        "consumed_payload_bytes": 22300,
+        "loss_scope": "all targets",
+        "documents": 32,
+        "coverage": "complete documents",
+        "chunk_length": 128
+      },
+      "binding": {
+        "0": {
+          "overall": {
+            "questions": 1152,
+            "pairs": 576,
+            "binding_groups": 288,
+            "accuracy": 0.5034722222222222,
+            "pair_accuracy": 0.078125,
+            "binding_group_accuracy": 0.0,
+            "query_flip_fraction": 0.013888888888888888,
+            "correct_query_pair_fraction": 0.010416666666666666,
+            "context_flip_fraction": 0.14930555555555555,
+            "both_wrong_pair_fraction": 0.07118055555555555
+          },
+          "order_robust": {
+            "cases": 144,
+            "all_correct": 0,
+            "accuracy": 0.0,
+            "correct_count_histogram": {
+              "4": 140,
+              "5": 4
+            },
+            "definition": "all eight assignment/query/fact-order conditions correct"
+          },
+          "order_robust_pools": {
+            "familiar-names-new-pairs": {
+              "cases": 96,
+              "all_correct": 0,
+              "accuracy": 0.0,
+              "correct_count_histogram": {
+                "4": 93,
+                "5": 3
+              },
+              "definition": "all eight assignment/query/fact-order conditions correct"
+            },
+            "new-names": {
+              "cases": 48,
+              "all_correct": 0,
+              "accuracy": 0.0,
+              "correct_count_histogram": {
+                "4": 47,
+                "5": 1
+              },
+              "definition": "all eight assignment/query/fact-order conditions correct"
+            }
+          }
+        },
+        "64": {
+          "overall": {
+            "questions": 1152,
+            "pairs": 576,
+            "binding_groups": 288,
+            "accuracy": 0.5,
+            "pair_accuracy": 0.001736111111111111,
+            "binding_group_accuracy": 0.0,
+            "query_flip_fraction": 0.003472222222222222,
+            "correct_query_pair_fraction": 0.001736111111111111,
+            "context_flip_fraction": 0.003472222222222222,
+            "both_wrong_pair_fraction": 0.001736111111111111
+          },
+          "order_robust": {
+            "cases": 144,
+            "all_correct": 0,
+            "accuracy": 0.0,
+            "correct_count_histogram": {
+              "4": 144
+            },
+            "definition": "all eight assignment/query/fact-order conditions correct"
+          },
+          "order_robust_pools": {
+            "familiar-names-new-pairs": {
+              "cases": 96,
+              "all_correct": 0,
+              "accuracy": 0.0,
+              "correct_count_histogram": {
+                "4": 96
+              },
+              "definition": "all eight assignment/query/fact-order conditions correct"
+            },
+            "new-names": {
+              "cases": 48,
+              "all_correct": 0,
+              "accuracy": 0.0,
+              "correct_count_histogram": {
+                "4": 48
+              },
+              "definition": "all eight assignment/query/fact-order conditions correct"
+            }
+          }
+        },
+        "128": {
+          "overall": {
+            "questions": 1152,
+            "pairs": 576,
+            "binding_groups": 288,
+            "accuracy": 0.5,
+            "pair_accuracy": 0.001736111111111111,
+            "binding_group_accuracy": 0.0,
+            "query_flip_fraction": 0.04513888888888889,
+            "correct_query_pair_fraction": 0.022569444444444444,
+            "context_flip_fraction": 0.003472222222222222,
+            "both_wrong_pair_fraction": 0.001736111111111111
+          },
+          "order_robust": {
+            "cases": 144,
+            "all_correct": 0,
+            "accuracy": 0.0,
+            "correct_count_histogram": {
+              "4": 144
+            },
+            "definition": "all eight assignment/query/fact-order conditions correct"
+          },
+          "order_robust_pools": {
+            "familiar-names-new-pairs": {
+              "cases": 96,
+              "all_correct": 0,
+              "accuracy": 0.0,
+              "correct_count_histogram": {
+                "4": 96
+              },
+              "definition": "all eight assignment/query/fact-order conditions correct"
+            },
+            "new-names": {
+              "cases": 48,
+              "all_correct": 0,
+              "accuracy": 0.0,
+              "correct_count_histogram": {
+                "4": 48
+              },
+              "definition": "all eight assignment/query/fact-order conditions correct"
+            }
+          }
+        }
+      },
+      "runtime": {
+        "checkpoint": "runs/scratch-english-dense-v1/best.mlm",
+        "checkpoint_sha256": "dfae9accdc256aa890b195d704eee166f1878416b1dcfd06d4f5cac411dde4a2",
+        "node_update": "dense",
+        "batch_size": 1,
+        "repeats": 30,
+        "warmups": 5,
+        "scope": "warmed full forward; same fixed inputs; excludes text I/O and generation loop",
+        "memory_limits": "peak RSS includes checkpoint optimizer loading, JAX and compilation; not isolated model inference RAM",
+        "parameter_bytes": 1466888,
+        "optimizer_tensor_bytes": 2933780,
+        "persistent_state_bytes_per_sequence": 2048,
+        "peak_process_rss_kib": 349832,
+        "environment": {
+          "python": "3.12.3",
+          "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.43",
+          "devices": [
+            "cpu:0"
+          ],
+          "versions": {
+            "jax": "0.12.0.1",
+            "flax": "0.12.10",
+            "optax": "0.2.8"
+          },
+          "source_sha256": "aae92ff34d90dc7f13f9f82d7c61a4b325338a49dc040cc1c1966cb97369057e"
+        },
+        "results": [
+          {
+            "length": 32,
+            "input_sha256": "fb759600d5520d0a0ea007401a88368d3104b01e5268ab5c7550b72b71460044",
+            "compile_and_first_forward_seconds": 0.13238648200058378,
+            "p50_ms": 0.8165425,
+            "p95_ms": 1.0467385999999999,
+            "samples_ms": [
+              0.826457,
+              0.850263,
+              0.819403,
+              0.813682,
+              0.841526,
+              1.070666,
+              0.934615,
+              0.794145,
+              0.804284,
+              0.784457,
+              1.28668,
+              0.927491,
+              1.017494,
+              0.915328,
+              0.809674,
+              0.810496,
+              0.83286,
+              0.808673,
+              0.792211,
+              0.80181,
+              0.789186,
+              0.79679,
+              0.798483,
+              0.812149,
+              0.791519,
+              0.853659,
+              0.899398,
+              0.899246,
+              0.858519,
+              0.805857
+            ]
+          },
+          {
+            "length": 128,
+            "input_sha256": "e936a71d93a782114101bc850cbbf846f49e15b51113d8efa9b5562e82304bb3",
+            "compile_and_first_forward_seconds": 0.14739578300213907,
+            "p50_ms": 3.3210715,
+            "p95_ms": 4.115998349999999,
+            "samples_ms": [
+              3.180738,
+              3.05714,
+              3.029888,
+              3.086597,
+              3.11432,
+              3.156812,
+              3.099321,
+              3.050928,
+              3.089532,
+              3.076588,
+              3.527613,
+              3.187581,
+              3.084292,
+              3.449824,
+              3.670167,
+              3.657963,
+              3.316979,
+              3.228158,
+              3.371994,
+              3.543875,
+              3.462728,
+              3.493067,
+              3.302521,
+              4.33304,
+              4.279347,
+              3.908996,
+              3.325164,
+              3.91635,
+              3.463641,
+              3.404026
+            ]
+          },
+          {
+            "length": 512,
+            "input_sha256": "ab45479f3080bf20152a10669bec6dd2b9e96309ec66fdd486f569618c40c4cd",
+            "compile_and_first_forward_seconds": 0.17761618999793427,
+            "p50_ms": 13.0542755,
+            "p95_ms": 14.665111699999999,
+            "samples_ms": [
+              12.988549,
+              13.276993,
+              12.42138,
+              13.021182,
+              13.034428,
+              13.343321,
+              13.074123,
+              12.929816,
+              12.825897,
+              12.547041,
+              13.021893,
+              14.318042,
+              13.028135,
+              14.115833,
+              14.469984,
+              15.17655,
+              13.662924,
+              12.680909,
+              12.947771,
+              12.108129,
+              12.24438,
+              12.441429,
+              12.786902,
+              13.371264,
+              13.213722,
+              13.755682,
+              13.791351,
+              14.517836,
+              13.184405,
+              14.78561
+            ]
+          }
+        ]
+      }
+    },
+    "hierarchical": {
+      "learnability": [
+        {
+          "steps": 500,
+          "training_groups": 1,
+          "metrics": {
+            "questions": 4,
+            "pairs": 2,
+            "binding_groups": 1,
+            "accuracy": 1.0,
+            "pair_accuracy": 1.0,
+            "binding_group_accuracy": 1.0,
+            "query_flip_fraction": 1.0,
+            "correct_query_pair_fraction": 1.0,
+            "context_flip_fraction": 1.0,
+            "both_wrong_pair_fraction": 0.0
+          },
+          "scope": "training-only sanity; no generalization and no pretraining transfer"
+        },
+        {
+          "steps": 1000,
+          "training_groups": 4,
+          "metrics": {
+            "questions": 16,
+            "pairs": 8,
+            "binding_groups": 4,
+            "accuracy": 1.0,
+            "pair_accuracy": 1.0,
+            "binding_group_accuracy": 1.0,
+            "query_flip_fraction": 1.0,
+            "correct_query_pair_fraction": 1.0,
+            "context_flip_fraction": 1.0,
+            "both_wrong_pair_fraction": 0.0
+          },
+          "scope": "training-only sanity; no generalization and no pretraining transfer"
+        }
+      ],
+      "english_training": {
+        "steps": 4000,
+        "best_step": 4000,
+        "best_development_loss": 1.3526960339354908,
+        "initial_development_loss": 6.007365171876792,
+        "input_payload_bytes": 1916320,
+        "training_seconds": 457.8363670819963,
+        "parameters": 368270,
+        "scope": "full-document English, truncated BPTT, routed auxiliary only in training"
+      },
+      "english_test": {
+        "loss": 1.3235351739125334,
+        "bits_per_byte": 1.9089077586720953,
+        "perplexity_with_markers": 3.7566784420655748,
+        "positions": 22332,
+        "payload_bytes": 22300,
+        "consumed_payload_bytes": 22300,
+        "loss_scope": "all targets",
+        "documents": 32,
+        "coverage": "complete documents",
+        "chunk_length": 128
+      },
+      "adapt_training": {
+        "qa_updates": 1000,
+        "optimizer_updates": 2000,
+        "rehearsal": true,
+        "selected_qa_steps": {
+          "best": 750
+        },
+        "selected_scores": {
+          "best": 0.0
+        },
+        "counters": {
+          "qa": {
+            "updates": 1000,
+            "input_bytes": 388000,
+            "supervised_bytes": 20000
+          },
+          "english": {
+            "updates": 1000,
+            "input_bytes": 479511,
+            "supervised_bytes": 479511
+          }
+        },
+        "parameters": 368270,
+        "nominal_write_mass": 1,
+        "execution": "dense; all candidate nodes computed"
+      },
+      "adapt_test": {
+        "loss": 1.3212618008749728,
+        "bits_per_byte": 1.904272353934592,
+        "perplexity_with_markers": 3.7481478109120445,
+        "positions": 22332,
+        "payload_bytes": 22300,
+        "consumed_payload_bytes": 22300,
+        "loss_scope": "all targets",
+        "documents": 32,
+        "coverage": "complete documents",
+        "chunk_length": 128
+      },
+      "binding": {
+        "0": {
+          "overall": {
+            "questions": 1152,
+            "pairs": 576,
+            "binding_groups": 288,
+            "accuracy": 0.5,
+            "pair_accuracy": 0.001736111111111111,
+            "binding_group_accuracy": 0.0,
+            "query_flip_fraction": 0.0,
+            "correct_query_pair_fraction": 0.0,
+            "context_flip_fraction": 0.003472222222222222,
+            "both_wrong_pair_fraction": 0.001736111111111111
+          },
+          "order_robust": {
+            "cases": 144,
+            "all_correct": 0,
+            "accuracy": 0.0,
+            "correct_count_histogram": {
+              "4": 144
+            },
+            "definition": "all eight assignment/query/fact-order conditions correct"
+          },
+          "order_robust_pools": {
+            "familiar-names-new-pairs": {
+              "cases": 96,
+              "all_correct": 0,
+              "accuracy": 0.0,
+              "correct_count_histogram": {
+                "4": 96
+              },
+              "definition": "all eight assignment/query/fact-order conditions correct"
+            },
+            "new-names": {
+              "cases": 48,
+              "all_correct": 0,
+              "accuracy": 0.0,
+              "correct_count_histogram": {
+                "4": 48
+              },
+              "definition": "all eight assignment/query/fact-order conditions correct"
+            }
+          }
+        },
+        "64": {
+          "overall": {
+            "questions": 1152,
+            "pairs": 576,
+            "binding_groups": 288,
+            "accuracy": 0.5,
+            "pair_accuracy": 0.024305555555555556,
+            "binding_group_accuracy": 0.0,
+            "query_flip_fraction": 0.003472222222222222,
+            "correct_query_pair_fraction": 0.001736111111111111,
+            "context_flip_fraction": 0.04861111111111111,
+            "both_wrong_pair_fraction": 0.024305555555555556
+          },
+          "order_robust": {
+            "cases": 144,
+            "all_correct": 0,
+            "accuracy": 0.0,
+            "correct_count_histogram": {
+              "3": 1,
+              "4": 142,
+              "5": 1
+            },
+            "definition": "all eight assignment/query/fact-order conditions correct"
+          },
+          "order_robust_pools": {
+            "familiar-names-new-pairs": {
+              "cases": 96,
+              "all_correct": 0,
+              "accuracy": 0.0,
+              "correct_count_histogram": {
+                "3": 1,
+                "4": 94,
+                "5": 1
+              },
+              "definition": "all eight assignment/query/fact-order conditions correct"
+            },
+            "new-names": {
+              "cases": 48,
+              "all_correct": 0,
+              "accuracy": 0.0,
+              "correct_count_histogram": {
+                "4": 48
+              },
+              "definition": "all eight assignment/query/fact-order conditions correct"
+            }
+          }
+        },
+        "128": {
+          "overall": {
+            "questions": 1152,
+            "pairs": 576,
+            "binding_groups": 288,
+            "accuracy": 0.4991319444444444,
+            "pair_accuracy": 0.052083333333333336,
+            "binding_group_accuracy": 0.0,
+            "query_flip_fraction": 0.001736111111111111,
+            "correct_query_pair_fraction": 0.0,
+            "context_flip_fraction": 0.10590277777777778,
+            "both_wrong_pair_fraction": 0.05381944444444445
+          },
+          "order_robust": {
+            "cases": 144,
+            "all_correct": 0,
+            "accuracy": 0.0,
+            "correct_count_histogram": {
+              "3": 1,
+              "4": 143
+            },
+            "definition": "all eight assignment/query/fact-order conditions correct"
+          },
+          "order_robust_pools": {
+            "familiar-names-new-pairs": {
+              "cases": 96,
+              "all_correct": 0,
+              "accuracy": 0.0,
+              "correct_count_histogram": {
+                "4": 96
+              },
+              "definition": "all eight assignment/query/fact-order conditions correct"
+            },
+            "new-names": {
+              "cases": 48,
+              "all_correct": 0,
+              "accuracy": 0.0,
+              "correct_count_histogram": {
+                "3": 1,
+                "4": 47
+              },
+              "definition": "all eight assignment/query/fact-order conditions correct"
+            }
+          }
+        }
+      },
+      "runtime": {
+        "checkpoint": "runs/scratch-english-hierarchical-v1/best.mlm",
+        "checkpoint_sha256": "3a398daafee2e068f9bdb5868bde977120cc76aab1ee9ee5f4b32c649f527311",
+        "node_update": "hierarchical",
+        "batch_size": 1,
+        "repeats": 30,
+        "warmups": 5,
+        "scope": "warmed full forward; same fixed inputs; excludes text I/O and generation loop",
+        "memory_limits": "peak RSS includes checkpoint optimizer loading, JAX and compilation; not isolated model inference RAM",
+        "parameter_bytes": 1473080,
+        "optimizer_tensor_bytes": 2946164,
+        "persistent_state_bytes_per_sequence": 2048,
+        "peak_process_rss_kib": 363272,
+        "environment": {
+          "python": "3.12.3",
+          "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.43",
+          "devices": [
+            "cpu:0"
+          ],
+          "versions": {
+            "jax": "0.12.0.1",
+            "flax": "0.12.10",
+            "optax": "0.2.8"
+          },
+          "source_sha256": "aae92ff34d90dc7f13f9f82d7c61a4b325338a49dc040cc1c1966cb97369057e"
+        },
+        "results": [
+          {
+            "length": 32,
+            "input_sha256": "fb759600d5520d0a0ea007401a88368d3104b01e5268ab5c7550b72b71460044",
+            "compile_and_first_forward_seconds": 0.16904129500471754,
+            "p50_ms": 0.823045,
+            "p95_ms": 1.04713475,
+            "samples_ms": [
+              1.132595,
+              0.86462,
+              0.838019,
+              0.820616,
+              0.819123,
+              0.825474,
+              0.815225,
+              0.813271,
+              0.811779,
+              0.814775,
+              0.816608,
+              0.83818,
+              0.852958,
+              0.876092,
+              0.947529,
+              0.83873,
+              0.810617,
+              0.804975,
+              0.808052,
+              0.805126,
+              0.805376,
+              0.806258,
+              0.807641,
+              0.841516,
+              0.853559,
+              0.808141,
+              0.940145,
+              1.071518,
+              0.979791,
+              1.017333
+            ]
+          },
+          {
+            "length": 128,
+            "input_sha256": "e936a71d93a782114101bc850cbbf846f49e15b51113d8efa9b5562e82304bb3",
+            "compile_and_first_forward_seconds": 0.16580252600397216,
+            "p50_ms": 3.337678,
+            "p95_ms": 3.70838145,
+            "samples_ms": [
+              3.294024,
+              3.283424,
+              3.360672,
+              3.183942,
+              3.579422,
+              3.176087,
+              3.108538,
+              3.216786,
+              3.668793,
+              3.24523,
+              3.150589,
+              3.128917,
+              3.320164,
+              3.160457,
+              3.377655,
+              3.533243,
+              3.1721,
+              3.199854,
+              3.247415,
+              3.342387,
+              3.402713,
+              3.360501,
+              3.394888,
+              3.332969,
+              3.959772,
+              3.621423,
+              3.588389,
+              3.740772,
+              3.663503,
+              3.641422
+            ]
+          },
+          {
+            "length": 512,
+            "input_sha256": "ab45479f3080bf20152a10669bec6dd2b9e96309ec66fdd486f569618c40c4cd",
+            "compile_and_first_forward_seconds": 0.18065906799893128,
+            "p50_ms": 13.5572315,
+            "p95_ms": 14.461190499999999,
+            "samples_ms": [
+              13.558308,
+              13.763233,
+              13.585461,
+              14.238575,
+              13.994888,
+              14.224678,
+              13.114798,
+              12.915845,
+              13.481131,
+              13.293701,
+              13.973757,
+              13.605129,
+              14.415524,
+              14.498554,
+              14.111982,
+              13.073428,
+              12.966052,
+              13.309932,
+              13.664132,
+              13.750829,
+              13.403142,
+              12.950642,
+              13.451905,
+              13.556155,
+              15.582746,
+              13.732704,
+              13.132672,
+              13.327496,
+              12.722264,
+              12.628864
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
