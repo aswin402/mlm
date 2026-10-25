@@ -4,6 +4,9 @@
 
 ### Added
 
+- Frozen QA optimizer-history/router-regularizer controls:30 independent copied transitions,391 passing audits and81 passing regression tests.
+- Objective and update-size evidence showing the tested unchanged-rate Adam reset worsens local QA losses; no training fix or release change.
+
 - Restored actual-next QA→English pair probes with matched-input English-only and zero-gradient controls:25 copied transitions,191 passing audits and80 passing regression tests.
 - Pair diagnostic report and immutable evidence; mixed phase effects do not establish a replay or optimizer fix.
 

@@ -41,6 +41,8 @@ The [frozen replay diagnostic](docs/experiments/replay-interference/report.md) f
 
 The [actual-next QA→English diagnostic](docs/experiments/qa-replay-pair/report.md) restores saved sampler/carry state for five copied pairs. QA and English have mixed local effects;191 audits pass, and checkpoint files remain unchanged. Next isolate optimizer-history and router-balance effects before a training intervention.
 
+The [QA history/regularizer controls](docs/experiments/qa-step-controls/report.md) reject an unchanged-rate optimizer reset at the four fitted snapshots: it causes larger local QA-loss increases. Removing router regularization has mixed effects. All391 audits pass; no training intervention was applied.
+
 ## Development
 
 ```sh
@@ -50,7 +52,7 @@ uv run ruff format --check src tests
 uv run ty check src
 ```
 
-The last full regression run passed 80 tests. Separate QA/replay controls are available through `python -m mlm.plasticity_run --qa-seed ... --english-seed ...`; omitted values retain config.seed and config.seed+1. Config.seed still controls initialization and subset selection.
+The last full regression run passed 81 tests. Separate QA/replay controls are available through `python -m mlm.plasticity_run --qa-seed ... --english-seed ...`; omitted values retain config.seed and config.seed+1. Config.seed still controls initialization and subset selection.
 
 ## Documentation
 

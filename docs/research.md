@@ -813,3 +813,10 @@ Each source retains actual Adam moments, clipping, decay and role scaling; indep
 Five restored next-loop pairs use complete QA history, actual English stream/carry and loaded optimizer states, with matched English-only and zero-gradient controls:25 copied transitions. QA raises aggregate CE at3/5 snapshots; English after QA raises it at2/5, while control-adjusted effects have different membership. Selected-group and aggregate changes can disagree. These results do not isolate Adam or show universal replay erasure.
 
 All80 regression tests and191 runtime audits pass;78 frozen hashes including72 prior inputs remain unchanged. No checkpoint, neural/training math, ranking, held-out evaluation or release changed. Next isolate optimizer-history and router-balance contributions to the QA step before a separately frozen intervention. Earlier failed replication/generalization gates remain unchanged. See [report](experiments/qa-replay-pair/report.md).
+
+
+## 48. QA optimizer and router controls: reject unchanged-rate reset
+
+Five prior snapshots, identical actual-next QA and six copied branches/source cross loaded versus fresh Adam (moments plus internal clock) with configured versus zero router coefficient, plus both zero-gradient controls. All30 transitions and391 audits complete;88 frozen inputs including78 prior pair inputs remain unchanged. Final81-test suite passes. No checkpoint, model/training algorithm, rankings, held-out data or release changed.
+
+At all four fitted snapshots, unchanged-rate fresh Adam worsens selected and aggregate CE and its active objective; configured update norms rise about6.7–7.1 times. Loaded regularizer removal has mixed aggregate effects. At q42_e43 selected language worsens while total objective improves; at q42_e44 both worsen. All loaded gradient branches improve aggregate CE relative to their zero controls. These conditional results do not isolate moments, scalar update size or a long-run fix. Preserve loaded history; next freeze a bounded update-size control before longer intervention. Earlier replication/generalization failures remain unchanged. See [report](experiments/qa-step-controls/report.md).

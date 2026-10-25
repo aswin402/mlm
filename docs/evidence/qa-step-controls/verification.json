@@ -1,0 +1,40 @@
+{
+  "full_regression": {
+    "passed": 81,
+    "seconds": 288.43
+  },
+  "focused_tests": {
+    "passed": 1,
+    "seconds": 33.22
+  },
+  "initial_red": "Missing qa_controls module before implementation",
+  "interrupted_regression": "22 passed in68.75s before review fixes; intentionally interrupted, superseded by complete final run",
+  "final_static": {
+    "ruff": "passed",
+    "format_new_files": "passed",
+    "ty_src": "passed"
+  },
+  "runtime_audits": {
+    "passed": 391,
+    "failed": 0
+  },
+  "frozen_input_hashes": 88,
+  "preserved_prior_pair_input_hashes": 78,
+  "transitions": 30,
+  "execution_protocol_hash": "matched",
+  "public_evidence": "byte-identical to raw",
+  "documentation_links": "passed",
+  "independent_review": "Aquinas: code/protocol cleared before freeze; final report, tables,391auditflags,88hashes and9evidence copies verified; no material errors",
+  "graphify": {
+    "exit_code": 1,
+    "error": "ModuleNotFoundError: No module named graphify",
+    "impact": "Repository graph update unavailable"
+  },
+  "release_refs": {
+    "main": "09e6d5f85949dad04866d4fd857af14a8e7fba5f",
+    "v0.0.1^{}": "09e6d5f85949dad04866d4fd857af14a8e7fba5f"
+  },
+  "weights_written": false,
+  "pushed": false,
+  "scope": "Copied QA controls only; no held-out evaluation, rankings, training fix or release"
+}

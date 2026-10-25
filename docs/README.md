@@ -13,9 +13,11 @@ Start with the [release overview](../README.md) and [changelog](../CHANGELOG.md)
 
 ## Current research
 
-[Actual-next QA→English pairs](experiments/qa-replay-pair/report.md) are the latest completed diagnostic. Effects are mixed: QA itself sometimes raises aggregate loss, and English can help or hurt depending on source and optimizer control. All191 runtime audits pass. Next isolate optimizer-history and router-balance effects before selecting an intervention. The model remains an experimental prototype.
+[QA optimizer/regularizer controls](experiments/qa-step-controls/report.md) are the latest completed diagnostic. Resetting Adam at the same rate causes larger local QA-loss increases at all four fitted snapshots; removing router regularization has mixed effects. No training fix was applied. Next investigate bounded update-size controls with loaded history. The model remains an experimental prototype.
 
 ## Experiment reports
+
+- [QA optimizer-history and router-regularizer controls](experiments/qa-step-controls/report.md)
 
 - [Actual-next QA→English pair diagnostic](experiments/qa-replay-pair/report.md)
 
