@@ -1,0 +1,303 @@
+{
+  "source": {
+    "path": "runs/addressing-factorial-i42-s43-v1/final.mlm",
+    "config": {
+      "architecture": "graph",
+      "node_update": "hierarchical",
+      "groups": 4,
+      "router_balance": 0.01,
+      "node_readout": "sum",
+      "memory": "delta",
+      "memory_keys": 16,
+      "memory_lr_scale": 1.0,
+      "nodes": 8,
+      "width": 64,
+      "degree": 2,
+      "rounds": 1,
+      "batch_size": 4,
+      "length": 128,
+      "learning_rate": 0.003,
+      "shared_lr_scale": 0.1,
+      "node_lr_scale": 1.0,
+      "router_lr_scale": 1.0,
+      "weight_decay": 0.01,
+      "clip_norm": 1.0,
+      "seed": 43
+    },
+    "step": 4000,
+    "file_sha256": "be467454e686d7eb6f5d8c202599bec8e5fd0dc9210e0069eec73da8cd070711",
+    "state_sha256": "5e13c7a3396e9b79d7d1a39c6b1cdca8356597de43b6ccb0afa201734639e60d",
+    "metadata_sha256": "06b34c7919a1350e3001879b6a3f35cb9550cf44cb931ee3bc6548db9a656589",
+    "next": {
+      "qa_group": "train-0002",
+      "qa_updates_before": 2000,
+      "english_updates_before": 2000,
+      "sampling_seeds": {
+        "subset": 43,
+        "qa": 43,
+        "english": 44
+      },
+      "qa_batch": {
+        "inputs": {
+          "shape": [
+            4,
+            128
+          ],
+          "dtype": "int32",
+          "sha256": "009105249a585d288b05c5083eb18254d4a6a8608e05be5a0e41e8529d2aafbd"
+        },
+        "targets": {
+          "shape": [
+            4,
+            128
+          ],
+          "dtype": "int32",
+          "sha256": "e18129671fe7acc012e8cc27fe931abc2c16d0468d0b76fddc3b209105634f6f"
+        },
+        "mask": {
+          "shape": [
+            4,
+            128
+          ],
+          "dtype": "float32",
+          "sha256": "6e7f5593ebefdc0952b5f165d7806885d6648564571eaee3559392cf95846b67"
+        },
+        "resets": {
+          "shape": [
+            4,
+            128
+          ],
+          "dtype": "bool",
+          "sha256": "358e3a62edf939e902d6b6e8d3a6483153ce168dce61daf213f07d2666626bed"
+        },
+        "loss_mask": {
+          "shape": [
+            4,
+            128
+          ],
+          "dtype": "float32",
+          "sha256": "455619481d74b5f107e385ef577bbe310957881c59358e6a3a3cadd0eafe1355"
+        }
+      },
+      "english_batch": {
+        "inputs": {
+          "shape": [
+            4,
+            128
+          ],
+          "dtype": "int32",
+          "sha256": "33d83d45808b10dc51ccd773214b4159f84d40558e48e030fb0be58fc693364e"
+        },
+        "targets": {
+          "shape": [
+            4,
+            128
+          ],
+          "dtype": "int32",
+          "sha256": "53e6ff1c577d163cbb365158454407f8d100591b32f0aa7f834317203d9a69ed"
+        },
+        "mask": {
+          "shape": [
+            4,
+            128
+          ],
+          "dtype": "float32",
+          "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+        },
+        "resets": {
+          "shape": [
+            4,
+            128
+          ],
+          "dtype": "bool",
+          "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+        }
+      },
+      "english_carry": {
+        "carry": {
+          "shape": [
+            4,
+            24,
+            64
+          ],
+          "dtype": "float32",
+          "sha256": "c845c67c0d791045a021e2eec504776683ddd93af60e2716f0c67eea96cefea3"
+        }
+      },
+      "snapshot_before_sha256": "e5586abcfef3c4c199ca6f4b4efd114d27bd9f29bee24bc69edbea13a860d5f3",
+      "snapshot_after_sha256": "478ad86d0a59bd50d81a4e8a1d53c941e84e611095a2e4dea6e39035742b65eb"
+    }
+  },
+  "metrics": {
+    "qa_loss_before": 0.11556167155504227,
+    "qa_loss_after_qa": 0.11518610268831253,
+    "qa_loss_after_pair": 0.11497408896684647,
+    "qa_loss_after_qa_zero": 0.11498700827360153,
+    "qa_loss_after_english_only": 0.1153828427195549,
+    "qa_loss_after_source_zero": 0.11540935188531876,
+    "qa_step_loss_change": -0.00037556886672973633,
+    "english_step_loss_change": -0.00021201372146606445,
+    "pair_loss_change": -0.0005875825881958008,
+    "zero_pair_loss_change": -0.0005746632814407349,
+    "english_minus_zero_after_qa": -1.2919306755065918e-05,
+    "english_only_loss_change": -0.00017882883548736572,
+    "english_only_minus_zero": -2.650916576385498e-05,
+    "preceding_qa_effect_on_english_delta": -3.318488597869873e-05,
+    "selected_qa_loss_before": 0.11454197019338608,
+    "selected_qa_loss_after": 0.11337701231241226,
+    "paired_english": {
+      "english_language_loss_after": 1.2112586498260498,
+      "english_language_loss_before": 1.2403078079223633,
+      "english_objective_after": 1.2450827360153198,
+      "english_objective_before": 1.2741577625274658,
+      "english_supervised_positions": 512.0,
+      "qa_loss_after_english": 0.11497408896684647,
+      "qa_loss_after_zero": 0.11498700827360153,
+      "qa_loss_before": 0.11518610268831253,
+      "qa_supervised_positions": 96.0,
+      "parameter_count": 384784,
+      "qa_gradient_norm": 0.050595539937908406,
+      "english_gradient_norm": 0.6202745443806703,
+      "gradient_dot": 0.0024632442415728367,
+      "gradient_cosine": 0.0784894494632876,
+      "update_norm": 0.2710895491242737,
+      "zero_update_norm": 0.23430488433664323,
+      "first_order_qa_change": -0.0002870566465461886,
+      "zero_first_order_qa_change": -0.0002658000049984592,
+      "roles": {
+        "shared": {
+          "parameter_count": 37506,
+          "qa_gradient_norm": 0.04765650323691243,
+          "english_gradient_norm": 0.4872546247243599,
+          "gradient_dot": 0.001261718373335232,
+          "gradient_cosine": 0.05433557713769408,
+          "update_norm": 0.009757082859530183,
+          "zero_update_norm": 0.008704960948366562,
+          "first_order_qa_change": -1.8199917614720153e-05,
+          "zero_first_order_qa_change": -1.5788926105986165e-05
+        },
+        "node": {
+          "parameter_count": 329216,
+          "qa_gradient_norm": 0.013645753152047075,
+          "english_gradient_norm": 0.32996956927212967,
+          "gradient_dot": -4.689011512515844e-06,
+          "gradient_cosine": -0.0010413815963818563,
+          "update_norm": 0.24855070459021802,
+          "zero_update_norm": 0.21434283974468685,
+          "first_order_qa_change": -0.00018289013036460578,
+          "zero_first_order_qa_change": -0.0001732216443580934
+        },
+        "router": {
+          "parameter_count": 1548,
+          "qa_gradient_norm": 0.004798120351296886,
+          "english_gradient_norm": 0.13616904766382426,
+          "gradient_dot": 0.0001646945092457758,
+          "gradient_cosine": 0.2520748881529424,
+          "update_norm": 0.015739993470174428,
+          "zero_update_norm": 0.01249798634980434,
+          "first_order_qa_change": -1.2494256213305874e-05,
+          "zero_first_order_qa_change": -4.4315986009108646e-06
+        },
+        "memory": {
+          "parameter_count": 16514,
+          "qa_gradient_norm": 0.008918397997763243,
+          "english_gradient_norm": 0.14107272912956575,
+          "gradient_dot": 0.0010415203705043444,
+          "gradient_cosine": 0.8278236906239332,
+          "update_norm": 0.10662618267451614,
+          "zero_update_norm": 0.09340208705526228,
+          "first_order_qa_change": -7.347234235355678e-05,
+          "zero_first_order_qa_change": -7.235783593346877e-05
+        }
+      },
+      "qa_loss_change": -0.00021201372146606445,
+      "zero_qa_loss_change": -0.00019909441471099854,
+      "english_minus_zero_qa_loss": -1.2919306755065918e-05,
+      "first_order_remainder": 7.504292508012415e-05,
+      "optimizer_step_before": 4001,
+      "optimizer_step_after": 4002,
+      "zero_optimizer_step_after": 4002
+    },
+    "matched_english_only": {
+      "english_language_loss_after": 1.212012529373169,
+      "english_language_loss_before": 1.2420156002044678,
+      "english_objective_after": 1.2458653450012207,
+      "english_objective_before": 1.2758921384811401,
+      "english_supervised_positions": 512.0,
+      "qa_loss_after_english": 0.1153828427195549,
+      "qa_loss_after_zero": 0.11540935188531876,
+      "qa_loss_before": 0.11556167155504227,
+      "qa_supervised_positions": 96.0,
+      "parameter_count": 384784,
+      "qa_gradient_norm": 0.07706139542546314,
+      "english_gradient_norm": 0.6210216274676942,
+      "gradient_dot": 0.003730152080494052,
+      "gradient_cosine": 0.07794404578562653,
+      "update_norm": 0.2823389470150591,
+      "zero_update_norm": 0.24449252419657122,
+      "first_order_qa_change": -0.0001955282171115379,
+      "zero_first_order_qa_change": -0.00016589941920574927,
+      "roles": {
+        "shared": {
+          "parameter_count": 37506,
+          "qa_gradient_norm": 0.07347758111288244,
+          "english_gradient_norm": 0.4873654063112494,
+          "gradient_dot": 0.001966454287317047,
+          "gradient_cosine": 0.05491289054215978,
+          "update_norm": 0.010635361184186566,
+          "zero_update_norm": 0.00959742076358383,
+          "first_order_qa_change": -1.0699870527774129e-05,
+          "zero_first_order_qa_change": -6.8075093706530645e-06
+        },
+        "node": {
+          "parameter_count": 329216,
+          "qa_gradient_norm": 0.018410964635569946,
+          "english_gradient_norm": 0.32746685081188437,
+          "gradient_dot": 1.8173102687420406e-05,
+          "gradient_cosine": 0.0030142911155537225,
+          "update_norm": 0.2569068749988457,
+          "zero_update_norm": 0.2217588888136166,
+          "first_order_qa_change": -0.00011958039075260642,
+          "zero_first_order_qa_change": -0.00010522094014669097
+        },
+        "router": {
+          "parameter_count": 1548,
+          "qa_gradient_norm": 0.00505975945337412,
+          "english_gradient_norm": 0.13807916462839467,
+          "gradient_dot": 0.00017278202308975611,
+          "gradient_cosine": 0.24730934852484693,
+          "update_norm": 0.01638926929579048,
+          "zero_update_norm": 0.012958699951364516,
+          "first_order_qa_change": -1.3645709270002352e-05,
+          "zero_first_order_qa_change": -5.318048274987261e-06
+        },
+        "memory": {
+          "parameter_count": 16514,
+          "qa_gradient_norm": 0.013226449038995948,
+          "english_gradient_norm": 0.14779184154941083,
+          "gradient_dot": 0.0015727426673998286,
+          "gradient_cosine": 0.8045702045940998,
+          "update_norm": 0.11546609686107767,
+          "zero_update_norm": 0.10168358387870784,
+          "first_order_qa_change": -5.1602246561155e-05,
+          "zero_first_order_qa_change": -4.855292141341797e-05
+        }
+      },
+      "qa_loss_change": -0.00017882883548736572,
+      "zero_qa_loss_change": -0.00015231966972351074,
+      "english_minus_zero_qa_loss": -2.650916576385498e-05,
+      "first_order_remainder": 1.6699381624172188e-05,
+      "optimizer_step_before": 4000,
+      "optimizer_step_after": 4001,
+      "zero_optimizer_step_after": 4001
+    },
+    "steps": {
+      "source": 4000,
+      "qa": 4001,
+      "qa_english": 4002,
+      "qa_zero": 4002,
+      "english_only": 4001,
+      "zero_only": 4001
+    }
+  }
+}

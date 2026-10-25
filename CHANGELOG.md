@@ -4,6 +4,9 @@
 
 ### Added
 
+- Restored actual-next QA→English pair probes with matched-input English-only and zero-gradient controls:25 copied transitions,191 passing audits and80 passing regression tests.
+- Pair diagnostic report and immutable evidence; mixed phase effects do not establish a replay or optimizer fix.
+
 - Frozen training-only replay/optimizer diagnostics with document-prefix context, loaded-Adam and zero-gradient controls, role accounting and checkpoint immutability audits.
 - Predefined 80-probe report: local QA-loss effects are snapshot-dependent; a consistently worse replay44 effect is not established.
 - 78-test regression suite and504 completed diagnostic audit checks.

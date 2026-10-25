@@ -39,6 +39,8 @@ Both replay 43 runs completed all four training groups; replay 44 runs completed
 
 The [frozen replay diagnostic](docs/experiments/replay-interference/report.md) found snapshot-dependent QA-loss interference and substantial optimizer-history effects. It did not consistently show replay 44 to be more harmful than 43, and no training intervention has been applied.
 
+The [actual-next QA→English diagnostic](docs/experiments/qa-replay-pair/report.md) restores saved sampler/carry state for five copied pairs. QA and English have mixed local effects;191 audits pass, and checkpoint files remain unchanged. Next isolate optimizer-history and router-balance effects before a training intervention.
+
 ## Development
 
 ```sh
@@ -48,7 +50,7 @@ uv run ruff format --check src tests
 uv run ty check src
 ```
 
-The last full regression run passed 78 tests. Separate QA/replay controls are available through `python -m mlm.plasticity_run --qa-seed ... --english-seed ...`; omitted values retain config.seed and config.seed+1. Config.seed still controls initialization and subset selection.
+The last full regression run passed 80 tests. Separate QA/replay controls are available through `python -m mlm.plasticity_run --qa-seed ... --english-seed ...`; omitted values retain config.seed and config.seed+1. Config.seed still controls initialization and subset selection.
 
 ## Documentation
 

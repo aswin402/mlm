@@ -13,9 +13,11 @@ Start with the [release overview](../README.md) and [changelog](../CHANGELOG.md)
 
 ## Current research
 
-[Frozen replay/optimizer interference](experiments/replay-interference/report.md) is the latest completed diagnostic. Local QA-loss harm exists, but replay 44 is not consistently worse than 43 and optimizer history materially changes interpretation. The next proposed check is a copied QA→English pair using saved stream/carry; it has not been performed. The model remains an experimental prototype.
+[Actual-next QA→English pairs](experiments/qa-replay-pair/report.md) are the latest completed diagnostic. Effects are mixed: QA itself sometimes raises aggregate loss, and English can help or hurt depending on source and optimizer control. All191 runtime audits pass. Next isolate optimizer-history and router-balance effects before selecting an intervention. The model remains an experimental prototype.
 
 ## Experiment reports
+
+- [Actual-next QA→English pair diagnostic](experiments/qa-replay-pair/report.md)
 
 - [Binding acquisition at increasing dataset sizes](experiments/acquisition/report.md)
 - [Learned-memory addressing diagnostic](experiments/addressing/report.md)

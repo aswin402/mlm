@@ -409,3 +409,10 @@ Two new crossings with fixed initializer42 complete an exploratory selected QA×
 Added separate training-only diagnostic helper/CLI: exact frozen replay-prefix reconstruction,80 independent copied Adam/zero-gradient comparisons over5checkpoints, all16 QA target-weighted CE, raw gradient/actual-update role accounting and source immutability. No existing model/training math, saved checkpoints or release version changed.78 tests and504 audits pass.
 
 Local QA-loss interference is supported at some snapshots, but replay44 is not consistently worse than43; optimizer history/decay changes the interpretation. ExtraEnglish steps after end-of-English snapshots and frozen-context reconstruction do not reproduce normal QA→English training. No new ranking/test/generalization claim or intervention. Next gate is an actual-next-phase copied QA→English pair using saved stream/carry, followed by a separately frozen intervention only if supported. See [report](experiments/replay-interference/report.md).
+
+
+## 38. Restored next-pair diagnostic completed
+
+Five restored next-loop pairs use complete QA history, actual English stream/carry and loaded optimizer states, with matched English-only and zero-gradient controls:25 copied transitions. QA raises aggregate CE at3/5 snapshots; English after QA raises it at2/5, while control-adjusted effects have different membership. Selected-group and aggregate changes can disagree. These results do not isolate Adam or show universal replay erasure.
+
+All80 regression tests and191 runtime audits pass;78 frozen hashes including72 prior inputs remain unchanged. No checkpoint, neural/training math, ranking, held-out evaluation or release changed. Next isolate optimizer-history and router-balance contributions to the QA step before a separately frozen intervention. Earlier failed replication/generalization gates remain unchanged. See [report](experiments/qa-replay-pair/report.md).

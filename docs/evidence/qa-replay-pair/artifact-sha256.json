@@ -1,0 +1,12 @@
+{
+  "audit.json": "3a032743bda022c2d097d76a690919d79e78eecf175827f1f150b69bca4bca4d",
+  "checkpoint-initial.json": "2b592360aeec3d9b5d8ef340b1c17f21b8dfbef09492c3a66aedc1c36cd8323a",
+  "checkpoint-q42_e43.json": "57f3e55367ccb98962557891716bdc41d05c8f14ac43143882905ace1f428d29",
+  "checkpoint-q42_e44.json": "1d6d96cbfd32fafd551a4ad1c7d4e45dfa76e10fbf4c3f281a31e90592c4e037",
+  "checkpoint-q43_e43.json": "f06ee9a5ad8d8b3a56c341223b70a0215fcee9f168ef997b32a52faa4103b0f6",
+  "checkpoint-q43_e44.json": "d6987943de42b3d2494677b0fb4ce5bc27d4454a99dbae35d77c731089cad368",
+  "execution.json": "89a82dc6f09ec695b657b53a45ae0d2b716495b8d14eeea2aca18e7eea72f84f",
+  "protocol.json": "a55f8f58da9bd87d1244c8a41bf9b458faaf2ad0a12901abc65740e9367ffc49",
+  "summary.json": "c5694dfe0a1034c86490e32e21ac70172cf4c847a7dfa1e2562f483abbe6fa3c",
+  "verification.json": "4e791a53adc7597a7f04cf5de8a808b8d3d975851002fc3d4d074aa093c405d2"
+}

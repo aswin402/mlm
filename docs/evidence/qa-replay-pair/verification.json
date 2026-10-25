@@ -1,0 +1,37 @@
+{
+  "full_regression": {
+    "passed": 80,
+    "seconds": 254.51,
+    "scope": "Before audit-only CLI guard tightening; actual frozen run validates tightened guards"
+  },
+  "focused_tests": {
+    "passed": 2,
+    "seconds": 31.8
+  },
+  "final_static": {
+    "ruff": "passed",
+    "format_new_files": "passed",
+    "ty_src": "passed"
+  },
+  "runtime_audits": {
+    "passed": 191,
+    "failed": 0
+  },
+  "frozen_input_hashes": 78,
+  "preserved_prior_input_hashes": 72,
+  "execution_protocol_hash": "matched",
+  "public_evidence": "byte-identical to raw",
+  "documentation_links": "passed",
+  "independent_review": "Aquinas: numerical tables, algebra, report and all78 hashes checked; no material errors",
+  "graphify": {
+    "exit_code": 1,
+    "error": "ModuleNotFoundError: No module named graphify",
+    "impact": "Repository graph update unavailable; diagnostics and checks completed"
+  },
+  "release_refs": {
+    "main": "09e6d5f85949dad04866d4fd857af14a8e7fba5f",
+    "v0.0.1^{}": "09e6d5f85949dad04866d4fd857af14a8e7fba5f"
+  },
+  "weights_written": false,
+  "pushed": false
+}
