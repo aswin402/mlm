@@ -1,0 +1,14 @@
+{
+  "red": "Tests first failed because the diagnostic module did not exist",
+  "targeted": "Strengthened3 tests passed27.90s; deprecated test-only norm alias then updated",
+  "regression": "78 passed in240.93s",
+  "static": "Diagnostic helper/CLI/tests Ruff lint/format and ty passed",
+  "protocol": "Independent review verified72 hashes and all selections before computation",
+  "runtime": "80 probes and504 audit flags passed; checkpoint files and serialized source states unchanged",
+  "result_review": "Independent numerical review confirms snapshot dependence, zero-control importance and no uniform worse E44 result",
+  "wrapper_provenance": "Exact executed recorder text/hash preserved; nonmeasurement unused-import cleanup after run",
+  "final_review": "No material numerical/interpretation issues;80rowmeans/counts/paired differences and evidence copies independently verified",
+  "final_static": "Whole src/tests Ruff and ty src passed;41Markdown documents have no broken local links",
+  "final_integrity": "All72 frozen inputs,504audit flags,protocol hash andexact executed recorder hash match",
+  "code_graph": "Refresh attempted; installed graphify launcher lacks its Python module (pre-existing tool issue)"
+}

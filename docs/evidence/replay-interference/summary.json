@@ -1,0 +1,756 @@
+{
+  "checkpoints": {
+    "initial": {
+      "source": {
+        "path": "runs/addressing-exposure-delta-g4-v1/initial.mlm",
+        "step": 0,
+        "config": {
+          "architecture": "graph",
+          "node_update": "hierarchical",
+          "groups": 4,
+          "router_balance": 0.01,
+          "node_readout": "sum",
+          "memory": "delta",
+          "memory_keys": 16,
+          "memory_lr_scale": 1.0,
+          "nodes": 8,
+          "width": 64,
+          "degree": 2,
+          "rounds": 1,
+          "batch_size": 4,
+          "length": 128,
+          "learning_rate": 0.003,
+          "shared_lr_scale": 0.1,
+          "node_lr_scale": 1.0,
+          "router_lr_scale": 1.0,
+          "weight_decay": 0.01,
+          "clip_norm": 1.0,
+          "seed": 42
+        },
+        "file_sha256": "39eb75caf320bddb7414844d7172373b13b247bb10ebea22c881270b522963d8",
+        "state_sha256": "a2d9a154690addef43c21268bb7fb5c9ff45bd0eb11bccec3b553cfdb5e7ffa8"
+      },
+      "qa_loss_before": 6.866767883300781,
+      "zero_qa_loss_change": 8.106231689453125e-06,
+      "streams": {
+        "43": {
+          "probes": 8,
+          "qa_loss_change": {
+            "mean": 0.032144904136657715,
+            "min": -0.2143540382385254,
+            "max": 0.2430891990661621,
+            "harmful": 5,
+            "helpful": 3,
+            "unresolved": 0
+          },
+          "zero_qa_loss_change": {
+            "mean": 8.106231689453125e-06,
+            "min": 8.106231689453125e-06,
+            "max": 8.106231689453125e-06
+          },
+          "english_minus_zero_qa_loss": {
+            "mean": 0.03213679790496826,
+            "min": -0.21436214447021484,
+            "max": 0.24308109283447266,
+            "harmful": 5,
+            "helpful": 3,
+            "unresolved": 0
+          },
+          "first_order_qa_change": {
+            "mean": 0.024474138329819452,
+            "min": -0.24511624777814092,
+            "max": 0.26458411380038366
+          },
+          "first_order_remainder": {
+            "mean": 0.007670765806838266,
+            "min": -0.041333776136968786,
+            "max": 0.08435298407574834
+          },
+          "gradient_cosine": {
+            "mean": -0.0016136796066677237,
+            "min": -0.07006412107236716,
+            "max": 0.06304873083184201
+          },
+          "english_objective_decreased": 8
+        },
+        "44": {
+          "probes": 8,
+          "qa_loss_change": {
+            "mean": -0.03759366273880005,
+            "min": -0.21124887466430664,
+            "max": 0.13310623168945312,
+            "harmful": 2,
+            "helpful": 6,
+            "unresolved": 0
+          },
+          "zero_qa_loss_change": {
+            "mean": 8.106231689453125e-06,
+            "min": 8.106231689453125e-06,
+            "max": 8.106231689453125e-06
+          },
+          "english_minus_zero_qa_loss": {
+            "mean": -0.0376017689704895,
+            "min": -0.2112569808959961,
+            "max": 0.13309812545776367,
+            "harmful": 2,
+            "helpful": 6,
+            "unresolved": 0
+          },
+          "first_order_qa_change": {
+            "mean": -0.07672871493690069,
+            "min": -0.313750011240561,
+            "max": 0.1122350874073425
+          },
+          "first_order_remainder": {
+            "mean": 0.03913505219810064,
+            "min": 0.0025528139867527153,
+            "max": 0.10250113657625437
+          },
+          "gradient_cosine": {
+            "mean": 0.01869683531423555,
+            "min": -0.01903150594824724,
+            "max": 0.059968669812194376
+          },
+          "english_objective_decreased": 8
+        }
+      },
+      "paired": [
+        {
+          "position": 0,
+          "english44_minus43_qa_change": -0.3872251510620117
+        },
+        {
+          "position": 1,
+          "english44_minus43_qa_change": 0.11708545684814453
+        },
+        {
+          "position": 2,
+          "english44_minus43_qa_change": -0.015227317810058594
+        },
+        {
+          "position": 3,
+          "english44_minus43_qa_change": -0.19318914413452148
+        },
+        {
+          "position": 499,
+          "english44_minus43_qa_change": 0.1634049415588379
+        },
+        {
+          "position": 999,
+          "english44_minus43_qa_change": -0.14610862731933594
+        },
+        {
+          "position": 1499,
+          "english44_minus43_qa_change": 0.0034012794494628906
+        },
+        {
+          "position": 1999,
+          "english44_minus43_qa_change": -0.10004997253417969
+        }
+      ],
+      "paired_mean_english44_minus43": -0.06973856687545776
+    },
+    "q42_e43": {
+      "source": {
+        "path": "runs/addressing-exposure-delta-g4-v1/final.mlm",
+        "step": 4000,
+        "config": {
+          "architecture": "graph",
+          "node_update": "hierarchical",
+          "groups": 4,
+          "router_balance": 0.01,
+          "node_readout": "sum",
+          "memory": "delta",
+          "memory_keys": 16,
+          "memory_lr_scale": 1.0,
+          "nodes": 8,
+          "width": 64,
+          "degree": 2,
+          "rounds": 1,
+          "batch_size": 4,
+          "length": 128,
+          "learning_rate": 0.003,
+          "shared_lr_scale": 0.1,
+          "node_lr_scale": 1.0,
+          "router_lr_scale": 1.0,
+          "weight_decay": 0.01,
+          "clip_norm": 1.0,
+          "seed": 42
+        },
+        "file_sha256": "7a0fbd05b822c35a69ed690c901f5f924a112d118ea76e67ee0f3927f538dd5a",
+        "state_sha256": "e998807bc2d05522aaf0f1eeb1bdfcd31c8fadd34666160a8d325bd8ba2d48b5"
+      },
+      "qa_loss_before": 0.000819305598270148,
+      "zero_qa_loss_change": 2.3881555534899235e-05,
+      "streams": {
+        "43": {
+          "probes": 8,
+          "qa_loss_change": {
+            "mean": 3.55193842551671e-05,
+            "min": 2.5073648430407047e-05,
+            "max": 4.916387842968106e-05,
+            "harmful": 8,
+            "helpful": 0,
+            "unresolved": 0
+          },
+          "zero_qa_loss_change": {
+            "mean": 2.3881555534899235e-05,
+            "min": 2.3881555534899235e-05,
+            "max": 2.3881555534899235e-05
+          },
+          "english_minus_zero_qa_loss": {
+            "mean": 1.1637828720267862e-05,
+            "min": 1.1920928955078125e-06,
+            "max": 2.5282322894781828e-05,
+            "harmful": 8,
+            "helpful": 0,
+            "unresolved": 0
+          },
+          "first_order_qa_change": {
+            "mean": 3.1327307037531433e-05,
+            "min": 2.201456728725486e-05,
+            "max": 4.2760502331551956e-05
+          },
+          "first_order_remainder": {
+            "mean": 4.192077217635663e-06,
+            "min": 2.975348523786228e-06,
+            "max": 6.762417958360827e-06
+          },
+          "gradient_cosine": {
+            "mean": -0.317608689464888,
+            "min": -0.6853980190047658,
+            "max": -0.10106090507138463
+          },
+          "english_objective_decreased": 8
+        },
+        "44": {
+          "probes": 8,
+          "qa_loss_change": {
+            "mean": 2.97066944767721e-05,
+            "min": 1.7970800399780273e-05,
+            "max": 4.735589027404785e-05,
+            "harmful": 8,
+            "helpful": 0,
+            "unresolved": 0
+          },
+          "zero_qa_loss_change": {
+            "mean": 2.3881555534899235e-05,
+            "min": 2.3881555534899235e-05,
+            "max": 2.3881555534899235e-05
+          },
+          "english_minus_zero_qa_loss": {
+            "mean": 5.825138941872865e-06,
+            "min": -5.910755135118961e-06,
+            "max": 2.3474334739148617e-05,
+            "harmful": 7,
+            "helpful": 1,
+            "unresolved": 0
+          },
+          "first_order_qa_change": {
+            "mean": 2.6094208200771908e-05,
+            "min": 1.5469035501138803e-05,
+            "max": 4.141907427737029e-05
+          },
+          "first_order_remainder": {
+            "mean": 3.6124862760001943e-06,
+            "min": 2.5017648986414706e-06,
+            "max": 5.936815996677562e-06
+          },
+          "gradient_cosine": {
+            "mean": -0.22566057155679603,
+            "min": -0.4923591694357683,
+            "max": -0.032190704500870304
+          },
+          "english_objective_decreased": 8
+        }
+      },
+      "paired": [
+        {
+          "position": 0,
+          "english44_minus43_qa_change": -1.2805045116692781e-05
+        },
+        {
+          "position": 1,
+          "english44_minus43_qa_change": 4.311441443860531e-06
+        },
+        {
+          "position": 2,
+          "english44_minus43_qa_change": -1.5676021575927734e-05
+        },
+        {
+          "position": 3,
+          "english44_minus43_qa_change": -2.1129846572875977e-05
+        },
+        {
+          "position": 499,
+          "english44_minus43_qa_change": -9.318231604993343e-06
+        },
+        {
+          "position": 999,
+          "english44_minus43_qa_change": 1.4662742614746094e-05
+        },
+        {
+          "position": 1499,
+          "english44_minus43_qa_change": -4.341185558587313e-06
+        },
+        {
+          "position": 1999,
+          "english44_minus43_qa_change": -2.205371856689453e-06
+        }
+      ],
+      "paired_mean_english44_minus43": -5.812689778394997e-06
+    },
+    "q42_e44": {
+      "source": {
+        "path": "runs/schedule-components-q42-e44-v1/final.mlm",
+        "step": 4000,
+        "config": {
+          "architecture": "graph",
+          "node_update": "hierarchical",
+          "groups": 4,
+          "router_balance": 0.01,
+          "node_readout": "sum",
+          "memory": "delta",
+          "memory_keys": 16,
+          "memory_lr_scale": 1.0,
+          "nodes": 8,
+          "width": 64,
+          "degree": 2,
+          "rounds": 1,
+          "batch_size": 4,
+          "length": 128,
+          "learning_rate": 0.003,
+          "shared_lr_scale": 0.1,
+          "node_lr_scale": 1.0,
+          "router_lr_scale": 1.0,
+          "weight_decay": 0.01,
+          "clip_norm": 1.0,
+          "seed": 42
+        },
+        "file_sha256": "7bc18334c15cafb19ed9b461345efb6acb7fcd848643b6363534c6c9d3d07035",
+        "state_sha256": "f6a3cb582f0ffd8e79ca52d39c9214850d0947525f21c4d23c78107b34dfc7aa"
+      },
+      "qa_loss_before": 0.11643639206886292,
+      "zero_qa_loss_change": 4.935264587402344e-05,
+      "streams": {
+        "43": {
+          "probes": 8,
+          "qa_loss_change": {
+            "mean": 4.217121750116348e-05,
+            "min": 3.225356340408325e-05,
+            "max": 6.391853094100952e-05,
+            "harmful": 8,
+            "helpful": 0,
+            "unresolved": 0
+          },
+          "zero_qa_loss_change": {
+            "mean": 4.935264587402344e-05,
+            "min": 4.935264587402344e-05,
+            "max": 4.935264587402344e-05
+          },
+          "english_minus_zero_qa_loss": {
+            "mean": -7.181428372859955e-06,
+            "min": -1.7099082469940186e-05,
+            "max": 1.4565885066986084e-05,
+            "harmful": 2,
+            "helpful": 6,
+            "unresolved": 0
+          },
+          "first_order_qa_change": {
+            "mean": 1.643121330844549e-05,
+            "min": 1.1001821419335459e-05,
+            "max": 2.4730410913428665e-05
+          },
+          "first_order_remainder": {
+            "mean": 2.5740004192717992e-05,
+            "min": 2.1251741984747793e-05,
+            "max": 3.954487399957996e-05
+          },
+          "gradient_cosine": {
+            "mean": 0.012225682636193735,
+            "min": -0.032347124108614324,
+            "max": 0.09728004154680629
+          },
+          "english_objective_decreased": 8
+        },
+        "44": {
+          "probes": 8,
+          "qa_loss_change": {
+            "mean": 4.200730472803116e-05,
+            "min": 3.0525028705596924e-05,
+            "max": 5.5789947509765625e-05,
+            "harmful": 8,
+            "helpful": 0,
+            "unresolved": 0
+          },
+          "zero_qa_loss_change": {
+            "mean": 4.935264587402344e-05,
+            "min": 4.935264587402344e-05,
+            "max": 4.935264587402344e-05
+          },
+          "english_minus_zero_qa_loss": {
+            "mean": -7.345341145992279e-06,
+            "min": -1.8827617168426514e-05,
+            "max": 6.4373016357421875e-06,
+            "harmful": 2,
+            "helpful": 5,
+            "unresolved": 1
+          },
+          "first_order_qa_change": {
+            "mean": 1.7477652578180135e-05,
+            "min": 1.000412466307509e-05,
+            "max": 2.449689270922555e-05
+          },
+          "first_order_remainder": {
+            "mean": 2.4529652149851023e-05,
+            "min": 1.5398303476509483e-05,
+            "max": 3.420029821071299e-05
+          },
+          "gradient_cosine": {
+            "mean": 0.01577766259928656,
+            "min": -0.01771055089896348,
+            "max": 0.053741467626039936
+          },
+          "english_objective_decreased": 8
+        }
+      },
+      "paired": [
+        {
+          "position": 0,
+          "english44_minus43_qa_change": 7.3015689849853516e-06
+        },
+        {
+          "position": 1,
+          "english44_minus43_qa_change": 1.55717134475708e-06
+        },
+        {
+          "position": 2,
+          "english44_minus43_qa_change": 1.2889504432678223e-06
+        },
+        {
+          "position": 3,
+          "english44_minus43_qa_change": -8.910894393920898e-06
+        },
+        {
+          "position": 499,
+          "english44_minus43_qa_change": 1.8380582332611084e-05
+        },
+        {
+          "position": 999,
+          "english44_minus43_qa_change": -1.5109777450561523e-05
+        },
+        {
+          "position": 1499,
+          "english44_minus43_qa_change": 3.2633543014526367e-06
+        },
+        {
+          "position": 1999,
+          "english44_minus43_qa_change": -9.082257747650146e-06
+        }
+      ],
+      "paired_mean_english44_minus43": -1.6391277313232422e-07
+    },
+    "q43_e43": {
+      "source": {
+        "path": "runs/schedule-components-q43-e43-v1/final.mlm",
+        "step": 4000,
+        "config": {
+          "architecture": "graph",
+          "node_update": "hierarchical",
+          "groups": 4,
+          "router_balance": 0.01,
+          "node_readout": "sum",
+          "memory": "delta",
+          "memory_keys": 16,
+          "memory_lr_scale": 1.0,
+          "nodes": 8,
+          "width": 64,
+          "degree": 2,
+          "rounds": 1,
+          "batch_size": 4,
+          "length": 128,
+          "learning_rate": 0.003,
+          "shared_lr_scale": 0.1,
+          "node_lr_scale": 1.0,
+          "router_lr_scale": 1.0,
+          "weight_decay": 0.01,
+          "clip_norm": 1.0,
+          "seed": 42
+        },
+        "file_sha256": "fa69c760cc3c04fbf6c1c177afd10bef78bb98f46814af24e4609a61f37b0152",
+        "state_sha256": "4c9f2ff13115bc617af0f2b0586173bce3d04561e16eef4d6cd7e6aab8786036"
+      },
+      "qa_loss_before": 0.0012169083347544074,
+      "zero_qa_loss_change": 1.4334917068481445e-05,
+      "streams": {
+        "43": {
+          "probes": 8,
+          "qa_loss_change": {
+            "mean": 9.340510587207973e-06,
+            "min": -1.0301708243787289e-05,
+            "max": 2.4616718292236328e-05,
+            "harmful": 5,
+            "helpful": 3,
+            "unresolved": 0
+          },
+          "zero_qa_loss_change": {
+            "mean": 1.4334917068481445e-05,
+            "min": 1.4334917068481445e-05,
+            "max": 1.4334917068481445e-05
+          },
+          "english_minus_zero_qa_loss": {
+            "mean": -4.994406481273472e-06,
+            "min": -2.4636625312268734e-05,
+            "max": 1.0281801223754883e-05,
+            "harmful": 3,
+            "helpful": 3,
+            "unresolved": 2
+          },
+          "first_order_qa_change": {
+            "mean": 6.84401711034955e-06,
+            "min": -1.383732969240247e-05,
+            "max": 2.1469973874623144e-05
+          },
+          "first_order_remainder": {
+            "mean": 2.4964934768584236e-06,
+            "min": 1.5605951247801415e-06,
+            "max": 3.535621448615181e-06
+          },
+          "gradient_cosine": {
+            "mean": 0.02250645000163248,
+            "min": -0.20407789074267396,
+            "max": 0.451368338284114
+          },
+          "english_objective_decreased": 8
+        },
+        "44": {
+          "probes": 8,
+          "qa_loss_change": {
+            "mean": 1.2407675967551768e-05,
+            "min": 3.377208486199379e-07,
+            "max": 3.93986701965332e-05,
+            "harmful": 7,
+            "helpful": 0,
+            "unresolved": 1
+          },
+          "zero_qa_loss_change": {
+            "mean": 1.4334917068481445e-05,
+            "min": 1.4334917068481445e-05,
+            "max": 1.4334917068481445e-05
+          },
+          "english_minus_zero_qa_loss": {
+            "mean": -1.9272411009296775e-06,
+            "min": -1.3997196219861507e-05,
+            "max": 2.5063753128051758e-05,
+            "harmful": 2,
+            "helpful": 6,
+            "unresolved": 0
+          },
+          "first_order_qa_change": {
+            "mean": 1.004898602337678e-05,
+            "min": -1.3873363091926398e-06,
+            "max": 3.504116837219704e-05
+          },
+          "first_order_remainder": {
+            "mean": 2.358689944174988e-06,
+            "min": 1.7250571578125777e-06,
+            "max": 4.35750182433616e-06
+          },
+          "gradient_cosine": {
+            "mean": -0.015012206021166267,
+            "min": -0.4017144506580949,
+            "max": 0.18903226101079582
+          },
+          "english_objective_decreased": 8
+        }
+      },
+      "paired": [
+        {
+          "position": 0,
+          "english44_minus43_qa_change": -1.5070079825818539e-05
+        },
+        {
+          "position": 1,
+          "english44_minus43_qa_change": -1.3569951988756657e-05
+        },
+        {
+          "position": 2,
+          "english44_minus43_qa_change": 1.2814998626708984e-05
+        },
+        {
+          "position": 3,
+          "english44_minus43_qa_change": 6.755581125617027e-07
+        },
+        {
+          "position": 499,
+          "english44_minus43_qa_change": -2.2292137145996094e-05
+        },
+        {
+          "position": 999,
+          "english44_minus43_qa_change": 4.251801874488592e-05
+        },
+        {
+          "position": 1499,
+          "english44_minus43_qa_change": 2.1894811652600765e-05
+        },
+        {
+          "position": 1999,
+          "english44_minus43_qa_change": -2.433895133435726e-06
+        }
+      ],
+      "paired_mean_english44_minus43": 3.067165380343795e-06
+    },
+    "q43_e44": {
+      "source": {
+        "path": "runs/addressing-factorial-i42-s43-v1/final.mlm",
+        "step": 4000,
+        "config": {
+          "architecture": "graph",
+          "node_update": "hierarchical",
+          "groups": 4,
+          "router_balance": 0.01,
+          "node_readout": "sum",
+          "memory": "delta",
+          "memory_keys": 16,
+          "memory_lr_scale": 1.0,
+          "nodes": 8,
+          "width": 64,
+          "degree": 2,
+          "rounds": 1,
+          "batch_size": 4,
+          "length": 128,
+          "learning_rate": 0.003,
+          "shared_lr_scale": 0.1,
+          "node_lr_scale": 1.0,
+          "router_lr_scale": 1.0,
+          "weight_decay": 0.01,
+          "clip_norm": 1.0,
+          "seed": 43
+        },
+        "file_sha256": "be467454e686d7eb6f5d8c202599bec8e5fd0dc9210e0069eec73da8cd070711",
+        "state_sha256": "5e13c7a3396e9b79d7d1a39c6b1cdca8356597de43b6ccb0afa201734639e60d"
+      },
+      "qa_loss_before": 0.11556167155504227,
+      "zero_qa_loss_change": -0.00015231966972351074,
+      "streams": {
+        "43": {
+          "probes": 8,
+          "qa_loss_change": {
+            "mean": -0.0001824311912059784,
+            "min": -0.00021723657846450806,
+            "max": -0.00014171749353408813,
+            "harmful": 0,
+            "helpful": 8,
+            "unresolved": 0
+          },
+          "zero_qa_loss_change": {
+            "mean": -0.00015231966972351074,
+            "min": -0.00015231966972351074,
+            "max": -0.00015231966972351074
+          },
+          "english_minus_zero_qa_loss": {
+            "mean": -3.011152148246765e-05,
+            "min": -6.491690874099731e-05,
+            "max": 1.0602176189422607e-05,
+            "harmful": 1,
+            "helpful": 7,
+            "unresolved": 0
+          },
+          "first_order_qa_change": {
+            "mean": -0.00020354020918624614,
+            "min": -0.00023916290606242532,
+            "max": -0.00015832349393925572
+          },
+          "first_order_remainder": {
+            "mean": 2.1109017980267744e-05,
+            "min": 1.529615686075912e-05,
+            "max": 2.6654819462948513e-05
+          },
+          "gradient_cosine": {
+            "mean": 0.0792807717123861,
+            "min": -0.006848397875688733,
+            "max": 0.1371283573103147
+          },
+          "english_objective_decreased": 8
+        },
+        "44": {
+          "probes": 8,
+          "qa_loss_change": {
+            "mean": -0.00017589516937732697,
+            "min": -0.00022090226411819458,
+            "max": -0.00013504177331924438,
+            "harmful": 0,
+            "helpful": 8,
+            "unresolved": 0
+          },
+          "zero_qa_loss_change": {
+            "mean": -0.00015231966972351074,
+            "min": -0.00015231966972351074,
+            "max": -0.00015231966972351074
+          },
+          "english_minus_zero_qa_loss": {
+            "mean": -2.3575499653816223e-05,
+            "min": -6.858259439468384e-05,
+            "max": 1.7277896404266357e-05,
+            "harmful": 1,
+            "helpful": 7,
+            "unresolved": 0
+          },
+          "first_order_qa_change": {
+            "mean": -0.00019429157164484043,
+            "min": -0.00023960184650688703,
+            "max": -0.00014600369287771326
+          },
+          "first_order_remainder": {
+            "mean": 1.8396402267513477e-05,
+            "min": 1.0961919558468873e-05,
+            "max": 2.20304630822804e-05
+          },
+          "gradient_cosine": {
+            "mean": 0.08456936984417279,
+            "min": 0.06443785678542675,
+            "max": 0.11591016472033085
+          },
+          "english_objective_decreased": 8
+        }
+      },
+      "paired": [
+        {
+          "position": 0,
+          "english44_minus43_qa_change": -3.6656856536865234e-06
+        },
+        {
+          "position": 1,
+          "english44_minus43_qa_change": 4.750490188598633e-05
+        },
+        {
+          "position": 2,
+          "english44_minus43_qa_change": 1.074373722076416e-05
+        },
+        {
+          "position": 3,
+          "english44_minus43_qa_change": 2.3402273654937744e-05
+        },
+        {
+          "position": 499,
+          "english44_minus43_qa_change": 3.6835670471191406e-05
+        },
+        {
+          "position": 999,
+          "english44_minus43_qa_change": -2.788752317428589e-05
+        },
+        {
+          "position": 1499,
+          "english44_minus43_qa_change": -1.9155442714691162e-05
+        },
+        {
+          "position": 1999,
+          "english44_minus43_qa_change": -1.548975706100464e-05
+        }
+      ],
+      "paired_mean_english44_minus43": 6.536021828651428e-06
+    }
+  },
+  "scope": "training-only local counterfactuals; frozen prefix context; no trajectory/generalization claim",
+  "threshold": 1e-06
+}

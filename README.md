@@ -37,6 +37,8 @@ The latest selected experiment held memory initialization fixed and varied QA or
 
 Both replay 43 runs completed all four training groups; replay 44 runs completed none. All four completed zero groups on the small reused development set. Two cells were historical, and this is exploratory acquisition evidence. It does not reverse the failed independent-seed replication result. See the [full QA/replay report](docs/experiments/schedule-components/report.md).
 
+The [frozen replay diagnostic](docs/experiments/replay-interference/report.md) found snapshot-dependent QA-loss interference and substantial optimizer-history effects. It did not consistently show replay 44 to be more harmful than 43, and no training intervention has been applied.
+
 ## Development
 
 ```sh
@@ -46,7 +48,7 @@ uv run ruff format --check src tests
 uv run ty check src
 ```
 
-The last full regression run passed 75 tests. Separate QA/replay controls are available through `python -m mlm.plasticity_run --qa-seed ... --english-seed ...`; omitted values retain config.seed and config.seed+1. Config.seed still controls initialization and subset selection.
+The last full regression run passed 78 tests. Separate QA/replay controls are available through `python -m mlm.plasticity_run --qa-seed ... --english-seed ...`; omitted values retain config.seed and config.seed+1. Config.seed still controls initialization and subset selection.
 
 ## Documentation
 

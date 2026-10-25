@@ -402,3 +402,10 @@ No model/training changes. Step-zero source tensors and fresh optimizer prefligh
 Implemented --qa-seed/--english-seed on plasticity_run with legacy defaults, zero/invalid seed handling, old Namespace support and saved actual seed policy. Config seed still sets initialization/subset; neural/training-step/optimizer/scorer code unchanged.75 tests pass; actual legacy/default compatibility13 checks include bitwise weights/moments.
 
 Two new crossings with fixed initializer42 complete an exploratory selected QA×English grid: English43 gives16/16 and4/4 at both QA seeds, English44 gives7/16 and8/16 and0/4. All retain English and fail complete tiny development groups.219 endpoint/input checks pass; source changes and historical limits explicit. No new test or promotion, earlier replication gate unchanged. Next gate: frozen training-only gradient plus copied actual optimizer-step interference diagnostic before intervention. See [report](experiments/schedule-components/report.md).
+
+
+## 37. Frozen replay-interference diagnostic completed
+
+Added separate training-only diagnostic helper/CLI: exact frozen replay-prefix reconstruction,80 independent copied Adam/zero-gradient comparisons over5checkpoints, all16 QA target-weighted CE, raw gradient/actual-update role accounting and source immutability. No existing model/training math, saved checkpoints or release version changed.78 tests and504 audits pass.
+
+Local QA-loss interference is supported at some snapshots, but replay44 is not consistently worse than43; optimizer history/decay changes the interpretation. ExtraEnglish steps after end-of-English snapshots and frozen-context reconstruction do not reproduce normal QA→English training. No new ranking/test/generalization claim or intervention. Next gate is an actual-next-phase copied QA→English pair using saved stream/carry, followed by a separately frozen intervention only if supported. See [report](experiments/replay-interference/report.md).

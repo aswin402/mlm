@@ -13,7 +13,7 @@ Start with the [release overview](../README.md) and [changelog](../CHANGELOG.md)
 
 ## Current research
 
-[QA versus English replay sampling](experiments/schedule-components/report.md) is the latest completed diagnostic. The next proposed step is a frozen training-only optimizer-interference diagnostic; it has not been performed. The model remains an experimental prototype.
+[Frozen replay/optimizer interference](experiments/replay-interference/report.md) is the latest completed diagnostic. Local QA-loss harm exists, but replay 44 is not consistently worse than 43 and optimizer history materially changes interpretation. The next proposed check is a copied QA→English pair using saved stream/carry; it has not been performed. The model remains an experimental prototype.
 
 ## Experiment reports
 
@@ -38,6 +38,8 @@ Start with the [release overview](../README.md) and [changelog](../CHANGELOG.md)
 - [QA ordering versus English replay sampling](experiments/schedule-components/report.md)
 - [MLM v0.1 CPU smoke result](experiments/smoke/report.md)
 - [Binding transfer through pairing, color and wording diversity](experiments/transfer/report.md)
+
+- [Frozen replay/optimizer interference](experiments/replay-interference/report.md)
 
 ## Evidence and archives
 

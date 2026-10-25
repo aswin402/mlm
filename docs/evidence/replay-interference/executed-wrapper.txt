@@ -1,0 +1,43 @@
+"""Record actual diagnostic process settings and invoke the frozen run phase."""
+
+import hashlib
+import json
+import os
+from pathlib import Path
+
+import jax
+
+from mlm.cli import environment, write_json
+from mlm.interference_run import run
+
+OUT = Path("results/replay-interference")
+expected = "b7c71d283bdca64a157577bcea9f9f2a4c687055478ec4fa2691b4a3a5968182"
+actual = hashlib.sha256((OUT / "protocol.json").read_bytes()).hexdigest()
+if actual != expected:
+    raise ValueError("Protocol changed after freeze")
+write_json(
+    OUT / "execution-environment.json",
+    {
+        "protocol_sha256": actual,
+        "wrapper_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        "environment": environment(),
+        "numerical_settings": {
+            name: str(getattr(jax.config, name))
+            for name in ["jax_enable_x64", "jax_default_matmul_precision", "jax_disable_jit"]
+        },
+        "execution_environment": {
+            name: os.environ.get(name)
+            for name in [
+                "JAX_ENABLE_X64",
+                "JAX_DEFAULT_MATMUL_PRECISION",
+                "JAX_PLATFORMS",
+                "JAX_PLATFORM_NAME",
+                "XLA_FLAGS",
+                "OMP_NUM_THREADS",
+                "OPENBLAS_NUM_THREADS",
+                "MKL_NUM_THREADS",
+            ]
+        },
+    },
+)
+run(OUT)

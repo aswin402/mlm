@@ -1,0 +1,5 @@
+{
+  "actually_executed_source": "executed-wrapper.txt",
+  "executed_sha256": "f237ccd632db567f05f4f2ad40aecef72bb7d9f7464d95995578c907ca1ce50e",
+  "cleanup_after_run": "Reusable launcher removes unused json import; numerical measurement code and frozen protocol unchanged."
+}
