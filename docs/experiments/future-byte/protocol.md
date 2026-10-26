@@ -1,0 +1,22 @@
+# Extra-future-byte objective: feasibility pilot
+
+## Design and fixed budget
+
+Adaptation inspired by DeepSeek MTP, not an exact reproduction. Preserve existing GraphLM,Config,trainer,scorer,checkpoint format and all old diagnostic input files. New standalone future_byte helper and future_byte_run driver. Predict the second upcoming byte from current causal main logits via log-softmax, a rank16 tanh bottleneck and258-way output. No future token, label, parser or answer metadata enters the predictor. Auxiliary head is disposable; ordinary model inference uses unchanged backbone only.
+
+Loss = existing routed language+router objective + weight*auxiliary CE, weights0(control) and0.1 only. Include only pairs where both adjacent targets are supervised valid byte targets(<256), no next-position reset, and no crossing batch/document boundaries; no auxiliary EOS/BOS prediction. Main next-byte target masking remains unchanged. Average auxiliary CE by its own target count. If there are no auxiliary targets, contribution and head gradients are zero.
+
+Backbone uses its loaded actual optimizer including clipping/role scaling; head has separate clipped AdamW with learning rate config.learning_rate*shared_lr_scale, original decay and bias exclusion. This gives separate clipping groups, not joint global clipping. Weight0 backbone takes the exact existing routed trainer path and zero head gradients, preserving legacy computation. The baseline still has identical initialized auxiliary parameters but no auxiliary supervision. This is matched architecture/data/update exposure, not equal FLOPs; time and auxiliary positions reported.
+
+Sources: the common step0 initializer from prior studies (runs/addressing-exposure-delta-g4-v1/initial.mlm), full loaded state; no fitted-endpoint selection. Same head initializer seed9042 and same QA seed42/English43 botharms. Original four QA groups and1000 cached English training stories. Predeclare128QA+128English updates/arm,32 presentations/group:512 actual backbone updates total. Fresh zero English carry, true changing-weight carry within each arm. QA always fresh carry; English carry is never replaced by QA carry. Same per-arm sampler schedule and byte exposure, no extra updates, early stopping, best-checkpoint selection or coefficients.
+
+Evaluate training-only main aggregate16-question language CE/configured objective and selected fixed English training batch main CE, plus auxiliary CE, at start/final. Main masking and raw target counts retained. Never evaluate development/test, rank answers or generate text here. No held-out/English-retention/generalization claim. Head mean loss not comparable to a trained-head control unless labels were used; auxiliary-head fit alone is not backbone improvement. Report each arm and difference, including negative results. One initialization/schedule and short selected task cannot establish replication or a fix.
+
+Save only new local final backbone checkpoints under ignored results/future-byte and separate auxiliary optimizer bytes with hashes. Do not overwrite any sources or existing runs. Ordinary checkpoint loading sees backbone only, and is not sufficient to resume joint training; no joint-resume claim. Head serialization roundtrip checked in tests. Initial/final train metrics and all source/input hashes, numerical settings, optimizer budgets, QA trace, English snapshots and target exposures audited. No release/main/version change or push.
+
+## Implementation plan and gates
+
+1. Write failing tests for causal independence of future labels/input suffix, precise auxiliary masks across resets/padding/EOS/assistant boundaries, zero-target loss/gradients, weight0 exact legacy backbone state/carry, active auxiliary gradient reaching backbone, finite/no-supervision rejection and auxiliary serialization.
+2. Implement independent helper with low-rank learned head, explicit head optimizer, objective and guarded step. No existing core changes.
+3. Add freeze/run pilot CLI, preserving all98 prior bounded-update frozen inputs. Compare per-arm schedule/byte exposures and every group32visits,256steps/arm. Tests/static checks and independent review before freeze; full regression before actual pilot.
+4. Freeze protocol/code/data/source/test hashes and settings, then run exactlytwo arms. Publish all training-only results, timing and integrity checks in docs/evidence/future-byte and report. Update research/PRD/index/Unreleased; local research commit only.

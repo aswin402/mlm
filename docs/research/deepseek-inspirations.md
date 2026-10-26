@@ -62,3 +62,8 @@ MLM hypothesis: a small byte-pattern embedding bank could help local English pat
 4. Consider constrained messages, Engram and teacher-data training as separate studies. Defer reasoning RL and a Muon comparison until prerequisites and budgets are explicit.
 
 Every intervention must report all predefined seeds, held-out binding, English retention, actual runtime and memory. Do not pool unrelated historical runs as an independent replication, choose favorable replay seeds, or call training memorization generalization. Transformer replacement, category webs, graph growth and any-device execution remain unproven.
+
+
+## Implementation status:2026-10-27
+
+The [future-byte pilot](../experiments/future-byte/report.md) now implements the optional rank16 causal-output adaptation. It observed lower main training loss at one fixed schedule and short budget, without held-out/ranking evaluation or promotion. It is not a faithful V3 sequential-MTP implementation. Other architectural proposals above remain unimplemented; the next gate is predefined replication rather than declaring general capability.

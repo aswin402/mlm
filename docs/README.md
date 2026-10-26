@@ -14,9 +14,11 @@ Start with the [release overview](../README.md) and [changelog](../CHANGELOG.md)
 
 ## Current research
 
-[Bounded loaded-QA update fractions](experiments/qa-update-scale/report.md) are the latest completed diagnostic. Smaller fractions reduce some local loss increases but produce no universal improvement;653 audits and82 tests pass. No training fix was applied. [DeepSeek inspirations](research/deepseek-inspirations.md) describe possible future objectives/routing changes, none implemented here.
+[Future-byte objective pilot](experiments/future-byte/report.md) is the latest completed experiment. At128QA+128English updates/arm, weight0.1 lowers main training QA CE0.16544→0.15638 versus control; the English training-probe reduction is small. No held-out or answer-quality result is established. The optional head is implemented;134finalaudits pass after a documented serialization-audit continuation. Next replicate across predefined seeds before promotion.
 
 ## Experiment reports
+
+- [Future-byte objective feasibility pilot](experiments/future-byte/report.md)
 
 - [Bounded loaded-QA update fractions](experiments/qa-update-scale/report.md)
 

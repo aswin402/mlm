@@ -1,0 +1,131 @@
+{
+  "arms": {
+    "control": {
+      "weight": 0.0,
+      "initial": {
+        "qa": {
+          "aux_loss": 5.556087970733643,
+          "aux_positions": 64.0,
+          "loss": 6.866767883300781,
+          "main_objective": 6.893215656280518,
+          "positions": 96.0
+        },
+        "english_train_probe": {
+          "aux_loss": 5.545090198516846,
+          "aux_positions": 508.0,
+          "loss": 1.1571550369262695,
+          "main_objective": 1.1853779554367065,
+          "positions": 512.0
+        }
+      },
+      "final": {
+        "qa": {
+          "aux_loss": 5.556950569152832,
+          "aux_positions": 64.0,
+          "loss": 0.1654430627822876,
+          "main_objective": 0.1810903698205948,
+          "positions": 96.0
+        },
+        "english_train_probe": {
+          "aux_loss": 5.544595718383789,
+          "aux_positions": 508.0,
+          "loss": 1.1219799518585205,
+          "main_objective": 1.1512575149536133,
+          "positions": 512.0
+        }
+      },
+      "counts": {
+        "qa": {
+          "updates": 128,
+          "positions": 3072,
+          "aux_positions": 2048,
+          "input_bytes": 49664,
+          "supervised_bytes": 2560
+        },
+        "english": {
+          "updates": 128,
+          "positions": 61181,
+          "aux_positions": 60604,
+          "input_bytes": 61116,
+          "supervised_bytes": 61116
+        }
+      },
+      "visits": {
+        "train-0000": 32,
+        "train-0001": 32,
+        "train-0002": 32,
+        "train-0003": 32
+      },
+      "backbone_parameters": 384784,
+      "auxiliary_parameters": 8514,
+      "elapsed_training_seconds_including_compile": 74.72881308199976,
+      "final_backbone_sha256": "df15be2891841e1f1844842e7e857bf6b16294bf701af5254fd95fc55a6c7770",
+      "final_state_sha256": "93a1dee86b9db31192552128671eb0e4b4b00f2128d3877c9cb3b44f8fd57d70",
+      "head_sha256": "c995f4c843d9eee191744ccd877343acde013faae491147dbd2f2cfa8308050a"
+    },
+    "future_byte": {
+      "weight": 0.1,
+      "initial": {
+        "qa": {
+          "aux_loss": 5.556087970733643,
+          "aux_positions": 64.0,
+          "loss": 6.866767883300781,
+          "main_objective": 6.893215656280518,
+          "positions": 96.0
+        },
+        "english_train_probe": {
+          "aux_loss": 5.545090198516846,
+          "aux_positions": 508.0,
+          "loss": 1.1571550369262695,
+          "main_objective": 1.1853779554367065,
+          "positions": 512.0
+        }
+      },
+      "final": {
+        "qa": {
+          "aux_loss": 3.8299636840820312,
+          "aux_positions": 64.0,
+          "loss": 0.1563759595155716,
+          "main_objective": 0.1721452921628952,
+          "positions": 96.0
+        },
+        "english_train_probe": {
+          "aux_loss": 4.092679977416992,
+          "aux_positions": 508.0,
+          "loss": 1.1213161945343018,
+          "main_objective": 1.150587797164917,
+          "positions": 512.0
+        }
+      },
+      "counts": {
+        "qa": {
+          "updates": 128,
+          "positions": 3072,
+          "aux_positions": 2048,
+          "input_bytes": 49664,
+          "supervised_bytes": 2560
+        },
+        "english": {
+          "updates": 128,
+          "positions": 61181,
+          "aux_positions": 60604,
+          "input_bytes": 61116,
+          "supervised_bytes": 61116
+        }
+      },
+      "visits": {
+        "train-0000": 32,
+        "train-0001": 32,
+        "train-0002": 32,
+        "train-0003": 32
+      },
+      "backbone_parameters": 384784,
+      "auxiliary_parameters": 8514,
+      "elapsed_training_seconds_including_compile": 77.48933060299896,
+      "final_backbone_sha256": "247d24abe3d67cefbf6ea43deb504bb8c1a64f83c9e30ea304a632602ae89fe9",
+      "final_state_sha256": "21c625faaeea50a8925179790035e9515b21ee1521815eda40e943f59f439bc4",
+      "head_sha256": "07c84811825199d27a073b71c03ea16bb2e5917901492b1bf353c098afc29a09"
+    }
+  },
+  "backbone_updates": 512
+}

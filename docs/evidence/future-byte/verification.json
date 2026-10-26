@@ -1,0 +1,58 @@
+{
+  "full_regression_before_pilot": {
+    "passed": 84,
+    "seconds": 314.29
+  },
+  "focused_before_pilot": {
+    "passed": 2,
+    "seconds": 33.41
+  },
+  "focused_after_audit_fix": {
+    "passed": 3,
+    "seconds": 37.84
+  },
+  "test_scope": "Full suite not repeated after driver-only audit correction; subsequent guards checked statically and actual continuation completed",
+  "final_static": {
+    "ruff": "passed",
+    "four_new_files_format": "passed",
+    "ty_src": "passed"
+  },
+  "runtime_audits": {
+    "passed": 134,
+    "failed": 0
+  },
+  "original_frozen_inputs": 103,
+  "original_non_driver_hashes_unchanged": 102,
+  "preserved_prior_bounded_inputs": 98,
+  "continuation_frozen_inputs": 111,
+  "original_driver_preserved": true,
+  "training_loop_ast_unchanged": true,
+  "training_helper_hash_unchanged": true,
+  "control_retrained": false,
+  "backbone_updates_actual": 512,
+  "original_source_checkpoints_unchanged": true,
+  "new_checkpoints_local_only": true,
+  "original_failure": {
+    "error": "ValueError: Arm audit failed after completed control",
+    "cause": "Head serialized mapping insertion order differed after fresh-template restore; named values/dtypes/shapes/steps identical",
+    "recovery": "Frozen audit-only continuation revalidated completed control and trained only unstarted active arm"
+  },
+  "original_and_continuation_execution_hashes": "matched",
+  "numerical_settings": "unchanged except aggregate source SHA of audit driver",
+  "public_json_copies": "byte-identical",
+  "documentation_links": "passed",
+  "independent_review": "Curie: code/protocol/recovery checked;16tablevalues,11resultJSONcopies andarchiveddriver verified; no material errors",
+  "graphify": {
+    "exit_code": 1,
+    "error": "ModuleNotFoundError: No module named graphify"
+  },
+  "release_refs": {
+    "main": "09e6d5f85949dad04866d4fd857af14a8e7fba5f",
+    "v0.0.1^{}": "09e6d5f85949dad04866d4fd857af14a8e7fba5f"
+  },
+  "package_version": "0.0.1",
+  "pushed": false,
+  "promoted": false,
+  "joint_resume_supported": false,
+  "limitations": "Single historically selected initializer/schedule,128pairs/arm; trainingCEonly; no ranking,generation,heldoutretention/generalization orlatencybenchmark."
+}

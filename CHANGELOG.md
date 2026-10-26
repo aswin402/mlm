@@ -4,6 +4,10 @@
 
 ### Added
 
+- Optional rank16 causal future-byte auxiliary head and fixed two-arm training pilot, preserving existing core model/trainer/checkpoint behavior.
+- Narrow training-loss result after128QA+128English updates/arm; no held-out quality or promotion claim.
+- Original84-test regression run,3focused post-fix checks,134finalaudits and documented audit-only continuation preserving completed control training.
+
 - Bounded loaded-QA update diagnostic:10 optimizer computations,50 independent parameter evaluations,653 passing audits and82 passing regression tests; no universal step-size fix established.
 - Sourced DeepSeek research note and staged MLM adaptation hypotheses; no architectural changes or model-quality claims.
 
