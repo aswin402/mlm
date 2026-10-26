@@ -4,6 +4,9 @@
 
 ### Added
 
+- Bounded loaded-QA update diagnostic:10 optimizer computations,50 independent parameter evaluations,653 passing audits and82 passing regression tests; no universal step-size fix established.
+- Sourced DeepSeek research note and staged MLM adaptation hypotheses; no architectural changes or model-quality claims.
+
 - Frozen QA optimizer-history/router-regularizer controls:30 independent copied transitions,391 passing audits and81 passing regression tests.
 - Objective and update-size evidence showing the tested unchanged-rate Adam reset worsens local QA losses; no training fix or release change.
 

@@ -5,6 +5,7 @@ Start with the [release overview](../README.md) and [changelog](../CHANGELOG.md)
 ## Project
 
 - [Original idea, research and measured progress](research.md)
+- [DeepSeek papers and proposed MLM adaptations](research/deepseek-inspirations.md)
 - [Product requirements and capability gates](prd.md)
 - [Detailed usage and historical experiment log](usage.md)
 - [Data sources, preparation and split rules](data/README.md)
@@ -13,9 +14,11 @@ Start with the [release overview](../README.md) and [changelog](../CHANGELOG.md)
 
 ## Current research
 
-[QA optimizer/regularizer controls](experiments/qa-step-controls/report.md) are the latest completed diagnostic. Resetting Adam at the same rate causes larger local QA-loss increases at all four fitted snapshots; removing router regularization has mixed effects. No training fix was applied. Next investigate bounded update-size controls with loaded history. The model remains an experimental prototype.
+[Bounded loaded-QA update fractions](experiments/qa-update-scale/report.md) are the latest completed diagnostic. Smaller fractions reduce some local loss increases but produce no universal improvement;653 audits and82 tests pass. No training fix was applied. [DeepSeek inspirations](research/deepseek-inspirations.md) describe possible future objectives/routing changes, none implemented here.
 
 ## Experiment reports
+
+- [Bounded loaded-QA update fractions](experiments/qa-update-scale/report.md)
 
 - [QA optimizer-history and router-regularizer controls](experiments/qa-step-controls/report.md)
 

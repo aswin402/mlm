@@ -1,0 +1,41 @@
+{
+  "full_regression": {
+    "passed": 82,
+    "seconds": 327.39
+  },
+  "focused_test": {
+    "passed": 1,
+    "seconds": 19.38
+  },
+  "red_test": "Missing helper before implementation; strict direct-trainer identity then caught2.9e-11 separate-compilation difference; exact existing trainer reused and test passed",
+  "final_static": {
+    "ruff": "passed",
+    "new_file_format": "passed",
+    "ty_src": "passed"
+  },
+  "runtime_audits": {
+    "passed": 653,
+    "failed": 0
+  },
+  "frozen_hashes": 98,
+  "preserved_prior_qa_control_hashes": 88,
+  "optimizer_computations": 10,
+  "scaled_parameter_evaluations": 50,
+  "protocol_execution_hash": "matched",
+  "public_evidence": "byte-identical to raw",
+  "documentation_links": "passed",
+  "independent_review": "Curie: code/protocol reviewed beforefreeze; final75tableentries and9JSONcopies checked; no material errors. DeepSeek note consistent with proposal status and project evidence.",
+  "graphify": {
+    "exit_code": 1,
+    "error": "ModuleNotFoundError: No module named graphify"
+  },
+  "research_note_sha256": "b0694ab4e416ae670e81405ae1a8e8b48859e1d5f3ce084cabdd40257180fd0b",
+  "release_refs": {
+    "main": "09e6d5f85949dad04866d4fd857af14a8e7fba5f",
+    "v0.0.1^{}": "09e6d5f85949dad04866d4fd857af14a8e7fba5f"
+  },
+  "weights_written": false,
+  "mtp_implemented": false,
+  "pushed": false,
+  "limitations": "Single-step counterfactual parameter scaling only; retained full-step optimizer state is not a validated rollout. No ranking, English retention or held-out evaluation."
+}
