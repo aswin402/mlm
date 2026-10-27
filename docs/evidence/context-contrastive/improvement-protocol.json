@@ -1,0 +1,9 @@
+{
+  "reason": "Predeclared small-gradient rescaling after failed acquisition",
+  "weight": 100,
+  "ratio": 0.00030956183787571935,
+  "source_state": "a2d9a154690addef43c21268bb7fb5c9ff45bd0eb11bccec3b553cfdb5e7ffa8",
+  "base_protocol_sha256": "fe1c71179c7a9d8112f5261fe30406619cf0e242ec444e36125a4d78216b0734",
+  "control_summary_sha256": "ed2c6ed56ce22d26a79d7102cfb9503aa076e1db481fa7693b86a8b111e6d8f7",
+  "weight1_summary_sha256": "102bd5dd2c6485a6e429a698b0467f230366af95efcb4e1b7142118f19ca4081"
+}

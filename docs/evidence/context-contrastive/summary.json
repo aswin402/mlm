@@ -1,0 +1,13 @@
+{
+  "weight-1": {
+    "primary": false,
+    "english": true,
+    "joint": false
+  },
+  "scope": "training-only; one sampling schedule",
+  "weight-100": {
+    "primary": true,
+    "english": false,
+    "joint": false
+  }
+}

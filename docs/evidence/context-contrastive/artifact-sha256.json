@@ -1,0 +1,20 @@
+{
+  "docs/evidence/context-contrastive/summary.json": "5e879bb1f0d42dd3380199c55b9b0e74d09ce291b05d50bcf50bf3ee61fd3e1f",
+  "docs/evidence/context-contrastive/executed-runner.py": "d6cde6d332fe06a7d8de107c9180ebbc2db8391b17db8e15f99b44eae308b6b9",
+  "docs/evidence/context-contrastive/improvement-protocol.json": "d556fef546f34528c6f51a95a48dc86709f2fe53fc8486466ca7b18cb14f9d4b",
+  "docs/evidence/context-contrastive/weight-1-summary.json": "102bd5dd2c6485a6e429a698b0467f230366af95efcb4e1b7142118f19ca4081",
+  "docs/evidence/context-contrastive/weight-100-history.json": "afa8f16e9ba2394a8eb2542d08ce02dc880ae54640a0522b4f2d26b6ec0727a2",
+  "docs/evidence/context-contrastive/verification.json": "71629ad30866eef95f349874f50ca7be4a1d7bf6041082c4f562c89f5bc4afed",
+  "docs/evidence/context-contrastive/gradient.json": "e3b495df8893d3f46100aba536a17f61f9cb1738c301b95a583c228eb7fb25bb",
+  "docs/evidence/context-contrastive/initial.json": "3797cd0116bb0f29852bb0b5f3574a9e822606ba0835015cbbf92b515b197f9c",
+  "docs/evidence/context-contrastive/weight-0-summary.json": "ed2c6ed56ce22d26a79d7102cfb9503aa076e1db481fa7693b86a8b111e6d8f7",
+  "docs/evidence/context-contrastive/weight-1-history.json": "9bd00d53aa16621d42e16d42e29c55f12e43b7dadb38b51611ca6d7f9a2b4a9b",
+  "docs/evidence/context-contrastive/weight-100-summary.json": "0ad01349d5e3bba696ad0ffa3f6dad36c9cc82339809495b43226d9a0e5474cb",
+  "docs/evidence/context-contrastive/weight-0-history.json": "bdc6b7b71c210a868fd4457db331567ef4b7b3e6e7c7dc72b06289100c93e5d3",
+  "docs/evidence/context-contrastive/protocol.json": "fe1c71179c7a9d8112f5261fe30406619cf0e242ec444e36125a4d78216b0734",
+  "src/mlm/context_contrastive.py": "a8506cbd4d46fd94058a292e7858630b7f4d2c8b6091b2bd7e0aec9ae496d3bc",
+  "src/mlm/context_contrastive_run.py": "49b0f763b4919193d9cb78c38352151c1f1c6a20bcf25f02773ddb558154ba6e",
+  "tests/test_context_contrastive.py": "f18aca276f0a5ebb2370c855264a26694d6d1c1ad18fe86c6918b1f883b54a3e",
+  "docs/experiments/context-contrastive/report.md": "9063bc6096dd78defe41a31dd738a6d210462548fdd268fd4ea1a57b2251d1eb",
+  "docs/experiments/context-contrastive/protocol.md": "1e3712a657c6ffd68d300c740601d63892621612b72b558028cd35df139205f6"
+}
