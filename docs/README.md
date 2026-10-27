@@ -15,9 +15,12 @@ Start with the [release overview](../README.md) and [changelog](../CHANGELOG.md)
 
 ## Current research
 
-[Frozen answer/position analysis](experiments/future-byte-answers/report.md) finds8/16training rankings and0/4complete groups for the initializer and all six128-pair endpoints. CE gains do not yield answer-count gains; context swaps never change predictions. All258audits and4focused tests pass, with zero optimizer updates. Prior89-test full suite remains the last full regression. Head unpromoted; fresh tests closed.
+The [context-contrastive pilot](experiments/context-contrastive/report.md) reached16/16training answers and4/4groups after bounded rescaling, with worse English probe loss. Its [independent-schedule replication](experiments/context-replication/report.md) remained8/16 and0/4, matching the new control; relative English CE improved slightly. Acquisition and the joint gate failed. The fixed recipe is unpromoted, and generalization remains unestablished. Prior [answer analysis](experiments/future-byte-answers/report.md) and historical full-suite evidence retain their original scope.
 
 ## Experiment reports
+
+- [Context-contrastive independent-schedule replication](experiments/context-replication/report.md)
+- [Context-contrastive implementation and bounded rescaling](experiments/context-contrastive/report.md)
 
 - [Future-byte answer and target-position analysis](experiments/future-byte-answers/report.md)
 

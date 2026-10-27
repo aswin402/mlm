@@ -1,0 +1,20 @@
+{
+  "docs/evidence/context-replication/summary.json": "bef1d5f65b62171b1103aaac3f0e1be1121fcf740d0a9ba72db3e1a381b327a1",
+  "docs/evidence/context-replication/weight-100-history.json": "8f9a9c19b4f66d2560973b882a7e537d0657287680ec6c56763c345c8271d6ed",
+  "docs/evidence/context-replication/verification.json": "3cefe18c1ab34d1d2d1fe54eb9f0a7b8db2a574e670d6dfd3e2e725622c809de",
+  "docs/evidence/context-replication/initial.json": "3797cd0116bb0f29852bb0b5f3574a9e822606ba0835015cbbf92b515b197f9c",
+  "docs/evidence/context-replication/weight-0-summary.json": "58485a2a89b865ae19493d6367e3a9eea7be0f687ac8beb41fa5a1f9c9bb3bd9",
+  "docs/evidence/context-replication/weight-100-summary.json": "6431e01c1d1dbd3e4cd2acea602d085c73f9b1cb5469ad4ff15e51b5ef18ba6a",
+  "docs/evidence/context-replication/weight-0-history.json": "93edcd0da250c60e10ee6dc67fc15fe079fb5a08e1908d79f8792fb577abd97b",
+  "docs/evidence/context-replication/protocol.json": "8a15b09d20fdb2d0876c6dea9cf6600803ca50c8b432ac2ac527e380404b870a",
+  "src/mlm/context_replication_run.py": "6f40e297413ccc878d8d5718fad508a8361a789bfbdf132a1d99fc87a2ecf002",
+  "tests/test_context_replication.py": "9b5fde58278ef0eeb191841001c226dafa9e401f514fd6a65b46c87d60b2c001",
+  "docs/experiments/context-replication/report.md": "e3863284dc052e9b61708d40c01d94940a6c9d73e5263dab7165b95a7c2d7c43",
+  "docs/experiments/context-replication/protocol.md": "00d510bf62ca88280287190d5a46dbbe836ebbf1d99088eafda6c741d6560762",
+  "docs/superpowers/plans/2026-10-28-context-replication.md": "8a3a69c44cc2732fede82e9609be5bca3eca3d99db8a66c1d122d8cf64816049",
+  "README.md": "955a6aecb57d1156fc9fefbf3f68a2f8dece3781914e271b13ec094c0980920f",
+  "docs/README.md": "9ebb053ba756e020c85a11a855318fd07f065daf74c99a2cea3c948846fdf606",
+  "docs/research.md": "d9179210b78689d387acfba359b770ccf134fccf4e9e21b23a805e5d59d729c8",
+  "docs/prd.md": "8ee8ab087e6ed4cca215a24880e8b7d9aefa9b5644cffc8270cbfa61045bd4e0",
+  "CHANGELOG.md": "988fd5e13ff90c218308ead0d8cb7e340356495a66efd6bcfb2572917e4a448e"
+}

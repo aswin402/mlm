@@ -4,6 +4,8 @@
 
 ### Added
 
+- Fixed context-contrastive sampling replication with runtime exposure and protocol integrity checks: the new schedule remained8/16training answers and0/4groups, failing acquisition and joint gates;8focused tests passed.
+
 - Context-contrastive objective and bounded rescaling: 16/16 training answers and 4/4 groups on one schedule, with worse English probe loss; joint gate failed. Separate inference unchanged, tests and audit limits documented in docs/experiments/context-contrastive/report.md.
 
 - Primary-source DeepSeek/recurrent-memory reassessment and frozen-score context-discrimination feasibility audit; proposed context-contrastive objective remains unimplemented, with no new quality claim.

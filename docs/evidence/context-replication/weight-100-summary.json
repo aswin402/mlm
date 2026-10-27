@@ -1,0 +1,629 @@
+{
+  "correct": 8,
+  "groups_correct": 0,
+  "qa_ce": 0.13962006568908691,
+  "english_ce": 1.2017393112182617,
+  "overall": {
+    "questions": 16,
+    "pairs": 8,
+    "binding_groups": 4,
+    "accuracy": 0.5,
+    "pair_accuracy": 0.0,
+    "binding_group_accuracy": 0.0,
+    "query_flip_fraction": 0.0,
+    "correct_query_pair_fraction": 0.0,
+    "context_flip_fraction": 0.0,
+    "both_wrong_pair_fraction": 0.0
+  },
+  "items": [
+    {
+      "id": "train-0000-Bon-0",
+      "pair": "train-0000-Bon",
+      "group": "train-0000",
+      "category": "training",
+      "distractors": 1,
+      "delay_bytes": 0,
+      "assignment": 0,
+      "facts": [
+        [
+          "Bon",
+          "gold"
+        ],
+        [
+          "Bom",
+          "lime"
+        ]
+      ],
+      "query_entity": "Bon",
+      "context": "Bon's color is gold. Bom's color is lime.",
+      "question": "What color belongs to Bon?",
+      "choices": [
+        "gold",
+        "lime"
+      ],
+      "answer_index": 0,
+      "wording": "f0q0",
+      "pair_type": "cross",
+      "scores": [
+        -0.3598988354206085,
+        -0.08925648778676987
+      ],
+      "prediction": 1,
+      "predicted_answer": "lime",
+      "correct": false
+    },
+    {
+      "id": "train-0000-Bom-0",
+      "pair": "train-0000-Bom",
+      "group": "train-0000",
+      "category": "training",
+      "distractors": 1,
+      "delay_bytes": 0,
+      "assignment": 0,
+      "facts": [
+        [
+          "Bon",
+          "gold"
+        ],
+        [
+          "Bom",
+          "lime"
+        ]
+      ],
+      "query_entity": "Bom",
+      "context": "Bon's color is gold. Bom's color is lime.",
+      "question": "What color belongs to Bom?",
+      "choices": [
+        "gold",
+        "lime"
+      ],
+      "answer_index": 1,
+      "wording": "f0q0",
+      "pair_type": "cross",
+      "scores": [
+        -0.3527884781360626,
+        -0.09152712672948837
+      ],
+      "prediction": 1,
+      "predicted_answer": "lime",
+      "correct": true
+    },
+    {
+      "id": "train-0000-Bon-1",
+      "pair": "train-0000-Bon",
+      "group": "train-0000",
+      "category": "training",
+      "distractors": 1,
+      "delay_bytes": 0,
+      "assignment": 1,
+      "facts": [
+        [
+          "Bon",
+          "lime"
+        ],
+        [
+          "Bom",
+          "gold"
+        ]
+      ],
+      "query_entity": "Bon",
+      "context": "Bon's color is lime. Bom's color is gold.",
+      "question": "What color belongs to Bon?",
+      "choices": [
+        "gold",
+        "lime"
+      ],
+      "answer_index": 1,
+      "wording": "f0q0",
+      "pair_type": "cross",
+      "scores": [
+        -0.3687613606452942,
+        -0.08689859509468079
+      ],
+      "prediction": 1,
+      "predicted_answer": "lime",
+      "correct": true
+    },
+    {
+      "id": "train-0000-Bom-1",
+      "pair": "train-0000-Bom",
+      "group": "train-0000",
+      "category": "training",
+      "distractors": 1,
+      "delay_bytes": 0,
+      "assignment": 1,
+      "facts": [
+        [
+          "Bon",
+          "lime"
+        ],
+        [
+          "Bom",
+          "gold"
+        ]
+      ],
+      "query_entity": "Bom",
+      "context": "Bon's color is lime. Bom's color is gold.",
+      "question": "What color belongs to Bom?",
+      "choices": [
+        "gold",
+        "lime"
+      ],
+      "answer_index": 0,
+      "wording": "f0q0",
+      "pair_type": "cross",
+      "scores": [
+        -0.3579655587673187,
+        -0.09009077399969101
+      ],
+      "prediction": 1,
+      "predicted_answer": "lime",
+      "correct": false
+    },
+    {
+      "id": "train-0001-Bon-0",
+      "pair": "train-0001-Bon",
+      "group": "train-0001",
+      "category": "training",
+      "distractors": 1,
+      "delay_bytes": 0,
+      "assignment": 0,
+      "facts": [
+        [
+          "Bom",
+          "lime"
+        ],
+        [
+          "Bon",
+          "gold"
+        ]
+      ],
+      "query_entity": "Bon",
+      "context": "Bom's color is lime. Bon's color is gold.",
+      "question": "What color belongs to Bon?",
+      "choices": [
+        "gold",
+        "lime"
+      ],
+      "answer_index": 0,
+      "wording": "f0q0",
+      "pair_type": "cross",
+      "scores": [
+        -0.3638928532600403,
+        -0.08973774313926697
+      ],
+      "prediction": 1,
+      "predicted_answer": "lime",
+      "correct": false
+    },
+    {
+      "id": "train-0001-Bom-0",
+      "pair": "train-0001-Bom",
+      "group": "train-0001",
+      "category": "training",
+      "distractors": 1,
+      "delay_bytes": 0,
+      "assignment": 0,
+      "facts": [
+        [
+          "Bom",
+          "lime"
+        ],
+        [
+          "Bon",
+          "gold"
+        ]
+      ],
+      "query_entity": "Bom",
+      "context": "Bom's color is lime. Bon's color is gold.",
+      "question": "What color belongs to Bom?",
+      "choices": [
+        "gold",
+        "lime"
+      ],
+      "answer_index": 1,
+      "wording": "f0q0",
+      "pair_type": "cross",
+      "scores": [
+        -0.35257551074028015,
+        -0.0930689349770546
+      ],
+      "prediction": 1,
+      "predicted_answer": "lime",
+      "correct": true
+    },
+    {
+      "id": "train-0001-Bon-1",
+      "pair": "train-0001-Bon",
+      "group": "train-0001",
+      "category": "training",
+      "distractors": 1,
+      "delay_bytes": 0,
+      "assignment": 1,
+      "facts": [
+        [
+          "Bom",
+          "gold"
+        ],
+        [
+          "Bon",
+          "lime"
+        ]
+      ],
+      "query_entity": "Bon",
+      "context": "Bom's color is gold. Bon's color is lime.",
+      "question": "What color belongs to Bon?",
+      "choices": [
+        "gold",
+        "lime"
+      ],
+      "answer_index": 1,
+      "wording": "f0q0",
+      "pair_type": "cross",
+      "scores": [
+        -0.36218327283859253,
+        -0.08996423333883286
+      ],
+      "prediction": 1,
+      "predicted_answer": "lime",
+      "correct": true
+    },
+    {
+      "id": "train-0001-Bom-1",
+      "pair": "train-0001-Bom",
+      "group": "train-0001",
+      "category": "training",
+      "distractors": 1,
+      "delay_bytes": 0,
+      "assignment": 1,
+      "facts": [
+        [
+          "Bom",
+          "gold"
+        ],
+        [
+          "Bon",
+          "lime"
+        ]
+      ],
+      "query_entity": "Bom",
+      "context": "Bom's color is gold. Bon's color is lime.",
+      "question": "What color belongs to Bom?",
+      "choices": [
+        "gold",
+        "lime"
+      ],
+      "answer_index": 0,
+      "wording": "f0q0",
+      "pair_type": "cross",
+      "scores": [
+        -0.3509945571422577,
+        -0.09329170733690262
+      ],
+      "prediction": 1,
+      "predicted_answer": "lime",
+      "correct": false
+    },
+    {
+      "id": "train-0002-Bon-0",
+      "pair": "train-0002-Bon",
+      "group": "train-0002",
+      "category": "training",
+      "distractors": 1,
+      "delay_bytes": 0,
+      "assignment": 0,
+      "facts": [
+        [
+          "Bon",
+          "blue"
+        ],
+        [
+          "Bom",
+          "pink"
+        ]
+      ],
+      "query_entity": "Bon",
+      "context": "Bon's color is blue. Bom's color is pink.",
+      "question": "What color belongs to Bon?",
+      "choices": [
+        "blue",
+        "pink"
+      ],
+      "answer_index": 0,
+      "wording": "f0q0",
+      "pair_type": "cross",
+      "scores": [
+        -0.2078467458486557,
+        -0.17740905284881592
+      ],
+      "prediction": 1,
+      "predicted_answer": "pink",
+      "correct": false
+    },
+    {
+      "id": "train-0002-Bom-0",
+      "pair": "train-0002-Bom",
+      "group": "train-0002",
+      "category": "training",
+      "distractors": 1,
+      "delay_bytes": 0,
+      "assignment": 0,
+      "facts": [
+        [
+          "Bon",
+          "blue"
+        ],
+        [
+          "Bom",
+          "pink"
+        ]
+      ],
+      "query_entity": "Bom",
+      "context": "Bon's color is blue. Bom's color is pink.",
+      "question": "What color belongs to Bom?",
+      "choices": [
+        "blue",
+        "pink"
+      ],
+      "answer_index": 1,
+      "wording": "f0q0",
+      "pair_type": "cross",
+      "scores": [
+        -0.20106780529022217,
+        -0.18579602241516113
+      ],
+      "prediction": 1,
+      "predicted_answer": "pink",
+      "correct": true
+    },
+    {
+      "id": "train-0002-Bon-1",
+      "pair": "train-0002-Bon",
+      "group": "train-0002",
+      "category": "training",
+      "distractors": 1,
+      "delay_bytes": 0,
+      "assignment": 1,
+      "facts": [
+        [
+          "Bon",
+          "pink"
+        ],
+        [
+          "Bom",
+          "blue"
+        ]
+      ],
+      "query_entity": "Bon",
+      "context": "Bon's color is pink. Bom's color is blue.",
+      "question": "What color belongs to Bon?",
+      "choices": [
+        "blue",
+        "pink"
+      ],
+      "answer_index": 1,
+      "wording": "f0q0",
+      "pair_type": "cross",
+      "scores": [
+        -0.206159308552742,
+        -0.18258348107337952
+      ],
+      "prediction": 1,
+      "predicted_answer": "pink",
+      "correct": true
+    },
+    {
+      "id": "train-0002-Bom-1",
+      "pair": "train-0002-Bom",
+      "group": "train-0002",
+      "category": "training",
+      "distractors": 1,
+      "delay_bytes": 0,
+      "assignment": 1,
+      "facts": [
+        [
+          "Bon",
+          "pink"
+        ],
+        [
+          "Bom",
+          "blue"
+        ]
+      ],
+      "query_entity": "Bom",
+      "context": "Bon's color is pink. Bom's color is blue.",
+      "question": "What color belongs to Bom?",
+      "choices": [
+        "blue",
+        "pink"
+      ],
+      "answer_index": 0,
+      "wording": "f0q0",
+      "pair_type": "cross",
+      "scores": [
+        -0.19940297305583954,
+        -0.19166229665279388
+      ],
+      "prediction": 1,
+      "predicted_answer": "pink",
+      "correct": false
+    },
+    {
+      "id": "train-0003-Bon-0",
+      "pair": "train-0003-Bon",
+      "group": "train-0003",
+      "category": "training",
+      "distractors": 1,
+      "delay_bytes": 0,
+      "assignment": 0,
+      "facts": [
+        [
+          "Bom",
+          "pink"
+        ],
+        [
+          "Bon",
+          "blue"
+        ]
+      ],
+      "query_entity": "Bon",
+      "context": "Bom's color is pink. Bon's color is blue.",
+      "question": "What color belongs to Bon?",
+      "choices": [
+        "blue",
+        "pink"
+      ],
+      "answer_index": 0,
+      "wording": "f0q0",
+      "pair_type": "cross",
+      "scores": [
+        -0.2086505889892578,
+        -0.17609554529190063
+      ],
+      "prediction": 1,
+      "predicted_answer": "pink",
+      "correct": false
+    },
+    {
+      "id": "train-0003-Bom-0",
+      "pair": "train-0003-Bom",
+      "group": "train-0003",
+      "category": "training",
+      "distractors": 1,
+      "delay_bytes": 0,
+      "assignment": 0,
+      "facts": [
+        [
+          "Bom",
+          "pink"
+        ],
+        [
+          "Bon",
+          "blue"
+        ]
+      ],
+      "query_entity": "Bom",
+      "context": "Bom's color is pink. Bon's color is blue.",
+      "question": "What color belongs to Bom?",
+      "choices": [
+        "blue",
+        "pink"
+      ],
+      "answer_index": 1,
+      "wording": "f0q0",
+      "pair_type": "cross",
+      "scores": [
+        -0.20187582075595856,
+        -0.1842181384563446
+      ],
+      "prediction": 1,
+      "predicted_answer": "pink",
+      "correct": true
+    },
+    {
+      "id": "train-0003-Bon-1",
+      "pair": "train-0003-Bon",
+      "group": "train-0003",
+      "category": "training",
+      "distractors": 1,
+      "delay_bytes": 0,
+      "assignment": 1,
+      "facts": [
+        [
+          "Bom",
+          "blue"
+        ],
+        [
+          "Bon",
+          "pink"
+        ]
+      ],
+      "query_entity": "Bon",
+      "context": "Bom's color is blue. Bon's color is pink.",
+      "question": "What color belongs to Bon?",
+      "choices": [
+        "blue",
+        "pink"
+      ],
+      "answer_index": 1,
+      "wording": "f0q0",
+      "pair_type": "cross",
+      "scores": [
+        -0.20894934237003326,
+        -0.17348307371139526
+      ],
+      "prediction": 1,
+      "predicted_answer": "pink",
+      "correct": true
+    },
+    {
+      "id": "train-0003-Bom-1",
+      "pair": "train-0003-Bom",
+      "group": "train-0003",
+      "category": "training",
+      "distractors": 1,
+      "delay_bytes": 0,
+      "assignment": 1,
+      "facts": [
+        [
+          "Bom",
+          "blue"
+        ],
+        [
+          "Bon",
+          "pink"
+        ]
+      ],
+      "query_entity": "Bom",
+      "context": "Bom's color is blue. Bon's color is pink.",
+      "question": "What color belongs to Bom?",
+      "choices": [
+        "blue",
+        "pink"
+      ],
+      "answer_index": 0,
+      "wording": "f0q0",
+      "pair_type": "cross",
+      "scores": [
+        -0.2021656334400177,
+        -0.18121881783008575
+      ],
+      "prediction": 1,
+      "predicted_answer": "pink",
+      "correct": false
+    }
+  ],
+  "step": 256,
+  "state_sha256": "748e3041ab630b41976eed980a059390071152017c8b6d6ffd7b6ebbfa97c3d7",
+  "checkpoint_sha256": "e39c7c8a09c988f6cc3865a3bbaaff6c73bc54a63c876419294d0c71b02ec6a1",
+  "exposure": {
+    "observed": {
+      "qa_updates": 128.0,
+      "english_updates": 128.0,
+      "qa_targets": 3072.0,
+      "english_targets": 61440.0,
+      "candidate_positions": 4096.0,
+      "context_terms": 512.0,
+      "qa_bytes": 2560.0,
+      "english_bytes": 61376.0
+    },
+    "expected": {
+      "qa_updates": 128.0,
+      "english_updates": 128.0,
+      "qa_targets": 3072.0,
+      "english_targets": 61440.0,
+      "candidate_positions": 4096.0,
+      "context_terms": 512.0,
+      "qa_bytes": 2560.0,
+      "english_bytes": 61376.0
+    },
+    "visits": {
+      "train-0000": 32,
+      "train-0001": 32,
+      "train-0002": 32,
+      "train-0003": 32
+    }
+  },
+  "historical_acquisition_reproduced": false,
+  "context_loss": 0.6929998397827148
+}

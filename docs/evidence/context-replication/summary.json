@@ -1,0 +1,11 @@
+{
+  "weight-100": {
+    "primary": false,
+    "english": true,
+    "joint": false
+  },
+  "historical_acquisition_reproduced": false,
+  "english_delta_vs_control": -0.004778385162353516,
+  "scope": "one new sampling schedule; same model initialization; training only",
+  "protocol_sha256": "8a15b09d20fdb2d0876c6dea9cf6600803ca50c8b432ac2ac527e380404b870a"
+}

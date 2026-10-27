@@ -28,7 +28,9 @@ There is no inference-time entity parser, regex answer generator or symbolic ans
 
 ## Current evidence
 
-The latest selected experiment held memory initialization fixed and varied QA ordering and English replay sampling:
+The latest [context-contrastive replication](docs/experiments/context-replication/report.md) did not repeat the selected pilot: weight 100 learned 16/16 training answers and 4/4 groups on QA43/English44, but remained at 8/16 and 0/4 on QA44/English45, matching its control. The new English training-probe loss improved slightly versus control, but acquisition and the combined gate failed. This is schedule-sensitive training evidence; generalization remains unestablished.
+
+An earlier selected experiment held memory initialization fixed and varied QA ordering and English replay sampling:
 
 | English replay seed | QA order 42 | QA order 43 |
 |---|---:|---:|
@@ -37,9 +39,9 @@ The latest selected experiment held memory initialization fixed and varied QA or
 
 Both replay 43 runs completed all four training groups; replay 44 runs completed none. All four completed zero groups on the small reused development set. Two cells were historical, and this is exploratory acquisition evidence. It does not reverse the failed independent-seed replication result. See the [full QA/replay report](docs/experiments/schedule-components/report.md).
 
-The [frozen replay diagnostic](docs/experiments/replay-interference/report.md) found snapshot-dependent QA-loss interference and substantial optimizer-history effects. It did not consistently show replay 44 to be more harmful than 43, and no training intervention has been applied.
+The [frozen replay diagnostic](docs/experiments/replay-interference/report.md) found snapshot-dependent QA-loss interference and substantial optimizer-history effects. It did not consistently show replay 44 to be more harmful than 43. The later context-objective experiments above do not establish a reliable interference fix.
 
-The [actual-next QA→English diagnostic](docs/experiments/qa-replay-pair/report.md) restores saved sampler/carry state for five copied pairs. QA and English have mixed local effects;191 audits pass, and checkpoint files remain unchanged. Next isolate optimizer-history and router-balance effects before a training intervention.
+The [actual-next QA→English diagnostic](docs/experiments/qa-replay-pair/report.md) restores saved sampler/carry state for five copied pairs. QA and English have mixed local effects;191 audits pass, and checkpoint files remain unchanged. Later optimizer and context-objective experiments retain their separate comparison scopes.
 
 The [frozen answer-level analysis](docs/experiments/future-byte-answers/report.md) finds8/16training answer rankings and0/4complete groups for all six short(128QA+128English) pilot/replication endpoints, despite some lower CE. Context swaps do not change predictions. These budgets differ from the longer historical acquisition table above. All258audits pass with zero optimizer updates; the auxiliary head remains unpromoted.
 

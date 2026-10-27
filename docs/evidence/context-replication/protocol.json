@@ -1,0 +1,5192 @@
+{
+  "sha256": {
+    "docs/evidence/future-byte/audit.json": "8153d2ecca2cab8c457bfbeace3511e03e96ce5a6aa010be611681fa73adb4d5",
+    "docs/evidence/future-byte/continuation-execution.json": "d2261871a653c0cc6c25b060375380f1adb0ab2c314c83c12e18cfd07ed0126e",
+    "docs/evidence/future-byte/continuation-protocol.json": "4b9451ca86179044832bacedf5092049dd9c32286297e8a4b6f0ec2ae8b060ed",
+    "docs/evidence/future-byte/control/history.json": "6f9fd78adad9eb7bf562698e1a0bf7cbc7be37b96ed76b369da4f8d9470f4ee1",
+    "docs/evidence/future-byte/control/summary.json": "a71cc3a28f1482f0253c37d33bc4d2af4c66df527b46e7c2205d3197f02a925d",
+    "docs/evidence/future-byte/execution.json": "74e825a7f4d492372e8e1f93dad5cc988cdfadf79f0f4f03564f2b2027770c36",
+    "docs/evidence/future-byte/future_byte/history.json": "ab1b3a761031844b4cd6a8ee39190252d28cf9ae6fda24a596c876920ce60b50",
+    "docs/evidence/future-byte/future_byte/summary.json": "1e4925ee6ba7ea66da18f3d3f86a89765182cbe31ce6939fc2674c30ed4de0f5",
+    "docs/evidence/future-byte/original-driver.json": "827b8b14b7bff91c1fddc7ab19a50e6d55b288304c1dad1b1e28f5ab95c161e1",
+    "docs/evidence/future-byte/protocol.json": "85c5f66d3b83214abd876d4aeb84b0c16c0cccc99207c1aa32bbb025e4b5e98e",
+    "docs/evidence/future-byte/summary.json": "ef3292bb6bc4154bb91d2d904b2d1e28fdb856cce3e67ed787cbebe5977ce6ba",
+    "docs/evidence/future-byte/verification.json": "b7f911aca5a1d8af270bccb9ee145e7bd75460906b3d188c8fd18b12bddf464d",
+    "docs/evidence/future-byte/artifact-sha256.json": "8636c49febd4a211aaaee817250f16ccb9ab63995810e7d80c125cd2fb76f968",
+    "results/future-byte/audit.json": "8153d2ecca2cab8c457bfbeace3511e03e96ce5a6aa010be611681fa73adb4d5",
+    "results/future-byte/continuation-execution.json": "d2261871a653c0cc6c25b060375380f1adb0ab2c314c83c12e18cfd07ed0126e",
+    "results/future-byte/continuation-protocol.json": "4b9451ca86179044832bacedf5092049dd9c32286297e8a4b6f0ec2ae8b060ed",
+    "results/future-byte/control/history.json": "6f9fd78adad9eb7bf562698e1a0bf7cbc7be37b96ed76b369da4f8d9470f4ee1",
+    "results/future-byte/control/summary.json": "a71cc3a28f1482f0253c37d33bc4d2af4c66df527b46e7c2205d3197f02a925d",
+    "results/future-byte/execution.json": "74e825a7f4d492372e8e1f93dad5cc988cdfadf79f0f4f03564f2b2027770c36",
+    "results/future-byte/future_byte/history.json": "ab1b3a761031844b4cd6a8ee39190252d28cf9ae6fda24a596c876920ce60b50",
+    "results/future-byte/future_byte/summary.json": "1e4925ee6ba7ea66da18f3d3f86a89765182cbe31ce6939fc2674c30ed4de0f5",
+    "results/future-byte/original-driver.json": "827b8b14b7bff91c1fddc7ab19a50e6d55b288304c1dad1b1e28f5ab95c161e1",
+    "results/future-byte/protocol.json": "85c5f66d3b83214abd876d4aeb84b0c16c0cccc99207c1aa32bbb025e4b5e98e",
+    "results/future-byte/summary.json": "ef3292bb6bc4154bb91d2d904b2d1e28fdb856cce3e67ed787cbebe5977ce6ba",
+    "results/future-byte/verification.json": "b7f911aca5a1d8af270bccb9ee145e7bd75460906b3d188c8fd18b12bddf464d",
+    "results/future-byte/artifact-sha256.json": "8636c49febd4a211aaaee817250f16ccb9ab63995810e7d80c125cd2fb76f968",
+    "results/future-byte/control/final.mlm": "df15be2891841e1f1844842e7e857bf6b16294bf701af5254fd95fc55a6c7770",
+    "results/future-byte/control/head.msgpack": "c995f4c843d9eee191744ccd877343acde013faae491147dbd2f2cfa8308050a",
+    "results/future-byte/future_byte/final.mlm": "247d24abe3d67cefbf6ea43deb504bb8c1a64f83c9e30ea304a632602ae89fe9",
+    "results/future-byte/future_byte/head.msgpack": "07c84811825199d27a073b71c03ea16bb2e5917901492b1bf353c098afc29a09",
+    "docs/evidence/future-byte-replication/protocol.json": "613c2c36aebbc9ebe5f0f78bd913a058a69d07f979ed451c2ddfe00eb152b714",
+    "docs/evidence/future-byte-replication/execution.json": "4a75524bd1c463167b2de97075342fc67e01dcfbcb1a76c39151a3a05818595c",
+    "docs/evidence/future-byte-replication/summary.json": "8a1183c6e25c83f91976a4aab8b9f543463bbb0a1b8ab22b69a5c7fbb5806ba6",
+    "docs/evidence/future-byte-replication/audit.json": "6745010d5179216a37cb0d3f2cb8bc5e3356f411fab70b8d7f31f8468dec6da4",
+    "docs/evidence/future-byte-replication/verification.json": "d7882bbd17cb89fefc0a416a8de9225154389686fd4c875eeee3b946b6d489de",
+    "docs/evidence/future-byte-replication/seed-43/control/initial.json": "f589a0cbd136d00a0d119900ffdaf2f7d510d70c020fbefd3680ade9f6160e23",
+    "docs/evidence/future-byte-replication/seed-43/control/summary.json": "6ce46771309f776e573ccb9794023baf24a3a7ba532f81acd1a0f7ccabfa1f56",
+    "docs/evidence/future-byte-replication/seed-43/control/history.json": "dfa83116c172207d2280856269437bb097355ad03ef56df081e7f4b3dee2ebf3",
+    "docs/evidence/future-byte-replication/seed-43/future_byte/initial.json": "f589a0cbd136d00a0d119900ffdaf2f7d510d70c020fbefd3680ade9f6160e23",
+    "docs/evidence/future-byte-replication/seed-43/future_byte/summary.json": "ac4d7e97d31914ad3146033d61bf3e719a488e6d62b0158b11bcce82394900c8",
+    "docs/evidence/future-byte-replication/seed-43/future_byte/history.json": "3d164566110a53a351652646d406427aec8b7e9570d8bdf4df64e5fd4f8c1820",
+    "docs/evidence/future-byte-replication/seed-44/control/initial.json": "f589a0cbd136d00a0d119900ffdaf2f7d510d70c020fbefd3680ade9f6160e23",
+    "docs/evidence/future-byte-replication/seed-44/control/summary.json": "7c67bfa3ccf123f2de7d7a9f0658160d30768d6bb4b4ef8e3dc046a45f55954d",
+    "docs/evidence/future-byte-replication/seed-44/control/history.json": "b2ebce9f4766de4d24389a07b73a7eb9f785b5dbe904364fca9e36934de11682",
+    "docs/evidence/future-byte-replication/seed-44/future_byte/initial.json": "f589a0cbd136d00a0d119900ffdaf2f7d510d70c020fbefd3680ade9f6160e23",
+    "docs/evidence/future-byte-replication/seed-44/future_byte/summary.json": "ed814b4c47cb0d789b4bdeac35d915a0c0b513f583a02c8428e8426c0761d25a",
+    "docs/evidence/future-byte-replication/seed-44/future_byte/history.json": "4a6e9c7e2b75910ebd1b604456feb68666a77527efce5281765e469283932447",
+    "docs/evidence/future-byte-replication/artifact-sha256.json": "b860c824b9cea4b9275d587070215f546f322a8386ee2ba9760889c33096a014",
+    "results/future-byte-replication/protocol.json": "613c2c36aebbc9ebe5f0f78bd913a058a69d07f979ed451c2ddfe00eb152b714",
+    "results/future-byte-replication/execution.json": "4a75524bd1c463167b2de97075342fc67e01dcfbcb1a76c39151a3a05818595c",
+    "results/future-byte-replication/summary.json": "8a1183c6e25c83f91976a4aab8b9f543463bbb0a1b8ab22b69a5c7fbb5806ba6",
+    "results/future-byte-replication/audit.json": "6745010d5179216a37cb0d3f2cb8bc5e3356f411fab70b8d7f31f8468dec6da4",
+    "results/future-byte-replication/verification.json": "d7882bbd17cb89fefc0a416a8de9225154389686fd4c875eeee3b946b6d489de",
+    "results/future-byte-replication/seed-43/control/initial.json": "f589a0cbd136d00a0d119900ffdaf2f7d510d70c020fbefd3680ade9f6160e23",
+    "results/future-byte-replication/seed-43/control/summary.json": "6ce46771309f776e573ccb9794023baf24a3a7ba532f81acd1a0f7ccabfa1f56",
+    "results/future-byte-replication/seed-43/control/history.json": "dfa83116c172207d2280856269437bb097355ad03ef56df081e7f4b3dee2ebf3",
+    "results/future-byte-replication/seed-43/future_byte/initial.json": "f589a0cbd136d00a0d119900ffdaf2f7d510d70c020fbefd3680ade9f6160e23",
+    "results/future-byte-replication/seed-43/future_byte/summary.json": "ac4d7e97d31914ad3146033d61bf3e719a488e6d62b0158b11bcce82394900c8",
+    "results/future-byte-replication/seed-43/future_byte/history.json": "3d164566110a53a351652646d406427aec8b7e9570d8bdf4df64e5fd4f8c1820",
+    "results/future-byte-replication/seed-44/control/initial.json": "f589a0cbd136d00a0d119900ffdaf2f7d510d70c020fbefd3680ade9f6160e23",
+    "results/future-byte-replication/seed-44/control/summary.json": "7c67bfa3ccf123f2de7d7a9f0658160d30768d6bb4b4ef8e3dc046a45f55954d",
+    "results/future-byte-replication/seed-44/control/history.json": "b2ebce9f4766de4d24389a07b73a7eb9f785b5dbe904364fca9e36934de11682",
+    "results/future-byte-replication/seed-44/future_byte/initial.json": "f589a0cbd136d00a0d119900ffdaf2f7d510d70c020fbefd3680ade9f6160e23",
+    "results/future-byte-replication/seed-44/future_byte/summary.json": "ed814b4c47cb0d789b4bdeac35d915a0c0b513f583a02c8428e8426c0761d25a",
+    "results/future-byte-replication/seed-44/future_byte/history.json": "4a6e9c7e2b75910ebd1b604456feb68666a77527efce5281765e469283932447",
+    "results/future-byte-replication/artifact-sha256.json": "b860c824b9cea4b9275d587070215f546f322a8386ee2ba9760889c33096a014",
+    "results/future-byte-replication/seed-43/control/final.mlm": "4ccd63d95f6432d8d13273ce0c1c411bcc9afe700c6f728597ab787bf840bf67",
+    "results/future-byte-replication/seed-43/control/head.msgpack": "c995f4c843d9eee191744ccd877343acde013faae491147dbd2f2cfa8308050a",
+    "results/future-byte-replication/seed-43/future_byte/final.mlm": "1e5f19ef1090174a059ccd54bc672fd601cca128c6de080ecab4974b9a651a68",
+    "results/future-byte-replication/seed-43/future_byte/head.msgpack": "95967a567ed4d1f7c8a0885e66ffc4a6e8dac37e8492ac27fa07120f8e5d93f5",
+    "results/future-byte-replication/seed-44/control/final.mlm": "14e6d678ad00d4e17fc8f5fe2db92cf502547633e32d066c4a18c8a22714d0b1",
+    "results/future-byte-replication/seed-44/control/head.msgpack": "c995f4c843d9eee191744ccd877343acde013faae491147dbd2f2cfa8308050a",
+    "results/future-byte-replication/seed-44/future_byte/final.mlm": "c108c41b30a123f43dba123dc09edb50f816f8c26451cbb2170d38fccde16100",
+    "results/future-byte-replication/seed-44/future_byte/head.msgpack": "5e4e017f265d984523fca5af559b4aadc7444a5e2e9916967c5b4635bd1ca339",
+    "runs/addressing-exposure-delta-g4-v1/initial.mlm": "39eb75caf320bddb7414844d7172373b13b247bb10ebea22c881270b522963d8",
+    "runs/addressing-exposure-delta-g4-v1/final.mlm": "7a0fbd05b822c35a69ed690c901f5f924a112d118ea76e67ee0f3927f538dd5a",
+    "runs/schedule-components-q42-e44-v1/final.mlm": "7bc18334c15cafb19ed9b461345efb6acb7fcd848643b6363534c6c9d3d07035",
+    "runs/schedule-components-q43-e43-v1/final.mlm": "fa69c760cc3c04fbf6c1c177afd10bef78bb98f46814af24e4609a61f37b0152",
+    "runs/addressing-factorial-i42-s43-v1/final.mlm": "be467454e686d7eb6f5d8c202599bec8e5fd0dc9210e0069eec73da8cd070711",
+    "data/addressing-v1/groups-4/train.jsonl": "82b323f6fa57c9a8e656d64e7678e5cece681500a37f067727989beee3167f17",
+    "data/addressing-v1/groups-4/train-questions.json": "acdfb3715e5929ff798dafefd6ec94f2f9188d1bc19e92e52cd273a6d9fda0c4",
+    "data/hf/stories/train.jsonl": "c290447ca13c58cc325cedcdce6b3669a4d937b1b23bc736d40b8d50984a3a77",
+    "docs/evidence/replay-interference/protocol.json": "b7c71d283bdca64a157577bcea9f9f2a4c687055478ec4fa2691b4a3a5968182",
+    "docs/evidence/replay-interference/checkpoint-initial.json": "274082a8ce8ea365d45ab6f0753cf48e72e7695543af3079cbeaaa7373151e80",
+    "docs/experiments/qa-replay-pair/protocol.md": "938a8db1fc5be68ab6154702d631343beaf2dec0e84af26781216bf723774152",
+    "pyproject.toml": "2acccfba4696101a47148cc99573b65c0f00db907890ceac0aa0b604d28badde",
+    "uv.lock": "899a86afe98f9d59588dac9bc31276b8308967035922da8fa3810f1b12742bf3",
+    "src/mlm/retrieval_eval.py": "31ac72440aed00b4208c916141908d97e730ad77400ddf2cb169cc72d073edf2",
+    "src/mlm/transfer_data.py": "d570b6ba9bc69943abc233198c1c574dda5fc753f0f4111d7e97e0ab6265a449",
+    "src/mlm/acquisition_run.py": "2bdfc2df295100e0f41d9c6ad69888cc66676083e89b90fc2e69ac31d4f3f9fe",
+    "src/mlm/gradual_run.py": "49853637bf5de2c1cf44cd3c546fbbcfeea317a802484478549782cc8c9ad58b",
+    "src/mlm/plasticity.py": "cfbe48b7c51464d701cc67387f6fabd68313dd440455b9b982f0c3ae504ce943",
+    "src/mlm/plasticity_run.py": "cbdd84b423330f45e16ba8462950c5542cd353301ab96394698c9a518215776d",
+    "src/mlm/confirmation_data.py": "91806e4171ca9bec339215d7fbb184162653c06eca774cf5286eda0184910ce6",
+    "src/mlm/pair_probe.py": "9e9c76779ad6a2b8e43d6cf71ed78287bbdd16faa77bd270a02662811aade9d5",
+    "src/mlm/data.py": "2c6d684602eb27aa37fbcc6fefef2cc76951a6aece4795d41d37c4ccc1211c0d",
+    "src/mlm/hierarchy_run.py": "0fb49003ce9338d5845090ac122b4915cb8691dc32309cce8eb14cc9b269d677",
+    "src/mlm/gradual_data.py": "f7b348f2e89f0ed5cafd932b9e620d2bcedbdbf80db69b2c52746c9bf80f54f2",
+    "src/mlm/pair_probe_run.py": "acb198bb18b857f4fb1ae7c3c43d6281cc213e9bd9b262f787818992ff087be9",
+    "src/mlm/binding_data.py": "81446da16401b3a1159f46e3312f74d1c308ff64f1b643d127763f688d5ebae8",
+    "src/mlm/streamrun.py": "1f093cbc5247eaf15a112976021bc2965d629f3f55510b48ca7a3b2a38c9cf7c",
+    "src/mlm/supervised_data.py": "a4e129cfbee0feea52d3a61cf3731184ac50178213d6338bf1c3d98530c0d924",
+    "src/mlm/training.py": "34f3d01e5638a24c1f18771c38770b301da3c74a8c9175c130464e30ef66be04",
+    "src/mlm/learnability_run.py": "df816a81dbb8a72d35d59cf467a7ea4b042e0a10a80f88f2b1afbc922886c2ae",
+    "src/mlm/memory_init.py": "e48902425d05d0e8045a359b0f8d6044173c4ea7eb5a0b0febd989e9bb3f9dbc",
+    "src/mlm/hfdata.py": "0b1b6e341fe96d62d9783d4269660127c9e5f356e4c2bac745c87b76386f5a87",
+    "src/mlm/interference_run.py": "e1151eed4b25300d81682de3cf4fabbd529eb80760b6e7af1bc53105fb2b7809",
+    "src/mlm/pretrain_run.py": "431d5f9dd182382b4d5f415631abcfca8373ae9e4f8fdd5c8086937c00e7e411",
+    "src/mlm/comprehension.py": "b637b6ddb481d0ed1e228377db9dda63129c6199b1e77c3e16a29d4bd8e5fbff",
+    "src/mlm/gradual_eval.py": "6ef4f72f818d185df794aa4e20af21b09abf5f58a131095254963f3953c4cf25",
+    "src/mlm/checkpoint.py": "17e9dbfc9c50f404d93892cbc734d129cfedcfcba74595ceb19b8b2de581c376",
+    "src/mlm/model.py": "ae542b8ca0c8cb9a1af5d14061ae2dde45c3702edbe4f2d469936d02e3f81c7d",
+    "src/mlm/addressing.py": "be8976ffe737e7d83a70214dbf18851c1ddca20d71929c68e4a6f9fc19d186a1",
+    "src/mlm/graph.py": "e5c3b38a01686ac8a6e9b88a2ce725613a44a7aaf4ae8e30f8f54fd4f570d119",
+    "src/mlm/__init__.py": "e61f46955008350f982f7317d0372836ef6a1b3dc3d3ea3ffd639b454966306a",
+    "src/mlm/associative.py": "4428684a42ef2182909b7e2c8c6f3732e4da93152fc1495c5aed820b7d88f206",
+    "src/mlm/confirmation_run.py": "fa932e7e8a020b21b8af845ae95ff581c5e14b55419c4496d933ffd8875edc2e",
+    "src/mlm/supervised_eval.py": "839cf37926e7201fc5277b933d058306742882658d16059de6059c39f7d330e3",
+    "src/mlm/runtime_bench.py": "dc6285f57cf1ef428c47241f2633ad99b3929230bf59ea6fa1d8a2b0a0030aee",
+    "src/mlm/interference.py": "9183a1579bfb5d6f619dfa2b758931f8407817ed4273438c008b0b2e8288fdb5",
+    "src/mlm/memory_probe.py": "0238514a5682dbd6b8b0c57622780fcd3f1c7988f73c63225a32a09735ffc8eb",
+    "src/mlm/cli.py": "96556f29d200a362659fc9823fd9b16a78b5d3fc04a96e8d8991f29bb91b9d42",
+    "src/mlm/evaluate.py": "c62ac042cf0c3cf05628e9e17e06351c5b8c48c8bf556442a73aa7436abe77fd",
+    "src/mlm/stream.py": "fbfed5db1b6ba4d7646febe1c36b5f0fc94d3a5506c7bb1e920facf2cc2b396c",
+    "src/mlm/binding_run.py": "9549ad43bc3ad841b2dc61fb73b982fa2d6fa84e1e9ff1beabe0a98833bc6850",
+    "src/mlm/generate.py": "e9919525198ba3479fb2921861b4bdce34493efb36d884c0ed3ca746eebfc7cb",
+    "src/mlm/config.py": "a5883dd6512c1e0ff33024420d2315957ebb56ae6e98f7d9d52b0bac4afe0ff7",
+    "src/mlm/retrieval_data.py": "486e05d850f1f23ee12f124f22e0ee54ef004a5a432ed5d68ce0176a8c0b3a56",
+    "tests/test_cli.py": "968464bed37f648d42d1cef2656e8ecd5aa2dd6e894f6e854f2749b43c5f483c",
+    "tests/test_acquisition.py": "4da282ecdd9478e382c5570f0878c0ca1dabdca48d649b7946a94ab45c8910be",
+    "tests/test_memory_init.py": "c955d1ada8831f4c4e83d427fd80e335966733ad381d4f8dd8bec4eea2b9d061",
+    "tests/test_associative.py": "03b3eb9a64069156ccf2e1e1acc378d54d10b124f5486b41459ab2ffd4f2b9a3",
+    "tests/test_core.py": "9748e3dbfe3175633a701454e692b6d8ea053aa523d8772516418203a0e639fa",
+    "tests/test_gradual.py": "9305197ee6747cef5e0e730c147a1635410d208966fdee643d7cb2e871549ee2",
+    "tests/test_supervision.py": "173a891b3b119c39b8e051d96f452dda1f80fe811af3278e50f71aca0e6a6560",
+    "tests/test_confirmation.py": "2d91aced921623da4a94d6768aaf2144fb7867d4600247591394a640189d441b",
+    "tests/test_binding.py": "4e766ccc6686593b7f1657cf677c5ada5a45606f0699d31f98d0c29e5da75586",
+    "tests/test_pretraining.py": "7cca50d78e6801b5ab2ddda0b6590b876a0d93e9856b7ab8565771c8389b3ee3",
+    "tests/test_transfer.py": "92202a665b218156592f541b45c2ffd89a0d2d19b4b6248e04da806835e6d5ca",
+    "tests/test_comprehension.py": "c1c141a47b689dcf442e2c671cc702b564e301344b596217f858c2094eafb5bb",
+    "tests/test_stream.py": "0cc13363a6bacb135d80785387edbd893e1f7e2495e219a8a5ba697d9d245074",
+    "tests/test_interference.py": "415ced429f4655c77379887740d2efbee04ebd34cb6ffde1ccf1bc1be138a9aa",
+    "tests/test_hierarchy.py": "4f2abea541cb0da465ea70e91a51e0dca10d082d02e658207ef4a08235ab6b7c",
+    "tests/test_addressing.py": "a931868612dc8700b7b3c93b48a39652a0e47eb566c28309e086a8be202df9d6",
+    "tests/test_pair_probe.py": "9d7e2b8c82f74a063e86cd13c7ab77a4d35118bc723edb8bac07c663e16ff491",
+    "tests/test_plasticity.py": "37409b72502743964b9876e937af0c3ab12b612feb389b74502aba2290a6d773",
+    "tests/test_node_readout.py": "99ce61674c6979ecc31fe126d343530fa86ee24ab984e2d72a5b75745104bcf8",
+    "tests/test_retrieval.py": "e75bffad76bdf0ad7cc028c2a67e6654e975f0a0702f3752412e62796b8cc5ab",
+    "tests/test_baselines.py": "4afe8fe9abdda5c40ff0ae818fc904abc260f1c98d5aafddf6a4556c3abc1c0c",
+    "tests/test_hfdata.py": "02bd99053b844179d6dfcaeaa147e9f3b5bb8e1c0642f13044a2ca8fd33c990d",
+    "docs/experiments/replay-interference/protocol.md": "d4e2098b7a782bcf36b877f835795555a4c1d3684df1e7a954566fa973697e59",
+    "docs/evidence/schedule-components/protocol.json": "4e7d3e84c3e4be80a1f52842ab780289ec88dd50022e38d49b4420b41a293863",
+    "docs/evidence/qa-replay-pair/protocol.json": "a55f8f58da9bd87d1244c8a41bf9b458faaf2ad0a12901abc65740e9367ffc49",
+    "docs/experiments/qa-step-controls/protocol.md": "190ecc9e310e2b33a668a083e3e6e34150edd84a7e820c084842cc0e2912b16e",
+    "src/mlm/qa_controls_run.py": "db8aa575a482d8d5961453bc54718d3e5d2e4e84fab25b1a4013f176a3ce54e0",
+    "src/mlm/qa_controls.py": "747b84deea2d5cfd7fd4aac1dfbe8e8e593ab0a2509a6c3eee37b111ea5cd127",
+    "tests/test_qa_controls.py": "03d03af510ce259e494459c039d4f43c8d66d68328acbff919ef1d07c3ab23c6",
+    "docs/evidence/qa-replay-pair/checkpoint-q43_e43.json": "f06ee9a5ad8d8b3a56c341223b70a0215fcee9f168ef997b32a52faa4103b0f6",
+    "docs/evidence/qa-replay-pair/checkpoint-q43_e44.json": "d6987943de42b3d2494677b0fb4ce5bc27d4454a99dbae35d77c731089cad368",
+    "docs/evidence/qa-replay-pair/checkpoint-q42_e43.json": "57f3e55367ccb98962557891716bdc41d05c8f14ac43143882905ace1f428d29",
+    "docs/evidence/qa-replay-pair/checkpoint-q42_e44.json": "1d6d96cbfd32fafd551a4ad1c7d4e45dfa76e10fbf4c3f281a31e90592c4e037",
+    "docs/evidence/qa-replay-pair/checkpoint-initial.json": "2b592360aeec3d9b5d8ef340b1c17f21b8dfbef09492c3a66aedc1c36cd8323a",
+    "docs/evidence/qa-step-controls/protocol.json": "91a362a63a21929913d741c594c2e1eff3851774b538e760133b3a734673a470",
+    "docs/experiments/qa-update-scale/protocol.md": "02b08d200003c5f3590edae5cf6a07b0c72fa2873cca682c76c7dc98b34523af",
+    "src/mlm/update_scale.py": "f09c0353811b7efedbe3cd6cad21e76d2a4e2d6750ee25375db3e09a55906a28",
+    "src/mlm/update_scale_run.py": "b457b5125b798351fa5533897c020d767168a334b689522d38fb527e317269b3",
+    "tests/test_update_scale.py": "4fd69aafaa0b7929464e02d90a9280777e06ba7204da821cb42675d5c848a454",
+    "docs/evidence/qa-step-controls/checkpoint-q43_e43.json": "d9509def5d41107996693f7dfac5796653ec9156dff4f4abc753cc7d1621cf77",
+    "docs/evidence/qa-step-controls/checkpoint-q43_e44.json": "137634de4309c2c3fac6063392a44f4025886a433da5b6a2d8b620e5e98dabc9",
+    "docs/evidence/qa-step-controls/checkpoint-q42_e43.json": "eb24decb50cd8d23dd121e585943a1ad5a30832fafa04ff3505ea4fe8072608c",
+    "docs/evidence/qa-step-controls/checkpoint-q42_e44.json": "008a29eb422c70af419fe1dbc498280d621ca077f01e5807b75a451666c1f0df",
+    "docs/evidence/qa-step-controls/checkpoint-initial.json": "7ba0edb08ffbdb7171de05c6992c18b86281dafdb70b73731ac6e224b7e9df6c",
+    "docs/evidence/qa-update-scale/protocol.json": "07f355038d5616c901b6d4fd85de21c7c857d296b5e35ba6e182468c665ca64f",
+    "docs/experiments/future-byte/protocol.md": "f82ea79e95f25c3e45e846ad290ff47d7d9932207bb5a681af499359b0c06371",
+    "src/mlm/future_byte_run.py": "8f66b48b825d1744287dd5387d68cca28dcb87207846923a1f16ec97953a03b0",
+    "src/mlm/future_byte.py": "f92f43bbde2eb7f3ddc58f4976f8b7b4c88b00ba97e78d3c53d54f722e2231ca",
+    "tests/test_future_byte.py": "e9df918607f071b318209b112c15ba92bac57fe0df78432c7971770e09875dbb",
+    "results/future-byte/original-future_byte_run.py": "b9bdbe85c90d25c7b58b4cd4ced378e5a4ad30f414b880c6c9459ca08cd1a31d",
+    "tests/test_future_byte_audit.py": "1a8f77eba063abfd368303ed0b22d12db9ef2e4c88074d780e1a41b7424d1d53",
+    "docs/experiments/future-byte-replication/protocol.md": "f56a40b2eedc310a73b9e94ac997512e06a5efc3301e787df52908326c95ebc8",
+    "src/mlm/future_replication.py": "23bad189820f4e5fed0f25296e2b43c37c937aeb526d9c00328a2d4f4479904c",
+    "src/mlm/future_replication_run.py": "76a31ed301e1d105c7a3b4d0f2bf044c71971c8e545a031fef1b099caee1dd23",
+    "tests/test_replication_provenance.py": "58268dd3b3d2cb42d0cab532536095f684e10c61409e03414553b9840f048b39",
+    "tests/test_future_replication.py": "c1ff8bea289725fa22afd55895d7d172c2fae4ac675b2bec9f8d3a50acf23e8a",
+    "docs/experiments/future-byte-answers/protocol.md": "4c5bb6e6d08375e9676c34f05c598cebffeada680005130172c3f46cdad52ba3",
+    "src/mlm/answer_analysis.py": "04bd1ca57f22e60c4ec4129196097778478cf80897d48b0da3928dd2dae5868b",
+    "src/mlm/answer_analysis_run.py": "35c5b260f65be702e66ebe2406fa71965e8d2cabb1cf1df5eb3fb277c16e9cf1",
+    "tests/test_answer_analysis.py": "3dbd96e0a68cc3bb2e37021c636793220171d2bfe2a1c0bf9571bf1e3d530926",
+    "results/context-contrastive/protocol.json": "fe1c71179c7a9d8112f5261fe30406619cf0e242ec444e36125a4d78216b0734",
+    "docs/evidence/context-contrastive/protocol.json": "fe1c71179c7a9d8112f5261fe30406619cf0e242ec444e36125a4d78216b0734",
+    "results/context-contrastive/gradient.json": "e3b495df8893d3f46100aba536a17f61f9cb1738c301b95a583c228eb7fb25bb",
+    "docs/evidence/context-contrastive/gradient.json": "e3b495df8893d3f46100aba536a17f61f9cb1738c301b95a583c228eb7fb25bb",
+    "results/context-contrastive/initial.json": "3797cd0116bb0f29852bb0b5f3574a9e822606ba0835015cbbf92b515b197f9c",
+    "docs/evidence/context-contrastive/initial.json": "3797cd0116bb0f29852bb0b5f3574a9e822606ba0835015cbbf92b515b197f9c",
+    "results/context-contrastive/summary.json": "5e879bb1f0d42dd3380199c55b9b0e74d09ce291b05d50bcf50bf3ee61fd3e1f",
+    "docs/evidence/context-contrastive/summary.json": "5e879bb1f0d42dd3380199c55b9b0e74d09ce291b05d50bcf50bf3ee61fd3e1f",
+    "results/context-contrastive/improvement-protocol.json": "d556fef546f34528c6f51a95a48dc86709f2fe53fc8486466ca7b18cb14f9d4b",
+    "docs/evidence/context-contrastive/improvement-protocol.json": "d556fef546f34528c6f51a95a48dc86709f2fe53fc8486466ca7b18cb14f9d4b",
+    "results/context-contrastive/weight-0/summary.json": "ed2c6ed56ce22d26a79d7102cfb9503aa076e1db481fa7693b86a8b111e6d8f7",
+    "docs/evidence/context-contrastive/weight-0-summary.json": "ed2c6ed56ce22d26a79d7102cfb9503aa076e1db481fa7693b86a8b111e6d8f7",
+    "results/context-contrastive/weight-0/history.json": "bdc6b7b71c210a868fd4457db331567ef4b7b3e6e7c7dc72b06289100c93e5d3",
+    "docs/evidence/context-contrastive/weight-0-history.json": "bdc6b7b71c210a868fd4457db331567ef4b7b3e6e7c7dc72b06289100c93e5d3",
+    "results/context-contrastive/weight-1/summary.json": "102bd5dd2c6485a6e429a698b0467f230366af95efcb4e1b7142118f19ca4081",
+    "docs/evidence/context-contrastive/weight-1-summary.json": "102bd5dd2c6485a6e429a698b0467f230366af95efcb4e1b7142118f19ca4081",
+    "results/context-contrastive/weight-1/history.json": "9bd00d53aa16621d42e16d42e29c55f12e43b7dadb38b51611ca6d7f9a2b4a9b",
+    "docs/evidence/context-contrastive/weight-1-history.json": "9bd00d53aa16621d42e16d42e29c55f12e43b7dadb38b51611ca6d7f9a2b4a9b",
+    "results/context-contrastive/weight-100/summary.json": "0ad01349d5e3bba696ad0ffa3f6dad36c9cc82339809495b43226d9a0e5474cb",
+    "docs/evidence/context-contrastive/weight-100-summary.json": "0ad01349d5e3bba696ad0ffa3f6dad36c9cc82339809495b43226d9a0e5474cb",
+    "results/context-contrastive/weight-100/history.json": "afa8f16e9ba2394a8eb2542d08ce02dc880ae54640a0522b4f2d26b6ec0727a2",
+    "docs/evidence/context-contrastive/weight-100-history.json": "afa8f16e9ba2394a8eb2542d08ce02dc880ae54640a0522b4f2d26b6ec0727a2",
+    "docs/evidence/context-contrastive/executed-runner.py": "d6cde6d332fe06a7d8de107c9180ebbc2db8391b17db8e15f99b44eae308b6b9",
+    "docs/evidence/context-contrastive/verification.json": "71629ad30866eef95f349874f50ca7be4a1d7bf6041082c4f562c89f5bc4afed",
+    "src/mlm/context_contrastive.py": "a8506cbd4d46fd94058a292e7858630b7f4d2c8b6091b2bd7e0aec9ae496d3bc",
+    "src/mlm/context_contrastive_run.py": "49b0f763b4919193d9cb78c38352151c1f1c6a20bcf25f02773ddb558154ba6e",
+    "tests/test_context_contrastive.py": "f18aca276f0a5ebb2370c855264a26694d6d1c1ad18fe86c6918b1f883b54a3e",
+    "docs/experiments/context-contrastive/report.md": "9063bc6096dd78defe41a31dd738a6d210462548fdd268fd4ea1a57b2251d1eb",
+    "docs/experiments/context-contrastive/protocol.md": "1e3712a657c6ffd68d300c740601d63892621612b72b558028cd35df139205f6",
+    "docs/evidence/context-contrastive/artifact-sha256.json": "1863770da231ab5979b2efbee62ab03d409b0f0a0e8be0a0b2f0488d90974aad",
+    "results/context-contrastive/weight-0/final.mlm": "0a9d788287e055dc54b9703a6229544928f732eec378ad81a7280c167414d06f",
+    "results/context-contrastive/weight-1/final.mlm": "a6be60d00635a57835ce8c2b1dec3c8cc176fa555a8b7c0b956d1ba61af16b07",
+    "results/context-contrastive/weight-100/final.mlm": "93aee5eac63a3a915ac0c0d6d0f5243b6dd2d696a94f1e76c9b67e8b53d99d55",
+    "src/mlm/context_replication_run.py": "6f40e297413ccc878d8d5718fad508a8361a789bfbdf132a1d99fc87a2ecf002",
+    "tests/test_context_replication.py": "9b5fde58278ef0eeb191841001c226dafa9e401f514fd6a65b46c87d60b2c001",
+    "docs/experiments/context-replication/protocol.md": "00d510bf62ca88280287190d5a46dbbe836ebbf1d99088eafda6c741d6560762",
+    "docs/evidence/future-byte-answers/protocol.json": "7cbba19ba39a88ecd3c866ceaaf91f8c8cc8e61aa69c41217abfcdbc18275c03"
+  },
+  "source_state": "a2d9a154690addef43c21268bb7fb5c9ff45bd0eb11bccec3b553cfdb5e7ffa8",
+  "settings": {
+    "environment": {
+      "python": "3.12.3",
+      "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.43",
+      "devices": [
+        "cpu:0"
+      ],
+      "versions": {
+        "jax": "0.12.0.1",
+        "flax": "0.12.10",
+        "optax": "0.2.8"
+      },
+      "source_sha256": "c40ad302d939a84486bd2c66cde0162aa439d44c87d7d39df978e673da1b045c"
+    },
+    "numerical": {
+      "jax_enable_x64": "False",
+      "jax_default_matmul_precision": "None",
+      "jax_disable_jit": "False"
+    },
+    "variables": {
+      "JAX_ENABLE_X64": null,
+      "JAX_DEFAULT_MATMUL_PRECISION": null,
+      "JAX_PLATFORMS": null,
+      "JAX_PLATFORM_NAME": null,
+      "XLA_FLAGS": null,
+      "OMP_NUM_THREADS": null,
+      "OPENBLAS_NUM_THREADS": null,
+      "MKL_NUM_THREADS": null
+    }
+  },
+  "qa_seed": 44,
+  "english_seed": 45,
+  "pairs": 128,
+  "weights": [
+    0,
+    100
+  ],
+  "source_config": {
+    "architecture": "graph",
+    "node_update": "hierarchical",
+    "groups": 4,
+    "router_balance": 0.01,
+    "node_readout": "sum",
+    "memory": "delta",
+    "memory_keys": 16,
+    "memory_lr_scale": 1.0,
+    "nodes": 8,
+    "width": 64,
+    "degree": 2,
+    "rounds": 1,
+    "batch_size": 4,
+    "length": 128,
+    "learning_rate": 0.003,
+    "shared_lr_scale": 0.1,
+    "node_lr_scale": 1.0,
+    "router_lr_scale": 1.0,
+    "weight_decay": 0.01,
+    "clip_norm": 1.0,
+    "seed": 42
+  },
+  "qa_order": [
+    "train-0001",
+    "train-0000",
+    "train-0002",
+    "train-0003",
+    "train-0002",
+    "train-0000",
+    "train-0003",
+    "train-0001",
+    "train-0003",
+    "train-0000",
+    "train-0002",
+    "train-0001",
+    "train-0000",
+    "train-0001",
+    "train-0002",
+    "train-0003",
+    "train-0000",
+    "train-0001",
+    "train-0002",
+    "train-0003",
+    "train-0001",
+    "train-0002",
+    "train-0003",
+    "train-0000",
+    "train-0001",
+    "train-0000",
+    "train-0002",
+    "train-0003",
+    "train-0000",
+    "train-0003",
+    "train-0002",
+    "train-0001",
+    "train-0000",
+    "train-0003",
+    "train-0002",
+    "train-0001",
+    "train-0002",
+    "train-0003",
+    "train-0001",
+    "train-0000",
+    "train-0001",
+    "train-0000",
+    "train-0003",
+    "train-0002",
+    "train-0001",
+    "train-0002",
+    "train-0003",
+    "train-0000",
+    "train-0003",
+    "train-0000",
+    "train-0002",
+    "train-0001",
+    "train-0003",
+    "train-0000",
+    "train-0001",
+    "train-0002",
+    "train-0002",
+    "train-0000",
+    "train-0003",
+    "train-0001",
+    "train-0001",
+    "train-0000",
+    "train-0002",
+    "train-0003",
+    "train-0002",
+    "train-0000",
+    "train-0001",
+    "train-0003",
+    "train-0003",
+    "train-0000",
+    "train-0002",
+    "train-0001",
+    "train-0000",
+    "train-0003",
+    "train-0001",
+    "train-0002",
+    "train-0002",
+    "train-0001",
+    "train-0000",
+    "train-0003",
+    "train-0003",
+    "train-0000",
+    "train-0001",
+    "train-0002",
+    "train-0002",
+    "train-0000",
+    "train-0003",
+    "train-0001",
+    "train-0001",
+    "train-0003",
+    "train-0000",
+    "train-0002",
+    "train-0000",
+    "train-0002",
+    "train-0003",
+    "train-0001",
+    "train-0002",
+    "train-0000",
+    "train-0001",
+    "train-0003",
+    "train-0002",
+    "train-0001",
+    "train-0000",
+    "train-0003",
+    "train-0003",
+    "train-0000",
+    "train-0001",
+    "train-0002",
+    "train-0002",
+    "train-0001",
+    "train-0000",
+    "train-0003",
+    "train-0001",
+    "train-0003",
+    "train-0002",
+    "train-0000",
+    "train-0002",
+    "train-0000",
+    "train-0001",
+    "train-0003",
+    "train-0002",
+    "train-0000",
+    "train-0003",
+    "train-0001",
+    "train-0000",
+    "train-0002",
+    "train-0001",
+    "train-0003"
+  ],
+  "qa_batches": [
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "a235aef9e8e4edbf99bc7e0ef57ef06ecdb41a34a246a75b23b607573c4e3bd7"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "0a324e27fa9c501ad0a058b4ea5e23e7aee49a7b74a0ba67e9fbd631d157c561"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "6e7f5593ebefdc0952b5f165d7806885d6648564571eaee3559392cf95846b67"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "358e3a62edf939e902d6b6e8d3a6483153ce168dce61daf213f07d2666626bed"
+      },
+      "loss_mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "455619481d74b5f107e385ef577bbe310957881c59358e6a3a3cadd0eafe1355"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "78c55bcb2d9c5da0d54ed5a25aade3260e6a9da98f70acc4595e0ea6c83cae56"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "71e103aea57649e734f4d2e873953efc7edf91120f6e2bcb9d42c28d962ffbfd"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "6e7f5593ebefdc0952b5f165d7806885d6648564571eaee3559392cf95846b67"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "358e3a62edf939e902d6b6e8d3a6483153ce168dce61daf213f07d2666626bed"
+      },
+      "loss_mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "455619481d74b5f107e385ef577bbe310957881c59358e6a3a3cadd0eafe1355"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "009105249a585d288b05c5083eb18254d4a6a8608e05be5a0e41e8529d2aafbd"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "e18129671fe7acc012e8cc27fe931abc2c16d0468d0b76fddc3b209105634f6f"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "6e7f5593ebefdc0952b5f165d7806885d6648564571eaee3559392cf95846b67"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "358e3a62edf939e902d6b6e8d3a6483153ce168dce61daf213f07d2666626bed"
+      },
+      "loss_mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "455619481d74b5f107e385ef577bbe310957881c59358e6a3a3cadd0eafe1355"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "0dc92afd110fdb8547143dcc7e1aa706f08ccd4cba42e3df1c4c9a767cd837f1"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "523acb98190b75fae0fc32eae8be22cedff6957ccee88e675d2f8e5527502156"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "6e7f5593ebefdc0952b5f165d7806885d6648564571eaee3559392cf95846b67"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "358e3a62edf939e902d6b6e8d3a6483153ce168dce61daf213f07d2666626bed"
+      },
+      "loss_mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "455619481d74b5f107e385ef577bbe310957881c59358e6a3a3cadd0eafe1355"
+      }
+    }
+  ],
+  "candidates": [
+    {
+      "inputs": {
+        "shape": [
+          8,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "c9a8517e753b7472a3b8948c545184d9fd59af9d245b196a94160c494b8dd525"
+      },
+      "targets": {
+        "shape": [
+          8,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "941b39e91e8f8dced082d2f9c435c60700e9f6e9289c7bcef8aa0c7ad244eb4e"
+      },
+      "mask": {
+        "shape": [
+          8,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "847190617c65078e4617e6cff10293f73cee7addbc80284bdf2b9323b9dff783"
+      },
+      "resets": {
+        "shape": [
+          8,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "ec26c2ebc35afafa04e2bc65e6f08c14c749f07a6bc60fa209edee03ac7f6c4d"
+      },
+      "answer_mask": {
+        "shape": [
+          8,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "4d3e6cb98d78a9e2aec21bd1a05aed2330fcc49df02304b53405d3a601e9577e"
+      },
+      "gold": {
+        "shape": [
+          4
+        ],
+        "dtype": "int32",
+        "sha256": "8bd2fa7c6873c97e24da3767da43702d8c85aadb7136ed816c324b1ebc6b26d2"
+      },
+      "partners": {
+        "shape": [
+          4
+        ],
+        "dtype": "int32",
+        "sha256": "15c7616300ad61f7e69d42c9283effdfd8caf19a9693567278d231f5e77d0395"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          8,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "a0f3764aa9478af13f9aef13ada03b540305e33654c467989e5a56698df5d406"
+      },
+      "targets": {
+        "shape": [
+          8,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "2979a46db37d42ec14a5247a39487fdb2ef854a831e1eed8b4faa976958e93d0"
+      },
+      "mask": {
+        "shape": [
+          8,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "847190617c65078e4617e6cff10293f73cee7addbc80284bdf2b9323b9dff783"
+      },
+      "resets": {
+        "shape": [
+          8,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "ec26c2ebc35afafa04e2bc65e6f08c14c749f07a6bc60fa209edee03ac7f6c4d"
+      },
+      "answer_mask": {
+        "shape": [
+          8,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "4d3e6cb98d78a9e2aec21bd1a05aed2330fcc49df02304b53405d3a601e9577e"
+      },
+      "gold": {
+        "shape": [
+          4
+        ],
+        "dtype": "int32",
+        "sha256": "8bd2fa7c6873c97e24da3767da43702d8c85aadb7136ed816c324b1ebc6b26d2"
+      },
+      "partners": {
+        "shape": [
+          4
+        ],
+        "dtype": "int32",
+        "sha256": "15c7616300ad61f7e69d42c9283effdfd8caf19a9693567278d231f5e77d0395"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          8,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "51f5f47791f9395436d50733d75decf998455a7c7b9436be1ce554ce50bd018e"
+      },
+      "targets": {
+        "shape": [
+          8,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "3115a69db72abf2290c3245f1706451a85c21e6eb0c20638fd420ec5ce8c82fa"
+      },
+      "mask": {
+        "shape": [
+          8,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "847190617c65078e4617e6cff10293f73cee7addbc80284bdf2b9323b9dff783"
+      },
+      "resets": {
+        "shape": [
+          8,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "ec26c2ebc35afafa04e2bc65e6f08c14c749f07a6bc60fa209edee03ac7f6c4d"
+      },
+      "answer_mask": {
+        "shape": [
+          8,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "4d3e6cb98d78a9e2aec21bd1a05aed2330fcc49df02304b53405d3a601e9577e"
+      },
+      "gold": {
+        "shape": [
+          4
+        ],
+        "dtype": "int32",
+        "sha256": "8bd2fa7c6873c97e24da3767da43702d8c85aadb7136ed816c324b1ebc6b26d2"
+      },
+      "partners": {
+        "shape": [
+          4
+        ],
+        "dtype": "int32",
+        "sha256": "15c7616300ad61f7e69d42c9283effdfd8caf19a9693567278d231f5e77d0395"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          8,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "9d1eef330295aa6126103b4fa63d872139f55e22d8fd14dcddec7a848a663e00"
+      },
+      "targets": {
+        "shape": [
+          8,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "707ec1c36ab35ee26baee51528fc4d917ca66b54f32574bc440ab9df7b6c2515"
+      },
+      "mask": {
+        "shape": [
+          8,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "847190617c65078e4617e6cff10293f73cee7addbc80284bdf2b9323b9dff783"
+      },
+      "resets": {
+        "shape": [
+          8,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "ec26c2ebc35afafa04e2bc65e6f08c14c749f07a6bc60fa209edee03ac7f6c4d"
+      },
+      "answer_mask": {
+        "shape": [
+          8,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "4d3e6cb98d78a9e2aec21bd1a05aed2330fcc49df02304b53405d3a601e9577e"
+      },
+      "gold": {
+        "shape": [
+          4
+        ],
+        "dtype": "int32",
+        "sha256": "8bd2fa7c6873c97e24da3767da43702d8c85aadb7136ed816c324b1ebc6b26d2"
+      },
+      "partners": {
+        "shape": [
+          4
+        ],
+        "dtype": "int32",
+        "sha256": "15c7616300ad61f7e69d42c9283effdfd8caf19a9693567278d231f5e77d0395"
+      }
+    }
+  ],
+  "english_batches": [
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "56bb5351f9dc8803fecc0ac114194f0a098eb967d5ed56d9ceeed1ddc6a7a3e5"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "2307d4d0ade4386427e4e48f89b63e1a8543a1f85aec9631a6fe2601e21f0415"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "358e3a62edf939e902d6b6e8d3a6483153ce168dce61daf213f07d2666626bed"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "7fe976f48588bc1fa8cce5fb884273180887ef8b1ffcd37f7aff99e98a9c8100"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "befc431c5abafa4adcb66aeb111eef06429d18a0abfe902c3b7ea9d2b7aa5ef9"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "eed16d475ae4622889d1b2e6c6eea4f6abb8fb96cb7f519b8cb795bcbac8589f"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "f616ae8d8198457850437167c73589ce5e2da3cc8563f0b18cf07ff2424be222"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "c753cd92fc87c837d1a1af542398f1f44355d4e558e726f1aaf0b5974a672d8e"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "45fa8160f84fa41a3da1a72beb5f50a0ff8d1bd7a34b482630d493f147f95cd4"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "a79c44df27e44c9a50514f34b3345a5abde85b2dbf6378b93d9e5e1b5a5512f3"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "3f1088a3103b90ff4a755e343131fde99765892390567e5176e4d925ead66b6e"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "2b57b35d61c91ebb7488511fe156b4d8e050466c1af103c997d213f80854e693"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "10aca420258f4c069e04697a7c54b6457518179ec0c8be35b07e65aa431a3894"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "297e72f4a42a15a03b599b42c11431076a7d5d54839530a3d6344ccb41a51d77"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "f8ee3d709c0b1183509013d809b7d154c154a21918bebd551f3ed52cd2a8f24b"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "d839a3521723b8a55d09d8eed9848940b284828e4d09218202c3ee11046bc16d"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "7c96123164f0faaa479cd51b923464d76ed0930c60b8199aa1710e06672d4b2e"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "d261a4886755e7a640d30941d329764ade3f8562751e322f0dcedd6e692c92e6"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "975d5da37fccbb9e2d63befed50bcbf7c3ffde701c1510409b21f0fc84d32946"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "5054cef9771c20859b99a952f741ea548712bb2f5b8897bb7f3f3ed0dde5b481"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "fe6a412720077e08a452d6a59f44dd001079bc11d99307cf0796f7ab95501b4d"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "2fd1746d6170bd831cefa9e8524c0a7791edc66e21ddf18e3bb65836a69fd426"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "89251eed6e435baeae560dd8c4ca8440cbc7035c9bc2d61ce5f3bad9f0f9fb7c"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "1575257d4b996e3fb9f37731047d7c0ed0456f89d3bc2e586260aa133f9f8023"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "a839e7421bda871bbc6c2f19eec2713a4896d93dc8feaf5a66a4939bdea15f9d"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "144509aa546ded1b431e1c2364919ce4a8b883d78cd93fe753d6a9f37b2191ab"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "9bf1d33e51bca1538d2b7fa46aa33db498eb1daa8ef40ac11c71b7e09ccaa536"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "d9a00acdac03835283ce5020503f3c52ec2707b9d9f97b8d16bcf8cf4e7f52ce"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "6228168fddbb587baf1e302901c9f16f2355bf7157c1a677f3e444d252a6bcdd"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "86bfc5896e29bcf8489496c91ffd3947ea8df1b58c614d53980ca163396acd7a"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "c7a5038366ab0cca432330676cffaf2006550ed6245e42ecf0266251f0534120"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "b69195c1afca372118aef71a441ad6903c95c36a29e61fe880d50f4e11686139"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "66f248c15032f763f33b04406937410b4d60a9ff2fe7b5eee5e439d3a5eb4c1e"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "4f1e672ba5fb2fb706fc7cd32b9f5ecc4580471368e98070c057afe5eb9b3d71"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "483463d56d5ee37e4f1724964c0866dfc0124cc5ed1c624febf514f2ab568f1e"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "d7fa76bd79fbee29d0c379d6f545343293f0d7d672fd68fa5b7478e4bff96729"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "377fbe23a59bb3bd5ee811235ea903cd4cfc1128e057dfed3a0bfd125e259f8d"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "d10497977d3672ed37e97701bbf7eeabd2f1d762a24b6d139c717f998ae9ad9c"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "524319404b64fb5cdfa80673a9db5294c0ba4efeeb21ee5cfbf0bf28846002ef"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "5054cef9771c20859b99a952f741ea548712bb2f5b8897bb7f3f3ed0dde5b481"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "fb728ec2cc9c2faf30cda19d4dc06bde929afa2bed018c83aaef1132bb244a3b"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "b47742e17640d862e9177c2372b2c5c047d2c0fb357061e5cdb5396d30f4a30c"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "8b14c5eea9931e92059604b3372a2a21a9a9cb43ff712d366da57b74c730f7c6"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "95d3ba06e725bf91d05c92f643538c40886bf9011e88e56620c4ddaeb6e94fed"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "daf20d675e3f434a857aa01343079ce6bc8ba3e5d51ccdaccc73a355a7bbdd26"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "0cebcff13d7b38928a5a3ee13700434b14b1fa487790809bd379b49857d140f9"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "c5c524c6c22165970cc7eb96940198b8e6202eeff1812df89489184850cc9d00"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "83a3c85b3a2353fad05881243c45431a716a86cfbb1943e6493b640551d2047f"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "0efd7562654bd1490d2b47cd315165912c8d987689452edd33e59cd1c0fac6b5"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "919900f608a765ee0d965f7f8a781bd3bad6c24061390e5c71338d0867d031fb"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "ba0c48d593fffdc0fd78e294472acdb99644dbf6c7f349366c3d9d19d7e36774"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "3653ab6d8dbe96a3893a0baef3dd25d7d20f433fb062fa17db11fe907bb0da9e"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "5a0ab4f76d9c960c1bb018b0253b7de809866e982af7bd4e506785d9668e43af"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "58d0f23d7ac99325209aed8941ac78be790797cbc25633e4052b6f7b1ea1d979"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "7b7c70c07eb4ff5590af6fe9ebef9b763faf02e3f2daa378acb107ef52bc1482"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "d9acb29cd58ea7573a70e66ceb17695ca57e3d7916df9971f566089a53aa4421"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "89251eed6e435baeae560dd8c4ca8440cbc7035c9bc2d61ce5f3bad9f0f9fb7c"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "b560255c79f00a06967b2b9f8f950ff4f86fabc8f3751684c7b05486953230bd"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "aab5017cd95a61eba8e5137314c06df11b48b3c72d2a26f2c1d0865ee9804d00"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "4ad2ba8d08b37e0f7dea0eaf7073bea6e2e42608a93ec37b9b773747dcb29561"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "9396bce66ac146d71e4545a17ac0b09059d4481d20771c3025e7130be630dabc"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "ade9f18b3d7df7757dd01223ed3113081395ecac4f0f8accb626014b2159095c"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "272747151f250e1c658612d3866344bfb034b0f3c7852ac048c2368d074f7a24"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "4cc407ea65ea36bbd93b1c51542161d95428c1047cc633f1d1e544ad8949f37d"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "07924ea9170270c674605242575234408203da1fb56bce979b6a275993649e17"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "d839a3521723b8a55d09d8eed9848940b284828e4d09218202c3ee11046bc16d"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "983660f8e9179bb3a4891b7004034cf84bcab1b01a515089aee2831d51d90d22"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "bcb251a9ac4a68d2eb8e261b5b6e2e06f6191b1eb9a3f383b77ed0b857c9cc27"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "1101dce034842c540cab3f0cd81b37674918042f08a7b1ab77fba9756551d5a9"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "ca82022c1deccb714b671bf28d1eb8c73e8d5f6a5a67050f7d5e69c111f8515f"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "f4ecda689236b49c1979d92efb6c3bf72d37b3356893f017e3d19340190169ac"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "9b7de41982b9302aecddfcbc515923ea10069417346a49c4654a5a80087da741"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "d7fa76bd79fbee29d0c379d6f545343293f0d7d672fd68fa5b7478e4bff96729"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "98d12dcb7e0862ab25d1687b8ab017f2b3b98dede8cc1c0b8f3370069a507c78"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "138f6b574bd4140aeee8830e9d0b2dca0f19878ecd25e7e72a1fb5780fd34d67"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "632fd71bd4b7ec7962a1840b4974a2f0e0605ba04fd721880838b2ba1f63d905"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "135fca271d517288d35c32dcba1088b4b4c780dc446c4d6d7fa506c4c2fe260a"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "f3e39f9ef1f25a7ff3237d32913547ca8f04e81175794791fdeb9172ac0b9608"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "5054cef9771c20859b99a952f741ea548712bb2f5b8897bb7f3f3ed0dde5b481"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "aa627c2a24e4332990ba1d35389ecdbab8a5c69c8f5499862a8809ed625f9e98"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "8441000a360b5940e01b7340365e53bc6ac65760d425c7693d28d216cb8b342c"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "69f4fea325e6d4f006f94c85fc97f78e787620a8bc9dfd3b9c106d36c3d4c347"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "1cb1d745355f3b926b0eba37304c57aeff02f9b90669ef612238d7a0ea8ce9dc"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "f6e0cc96b13247b22580cea8933b7122598bd1b7dcd050c96ec2126b7b30586b"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "c1b8eda7c664457bd698c948a3093f9cf37c70f72ea19f2120d42e33c65248d3"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "9e8d02a2174eb0b264f40fb931370925fd18d35a649173950f8e2941ab0198ca"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "ac0b9166ca6a63f31f0e722899ac9e896391c579b150021fd680399111d968b6"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "d5e6b2b55aef3100f48c45efb7643f37f3da94256ed6d10cc723e2ec081e6789"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "86cd08d972977e4188fe20e9bbeac304af33844b9d562ba7bd0b18210e72595b"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "d09a2e339de1db60b31679185f6cf1ecba3706867f5647354dfdc34ec4019fef"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "654fc1d4989f9f46a46b08684ec83774ed75bac0258986aeb08fdaaba00afeba"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "822c97fe28ee02759bba6184b7f9d2fae838c932d4ea314bcd77b1baf2a15dab"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "bf9be3a25feb1d7b9c6c87a74a8ffac0846a3977b805e7576bb1d03cefc597e1"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "045d09bd93f985fc791fed3cdb277479a88e54dcdc644fb75ea9fd45b9ad3e59"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "d4fc5d5050782683f9432821e6df351d3a7a69fc6fade0d9be6b204c7b041ce7"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "40bbe5ddafaa1e2afe8b80032285ef3a0d87b3a3bc3ce6d156a96277fad4f4fd"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "3787fbd27e18b8e4a1e8684bcfc2c7b4f3018ae72564bb69502b6d6b56832fe3"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "9370dcedf395fb064c0b4ff4531a4eaa1f578529de711f54ec7899ab9dc095b3"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "e9f44bdbad11cba46fd11396e2c3db32a92677f9f4fa6c4d138b156cc4acdf51"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "4908dad11145ed162a7dd2c945dfba8fa5c19078cc9e85b679b76417063fa405"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "d9bab9879923a598bfe3f6a3edb68add41917c9c401c7b8dcb75769a3ab10aa7"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "9922713017c2ce3b47a149016b0cffbeec2a452122a2b7162fd4483c8d6c82bd"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "7fd935b1d4f09255181a2c952e266d9958d38c154de2d9ecab2d94f83605f6c4"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "d839a3521723b8a55d09d8eed9848940b284828e4d09218202c3ee11046bc16d"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "6dc5aea78b821c5b53641b3d5126e84194db60b4ddb0e1866efcd58f6307fb72"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "4df393853d3b2e8cabcdd95e372dc4900f8dc777aeb7bd4b548cef141d6c07b2"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "5054cef9771c20859b99a952f741ea548712bb2f5b8897bb7f3f3ed0dde5b481"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "71c5348a6e6c181ea4240032fee016a37edc5548141f0261f6eab8fcacd51dc9"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "b2ce9226992ee2647fca2d46326c4c8ad9e49a81d9fdd08d5bc047fd041e6fd4"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "d4185a73e30bfa2c620b9faa6e935d529d758b50251546be51d1dd12003b58a7"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "adca0bff9dc2ce3579c3927af1c459a07a711cf831d4a963b4d21e7a9ab44907"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "202ff96c1bd36011e411966740535973d116aff760e2563f81c989517fe80eef"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "ca82022c1deccb714b671bf28d1eb8c73e8d5f6a5a67050f7d5e69c111f8515f"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "f718e95033c3676baf4887efaec4921b8c7d526fe154cfec5e80736933bf6d5c"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "38430fdd4307c07260fb3382255c181566a98543e04cf256dbecb36470322205"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "f0691c0db466e8bab56442c9bb1e8d61b1f19607b14459efce9259f9130746b2"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "73671bd7097225e328e9a18c64aa71e0131876170f58af99bf95fd747d92c1e3"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "2a04b622a95a65789f7d8ef889a717d1457d6c7abc7c882b0a49ef4e01ba7305"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "d7fa76bd79fbee29d0c379d6f545343293f0d7d672fd68fa5b7478e4bff96729"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "b45c442a8aba223ac511d52f847dca5b971b9b70ab939c93679b848572b475ae"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "39bb36e96fcbf2f2460f7b46f8d2348083c878b5b424dc99e28e940b2759a6dd"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "b9f7f4c7ec8d1c1844b02e9fae911d1eba9f1afd04324b3af5c4df3af20dd027"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "5c562b3dcbec5e6956b6dea9c797a4f87cbbdff89fba31b319bb5f4a97c0a4b6"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "74bc88eedc0c86849a49dc27f053639b417bd81f724cff9040ae0335c2ec7c63"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "32022b7b87b7499628e6501d8c2ad5972f21aedc72a60fe9791a2471bfc1be53"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "f3fc368dd835ff9395fae501b210480f5929f227e62a22827a7de51b48ffb51c"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "e176c0c5553dd91ebf634e47b074ca4a90e75167781b8c9e9cb7f92202e24745"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "d4265a6167ab72f7ab58e9107deb0edeebff51185fbf8f7919bf3eed9ad3ffb2"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "324612ed1e92dd7db2ada0983666d7a423fe2a2e3da96b6b09ce8f894198fea3"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "c11f5d5c02d9d751036219d5c0c936afe880c76beae24ca5f2667173b5fce035"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "22a1923215458e5ae4edbe3f3544635a5d8a9353b15a5e9dd35d9e175f2c2cc4"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "b0113befc5012a1a50e250838a25a38f610f50bba08d788362ca2cee4f651239"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "6e009586f1ba39211cdd1ccdc271446afe9db426a54391a470ecbfbe759330d4"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "98a9c4047c379a586c601e62d39eca19cc1c8218650e98d4839f46d38a857a1a"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "bce7aca5e179a1e71583140f5d2964823e6c00a7f6036db39d584a11bc80a34b"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "4acf30193f31ec27b56abbf7e57708243ee30eefdd988691c2143ce849736155"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "38d3c80b5f5a13b6044eb03f59c8f6db3f68bb24f98f59e492c0742dd74c231a"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "09d77e376bd434794105367f9a5c65f5824129185a7f93c9c6ebb7b4e4d06396"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "155536aaa20facceb7bb47f6f9d835867de35674aa56feb3ce5083a80b899bd0"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "c2adeb24e50dbd08d8e9882969d3d4b87a495688e2de2dedcfc22ff6a82e7422"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "1e6ee2be74c2c25ea67119f1d073b0b34bc611f59ad8c6c5ad81b59989f122bf"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "a8d76ee2448c986c86ff4ee5258111ba5e9dbef98526e41f66dc8bf90bf2a4b3"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "5054cef9771c20859b99a952f741ea548712bb2f5b8897bb7f3f3ed0dde5b481"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "8a8ae3e8c014c19f1a649137f0c04e93dea9ef29b38a9a12659d0e301783726a"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "c40fae8cd532417acbe162c4433f49a7f1932e936f2606cfe53fb9d0b1e406ae"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "15d62541cc43b5512182deba20c128183c81e78b732a2d75da7f484194fecd1f"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "9cf9f6cec63578299329f999bb4536f4f390c76fa56ce5d498a197e266a24e32"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "3a318c807b9ea2c4c1142c78d840eda04a0562f1ab3511ba2f6eee1f6630a8ce"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "d7fa76bd79fbee29d0c379d6f545343293f0d7d672fd68fa5b7478e4bff96729"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "4f56a0c02d634fed128ab3fc3fae3107bfb89f090a6c01a35bd2ca58988d6fcc"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "bb2de057f1e84ff3c7b47f2a40360cdae45e2ceab4404b2efde5b62155b252a3"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "8d5fef38cef196a30583183024ed21395adafe392a348673f7a7e4563a1ae8b0"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "c41efc264e0bebad381883044610d25457a061ba75161ed805c7ab7fe22f1dbf"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "aa4287ec13e11cc3d8d20c23023a6d17cce498fbaa77a011e52e239e0adcc2e0"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "09ad376b9249c0f5d5f56eb479bfb11025b0b5ddcea9ba94efe9e1f2c2ba5167"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "7df74e2fc8830cb04f56402233543ae9d97584542312668004f3b42e34175445"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "c72b9b4d44e0e1f2b250ea167069c85de46be1355365c86ce3bfa474f3045ea9"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "ca82022c1deccb714b671bf28d1eb8c73e8d5f6a5a67050f7d5e69c111f8515f"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "e7104e9560028cf357b48598d0beb8ea15c4dd3962b1dbc774d078c7c6cd4367"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "c02839cf105daa5a9af37382b03661a4a4f7afffe0afb13a653bfdb22adf41be"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "5054cef9771c20859b99a952f741ea548712bb2f5b8897bb7f3f3ed0dde5b481"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "d9048d4738f6199ff04895918bcf55686330b97d2171cc241344d52faf623a2c"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "91e5e692650410f39b7dc7b038750ced689855bbca679adcf7e68fc5ceee38ee"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "3b1521b57e840ec2f7fc79ad4671330931c91e25870461ca6e6b404f217b4be0"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "c3768a23cbe120c7e8d17ebb72f7fa015373709546789d0cef9d5bedb69eb2d1"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "54e16d95c0cf36e848ab83bb7c2847a38f20ce6d03c7d2c41ba5245df862d508"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "cea17df69fdfd928c4529191af30d08f7e3d838776072006be8aac4949ffdebc"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "d7fa76bd79fbee29d0c379d6f545343293f0d7d672fd68fa5b7478e4bff96729"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "72194d4de70476de21f4b7cbad8d3d5ec55335d075b0e14f30f58b5a683287c1"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "39db6b0d9d574af719b3b4330c620a3604945f3b23287057aa8a9a62488f20ee"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "ca82022c1deccb714b671bf28d1eb8c73e8d5f6a5a67050f7d5e69c111f8515f"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "6e4b7bd41c04d652a4e5d1f1a5ddccba46d4f0ebe1f497b3005c007955b03c21"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "0c9e4b7d17009743ada75ce7df090e1989cb13df9086679336eb0b2fd3733ac7"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "7887388819e8998d947bd42d72413b0289381e8a8e56d8516fe8777491c89498"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "e825f08af3ce2449b5a2ea1253797b1d436cc7f92c8354c6c7893966b4301701"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "b18805bc60a9f7260f363f73d21e21fbc3d866897340f504eac8767e7b58a639"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "9f54be89ba94e299d389a5691fb486f5105fc2bab07b2ce911f72315d3b36221"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "d839a3521723b8a55d09d8eed9848940b284828e4d09218202c3ee11046bc16d"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "53cd2322dc3a36d4dae958550a34497826ada8a5ce917beaf8fdccb53dc35706"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "d2f16cdc6f8e2f2bbc18a87a455958d7adbabe571185e125445421dfa23f5045"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "2ff02751f25a46aabc7bb9b2bee7755eb377b4abf3ba9f0c9e458363ac396871"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "5054cef9771c20859b99a952f741ea548712bb2f5b8897bb7f3f3ed0dde5b481"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "faf8108cb68207ec796e57c02b4498ea1cf5329e9da26f9b099ca5331a8b2312"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "e23446a043124977b435f416c52b4156aed479c20539de09aa3ed880f080c789"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "d7fa76bd79fbee29d0c379d6f545343293f0d7d672fd68fa5b7478e4bff96729"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "f0ee607109f04ed307f803dd586c5ca22074d5e1845b7a8ca1f829f765964fcb"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "39a2a6e6db2469a326ff897e337b747beda7c8990a8f8d985c50fa4b29bf95d2"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "f062fbb957a9d158d6fbd06482a67fc2ec99285b7fc27c770a586dd29c604bc9"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "d23ed90f96f60d71f7e8709eb7d33e738203f782eb2184b4d42f6010ed206199"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "f8ee3d709c0b1183509013d809b7d154c154a21918bebd551f3ed52cd2a8f24b"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "641bb142e602bffb2aa939058bcaeaea0801b99fd0ab0dea37a3e8dbb2f6abd4"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "daaa0342df9936eea948ed31b288f796695b417c9c53377a852faf434297ca42"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "e84111a77206e207c1ec4fdd76474db9715cbca0ce0c14769eaa2445f9b107b0"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "5054cef9771c20859b99a952f741ea548712bb2f5b8897bb7f3f3ed0dde5b481"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "feea37f11010b864bd6a294a73bb64119a94fcccdc50fdc245e1c67c755f45b0"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "ad984101044e744b7b7776cb01717a662ae3980eae20e1d2a82352cdd84d98b7"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "ca82022c1deccb714b671bf28d1eb8c73e8d5f6a5a67050f7d5e69c111f8515f"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "729edaa703a2759fd6bb2c54299e81edbed9471edf1bf6213ac50efe2b98b992"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "81775b41a67cf9b6cff323e1c6dbcad4e160b9ce496609de8aa7a8e554aaf139"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "3482630ce0c83d25b80ac3a801161580cfb94721c9beab83cf6b6b23e73ed494"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "a10318b5895cdec957b6177ac057fd3fcde1704d4f610ec24b8c3d2b3817071c"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "8f03a975b7e389b6fc6fdf3e04302c1a840db446cc8143624fc401435578f89a"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "d839a3521723b8a55d09d8eed9848940b284828e4d09218202c3ee11046bc16d"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "87a6d99d260e67b0165982978912f1f767624e56880930be7a47785bd7ab3bfb"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "f36bf5d18f0202bee57dd11182165390988d0d594e545ef42ee1a929900c1b91"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "74651d23e918f35d2552ad2528fa4a11cfc21f0a4c3201c24647c0835b3947c4"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "b8fac73ff86aa4773c950d03beeb0e4c1e8bc2421f45dce6579e8df4741d4513"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "3cda99c02a8baf2980551473dc374ed6a2673fdab16e36684dfa7f60bdbc2d0d"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "df6b02b9d3bd41d08633cc6b5b06e643d4fbe63af1862efa0da7f555678faa66"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "83fff8fc29fd733d6e39e10c78e816e861f095246d37e7c8cde67ea790947b72"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "3fe49f88ae33f602240ad3edb673f2fb72fe532d0971b083572f22be3d168d7a"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "ca82022c1deccb714b671bf28d1eb8c73e8d5f6a5a67050f7d5e69c111f8515f"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "dee89242abda854f8d47bf2954468702b551725b6192fa6488c4a68ba247f8c4"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "31229c7c9669114a1b72165a6f68e6820375edddd8754b4ac1f1b9a7a8cd2f0e"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "a6e92ec6f5dbe9d88df6bec1fb3750021dab0512e598a448bb7f1937fc9cdea3"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "5054cef9771c20859b99a952f741ea548712bb2f5b8897bb7f3f3ed0dde5b481"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "8a47f461e4169b7d2289679ae4a962cd99b28e10c0115dae5ade9df275b8ea31"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "0f4dbdae75e19e42cc823767950e19d337bf5f781e541fb9a0aa11fe24059192"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "b7f7843ba836e91cece6b6cd2607776b3e2474b32ea1b3439acf7533036864e8"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "d839a3521723b8a55d09d8eed9848940b284828e4d09218202c3ee11046bc16d"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "499d1da8f73bc6660f66aac747394906f5918e05d3ccb3b8b78f0775e2908824"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "e56a29786045621ff01f8018f25b2325be0194b55a79c0294da6a66c2c1bfc77"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "d7fa76bd79fbee29d0c379d6f545343293f0d7d672fd68fa5b7478e4bff96729"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "467a28c2c0914e0ad7f46978893534b3d1c4f59882abcb7174674f8a22c1840b"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "44c58efdbd21ac007ed23e1934037481014bc2e754fe6015541756d618db642f"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "de347a708ecd8387a3231a9dafee0b9a0b257f8322f23b549277483a9e72eee5"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "50ab1bfc05e25892dee4b12ad8e35e5765413182515acda14db4465460dea156"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "7b213e944bb8dd932228d6f2a27f193f852e976f1ee147894e606e8b3813e9af"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "509c62ba43c466fbabe10160b1e55fa5017e8c99bac50a27c20fbac187a32c16"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "6e3f3a81e34c2b1843b6b9340373193650e9772812081cfa512f5e8fc0b81f7c"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "90b146b6c1b662599c02a24076fd4746eb0ebcdd42b104f0645d327ca7f2ff69"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "1d25dc2c323b862f54a3343af273ac0d42be826482482951464f5c2ccef9a8d5"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "baa655c6a17b368794a586bbd8ca77b4700608dc491673e5ca2a597e4dc78aaf"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "ca82022c1deccb714b671bf28d1eb8c73e8d5f6a5a67050f7d5e69c111f8515f"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "7b85a2cbaa9d829f35181bd301bc89c13782ba246d0f0ad906c42d5e38ae1d72"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "6feb91df4d45ab016035109e8947e68beae657123b0ae4cff08e89bd6209ad5f"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "16f84b26a26d8431c79d2f608c6c555f07365b164af7927c9f310a5d40bdc684"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "0d385b1a1b302aba5b410259c40d5e520dce7606a1d7f7dec7ccc71488727a61"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "6e5403389df051b328159958fc7bdb316f3dfc15bf84fa389861a799ec80bc9e"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "2ff02751f25a46aabc7bb9b2bee7755eb377b4abf3ba9f0c9e458363ac396871"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "0c72a66cac452f399d8765ae04d94751d38cfd10ac9483213f7cb8608db7d15b"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "0f7396fc0de11c2f43dfd882c705f32d76cd2f205980f71d4430052cbada2cc4"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "d7fa76bd79fbee29d0c379d6f545343293f0d7d672fd68fa5b7478e4bff96729"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "63989540cc37fe6147659396f4256bf683fb5bc6ff017511f5829381be94b7ce"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "377501178114fb1e4905e7caeb2568c85bb88097bb3d2bf96bd1bb398605aa08"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "5813ea108cf0b8369192b05936a6a517cebd42b31ce5fcc362c87c626ae26e3f"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "af0e2d980f4dc1a4debc62e7060a9660aae75ab65510683f150ca183b1d71d17"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "1da0982c9a11c5cf5176189e60e50f4b836ac02d182c4e7a24436a4e69175027"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "1b0d5d53c387c9b11f6587b14ec25753f38bea74cea22534160b320ea48eaaed"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "a50371960c727e0e130481b04c9aec252d003e9d9bb76cb1be9a4419b3f2f31c"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "e84111a77206e207c1ec4fdd76474db9715cbca0ce0c14769eaa2445f9b107b0"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "5054cef9771c20859b99a952f741ea548712bb2f5b8897bb7f3f3ed0dde5b481"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "74e99b47cefe1022e2748220f7445970881ebfe57e0b1b4398d14544f4e662e1"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "814d2a5a89d37ce892e8b82e7d5f05e8c0ec2322cbd7bd791468b6d42b6ef9e8"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "ca82022c1deccb714b671bf28d1eb8c73e8d5f6a5a67050f7d5e69c111f8515f"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "c3aff8b08d4a9781f5b61061ba87075340098a87acadea35d349b36ff95f3707"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "2362d1c5ec552ad306db53fbcc2a4c363b43cb3b9686eabdbbfbfa7b0597542b"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "30fecc4e68c6925378ba7c1b81b6808c7b0d64a36b368ba36887ed0cefd6814e"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "c890a02389e77413c758bc3774d1435e8155f442c44fd4971ca3921754530a35"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "bb2cfdd523616d0e553bc83dfd15747a299fd6b5df6667b878ff08512f0c4299"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "696a031e32483bb62578528b13487b2d7bee311dd303cfe0b925224538269979"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "35838111829dd8eb51a31cdf552a5146d40522f9752a50848646941f39ff2363"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "d7fa76bd79fbee29d0c379d6f545343293f0d7d672fd68fa5b7478e4bff96729"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "5d27da56592373a727236c58c95c21e4a5e39f83287650171244357974b74ad5"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "1eeccb47643692c7b6c63449015fa77825993e04bb3cf58e61d6d2e135d64bea"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "37b382b49ce422b1b2f9fc0223c7c0d94e69f86216ae104987bc572f6142a6cc"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "1a2671db599e4c3f17cb1704883604ded0856bd97b928fb81376c3a508ff6c49"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "95a60dd67322d02b9ade855a18bd367b87649a6c72ebf472937df4b64e53aeae"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "e0998a02ccc3bf12cbb328f40a27b9997fef8681b823466e373eb0ee5004a7e0"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "bba47ab06819770d5d3e3a6bef031e8403d8030882e9e5f3100a2c5b0cfc48c8"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "5b782b5ad5d87fa561f0a4740173886662b6b360e34776392baae7fcf199f541"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "8b14c5eea9931e92059604b3372a2a21a9a9cb43ff712d366da57b74c730f7c6"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "51a7b6f4963c3656cefb47678905e4d3a9d9656335f44ba25302cb11af58f843"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "789779afc3ec1e8184a3c39a96acfd0a81518e4b88ab6d17ec7f30a351d76880"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "5054cef9771c20859b99a952f741ea548712bb2f5b8897bb7f3f3ed0dde5b481"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "7e87f880a3beca1087cf028c3f4b1ec1b266f9dce6c1a35fd5a179d6cc30a1d5"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "2f102b4b2a3fdb5e195e611d434548d85e86ac602bd7eff9d9ce45763637030f"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "3a511faa5f3d38395c00d0b3c49fc6e973e944eb2534563c7cc3a2a4ad3f9e10"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "ee13fa013081f5efd14a9e50eaf1ce905f675d1b479cefdd0585aa7b67fb553e"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "10e439cc4da71f3fb9d5c8a2bfbe6c0b1de2247b15dbfd965e26729ed5513a10"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "f93046cecf60683a8bfce41d6b5861cb6b9ada317a5354c11eec3ffda4f37256"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "bd9037e79b570faeb35771aa5e319ac15c5b09cd5b5a0575b19219c6ab585069"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "c661c80e0b4a0b7d2104f474c82e3875f48b7086f67d160e9868862ef7da754a"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "5de008b7fa53f5220325a1b1d306769638ee14b069a7d553c6477d0d2d90d31d"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "88cfa59d13c5d4e9c9d6353101a496fe04bd156dbba4eba145820318ef94d511"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "8a307f5f07b281ffaf62274726bb9cef769b61736bce47095fafe70f91ff695e"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "e4c57a81e36560dcad6f481a27f0be72f544e2e28642e54465e5988db0bcc7ac"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "68c6e1159b5677c3920c7399a62c60fcb9d622b4ced99edd85b49e94580f15f0"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "3672b08ec46cffce7132dff89c0b04feaf8bf0db3ee505886de1b911546e3ed9"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "79e20cb771a8a2aac3f6b4598bc001ed269b57a5f707bc20994035b74e5180d6"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "0b7e161af31438180af1d40bddfe3dfa5e4afec39bd9e1011852bc22f0415570"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "efc00b6fec94c9905e0001edef756a0ddcc748c9323add8a5b9722a1c08959f8"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "5d7b0e5c9e01dbaa395d66dba467739307081b5603e1dc6f09bf25306312eee3"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "6b87c9fc0e87061e5330fb82906aedb1097a70f38fba5f38e3f3c8b0042d0dff"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "5054cef9771c20859b99a952f741ea548712bb2f5b8897bb7f3f3ed0dde5b481"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "118b6a2085d19bdd06ce6824e9140d51ddbed18a99729caa77b0ea97c25d3c54"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "a7306b50c33d2de7ad68a66c7f2c9728083ef40acb8caea4b4aa35b27f0547bc"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "b7516bbfdd03a79f37958bb306b057975472a6f0d2d870879f86410687f014b2"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "15c76f841d39372b4603b97cd0fca32fbd3e452d05856ff104f1cf0c32ac79f1"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "6631f6728c8144dc752d31b80bb8ae046e3a1a074e9637f5c37f3b382f96ea04"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "dee41848dbda21fe54df23a9f9601ba42ef339c71574f6956fff5d851d2ddd2a"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "585e98175fe4d6489f2b7dae06f78fddd9e59483d584e91b55fbfb876358b1e4"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "f3fd2d85b6bb237570b2ab6d057f10ac468bd6ce1dee3f8df788c284f103a5b0"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "8f58e4f72cbc91486128df6063741943e26bb218f31cc0e16ba34eff421511f9"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "85ac22ab75a7153661c1bad8feba6fb91b2394eb58dace902458a395448483fa"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "b908664d530734204288cc8fec64f23b53f2485e471bf51ca90a962d9fd241d2"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "6aa44fe6c10afa9d5184141c0da3ba8fc99ec380e918b72f3da8f3d3aede34bb"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "35610d4ec4e7b7500d3965aa2e028dbd85271889ac2adde6ba0a5b0d5c0350fb"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "6e009586f1ba39211cdd1ccdc271446afe9db426a54391a470ecbfbe759330d4"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "cd76e960397ccd349b7596e82c3c91ee341323cac127da278f8760c8160d8ac5"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "1385c3495c3c25523b7372406e1fe2cce9ed7fb7c57eda1bf182f859da9230e5"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "9b1d281d193390dcc86bbf035e3a54da56524e9da977c3e43796b5923bc11c4f"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "57ced34451a15496434686dd3b5e39521ad8f20160f89b29ce11da30c2e8b063"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "7738b72fd0d316963b016a003881b71a313df6a369fbe0aa5a48b7cb67db3435"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "6e30f2c5271843e7d2c2b1a3e0dafac78b296e497d465b491649b9f4c511d179"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "7f7f5a0e4b8441336ad678f2f0729992196d9330aeeaea692874a15f1f7c2602"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "fa4193ede78cd74346a9c744dfcc40f20f332d386ea942ac755af7c7558c117e"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "b85f067262446127ec7a1c60805951bcab20ae07ea8ceb895c05296af789105b"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "d839a3521723b8a55d09d8eed9848940b284828e4d09218202c3ee11046bc16d"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "b37d3c2ad43ba788a50e79310e5eff49c883024e737a879bcfc4ee048a132100"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "4fd3fe87d3e21c732e4a27f88d2e3f540cbe934fe419759d7fe9c5f11407c89e"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "7da593316f903b79e6801ffeac83712f4429ff5a90e0be46de897ffccbc4ac56"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "2095d5ffd23ac72780785bd9d275d54a8055a03e44694a943d50cbc4a2846dbf"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "730d4e6b690003e21a43bd826c3bb36a87a6ae1605603bdbde1761fea76fa2ad"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "72fb6cc8af90de9dfec3d8a7149fec55509023c165c28d2304e3886dd55074e2"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "59558167c922bf5c0ac27d0ce7cffb36e4d639cf361dca145aee08176465357e"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "b0bb9381d3dafd9dbd0d04a30071bf6a7ffb5bc9b6d0bb6e3a6211a4bb4ab0c6"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "333d018c2a30de1b07f6c0b0bbb3caabd67fa64e9d50bc28028c628393b1938d"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "2ec4da6204fcbde6b203d07e6afb302a189cf240e09fc1b83451d608cd327e62"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "838fc00a8a602ed19181d5a5847a4dcdc77c85c420cc788022d02ba27388cb67"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "d7fa76bd79fbee29d0c379d6f545343293f0d7d672fd68fa5b7478e4bff96729"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "d4d354b79fe982a88a4eb54afa1a4b2a4dc51a8153c7d2a7c284d29035ad33d1"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "9e457b026fbb2ae4e21c4b09a01dc38f090ff6abc702566f742b094e93ea6950"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "b2607166801b643e568ae1aaaea092a72bd33799840d1f6afc9aa361d5794a54"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "b971c64cc8a012f76d0de0b7b1e8256380b5a10dbc2651d45259821ba70a88de"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "9abcf92d23c940edbcb0f63261a3533783c36292674c7e7a65783d87e5039b42"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "d839a3521723b8a55d09d8eed9848940b284828e4d09218202c3ee11046bc16d"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "d5b4cec530ec62ce55640612415f2d2a0097b74c2beee611b54971c7c117476e"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "89bb4b4143ea2b4f5f5e00aa0ccdc1282d8800387c38b3b35a534b96dfb88442"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "97b5dd9d81310f8fe40b67a99f93a15c317feb08f0dd6962be42c5d2bb57aef7"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "df3d711888430d780a3905a9dc438d49d2677d1ab235e9f008985ca5e9d267e9"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "8e6f4cc270f96cc6ca272e9053ee5450f78fe54a3ee1929ec9b8e6d4a62c62d4"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "9e8b33a0ab1d375382616ba06b2e3ce3b560a7d6b3c67c4249cce43ad997f7e8"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "f0c969478824c3318431f291baa924a1bc08e89f551b1e1ee0accde02381100f"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "371305f2deb43f0f17b84364ed22c00a12a24ebf02cd77598d81c45c42fc603f"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "e487a01429b8591aab62a5cd09e1962ed88294f1e2ecb2a8317d3e9e9105c95b"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "ca82022c1deccb714b671bf28d1eb8c73e8d5f6a5a67050f7d5e69c111f8515f"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "bb3333e4208eaf6710dd48d30c2f5c802e3598ee151ebac0fd4827409195eb3e"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "f567e9a703171a309170c2acc24cbdf8f7e3c3077fc90b7ec36b93e7907bec61"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "e0b31ede5ff8151765f82f41d059a33367bf17ae8218c96d9bc13171387a587a"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "50af6187102b1e45634d0253cbc5897dfdc898694ebfa6b125451236d51876c0"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "65e72b2468dc5ccf27ca3d89c8246b23f9eef6075a58e88fc9732d7717fed30c"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "16f84b26a26d8431c79d2f608c6c555f07365b164af7927c9f310a5d40bdc684"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "58a73af968e102f497a20319d29e0dea6ebc54db8f2bbd342f78c10eb564c3cd"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "b955a5d9d8ed7abb5aeb62ec39d8f35e9c2c558c8e537badd224091347f7dff6"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "01937269904e57ae61ea408b46f16c37a11ec7b819b5c24d37f676f3eb6600a6"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    },
+    {
+      "inputs": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "e46abc1790ea4fed259cfd0806c96751aaa936bd841ddd2799bb7363b026211f"
+      },
+      "targets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "int32",
+        "sha256": "104c9741a17c6a49e14c3fc241f375aba92e389a1d440f3c5b2c195d5f557a11"
+      },
+      "mask": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "float32",
+        "sha256": "fef951e6c76ad6a01b208af650ca6d95769bec840e009981c5ae1316a42c90b1"
+      },
+      "resets": {
+        "shape": [
+          4,
+          128
+        ],
+        "dtype": "bool",
+        "sha256": "ca82022c1deccb714b671bf28d1eb8c73e8d5f6a5a67050f7d5e69c111f8515f"
+      }
+    }
+  ],
+  "expected_exposure": {
+    "0": {
+      "qa_updates": 128.0,
+      "english_updates": 128.0,
+      "qa_targets": 3072.0,
+      "english_targets": 61440.0,
+      "candidate_positions": 0.0,
+      "context_terms": 0.0,
+      "qa_bytes": 2560.0,
+      "english_bytes": 61376.0
+    },
+    "100": {
+      "qa_updates": 128.0,
+      "english_updates": 128.0,
+      "qa_targets": 3072.0,
+      "english_targets": 61440.0,
+      "candidate_positions": 4096.0,
+      "context_terms": 512.0,
+      "qa_bytes": 2560.0,
+      "english_bytes": 61376.0
+    }
+  }
+}

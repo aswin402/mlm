@@ -455,3 +455,8 @@ Teacher partitions(first16/rest48/newline16/EOS16) reproduce prior mainCE and ca
 ## 44. Context objective: acquisition candidate, no promotion
 
 A bounded same-answer context-contrastive training objective is implemented without changing inference parameters. Stronger weighting learned16/16training rankings and4/4binding groups at128QA+128English on one schedule; the matched control remained8/16 and0/4. English training-probe CE worsened by0.041813, failing the joint gate. Require independent-schedule replication and a separate English-interference experiment before broader evaluation or promotion. No held-out/chat/device-efficiency claim follows. [Experiment and audit limits](experiments/context-contrastive/report.md).
+
+
+## 45. Context replication gate failed; retain experimental status
+
+The weight100 recipe's new44/45schedule comparison yields8/16training answers and0/4groups in both arms, so the pilot's16/16acquisition does not replicate. Relative English probe direction passes but both endpoints exceed initial; joint gate fails. Keep the objective unpromoted and fresh evaluation closed. Separate QA ordering from English replay or inspect interference on existing snapshots before adding training/architecture ideas. Eight focused tests passed; accounting and prior raw/public artifacts are validated before execution. [Report](experiments/context-replication/report.md).
