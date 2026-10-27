@@ -1,0 +1,33 @@
+{
+  "protocol_sha256": "7cbba19ba39a88ecd3c866ceaaf91f8c8cc8e61aa69c41217abfcdbc18275c03",
+  "settings": {
+    "environment": {
+      "python": "3.12.3",
+      "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.43",
+      "devices": [
+        "cpu:0"
+      ],
+      "versions": {
+        "jax": "0.12.0.1",
+        "flax": "0.12.10",
+        "optax": "0.2.8"
+      },
+      "source_sha256": "fb19d0ac5611a7e4952e47aa9a296cc14294cf7a51e11e2859aa06026d213287"
+    },
+    "numerical": {
+      "jax_enable_x64": "False",
+      "jax_default_matmul_precision": "None",
+      "jax_disable_jit": "False"
+    },
+    "variables": {
+      "JAX_ENABLE_X64": null,
+      "JAX_DEFAULT_MATMUL_PRECISION": null,
+      "JAX_PLATFORMS": null,
+      "JAX_PLATFORM_NAME": null,
+      "XLA_FLAGS": null,
+      "OMP_NUM_THREADS": null,
+      "OPENBLAS_NUM_THREADS": null,
+      "MKL_NUM_THREADS": null
+    }
+  }
+}

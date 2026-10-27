@@ -1,0 +1,53 @@
+{
+  "date": "2026-10-28",
+  "focused_tests": {
+    "passed": 4,
+    "seconds": 8.44
+  },
+  "prior_full_regression": {
+    "passed": 89,
+    "seconds": 293.84,
+    "scope": "Previous replication change; not rerun for new read-only analysis. Core model/trainer/scorer and old tests unchanged."
+  },
+  "final_static": {
+    "ruff": "passed",
+    "three_new_files_format": "passed",
+    "ty_src": "passed"
+  },
+  "runtime_audits": {
+    "passed": 258,
+    "failed": 0
+  },
+  "frozen_inputs": 188,
+  "preserved_replication_inputs": 140,
+  "historical_pilot_artifacts_validated": 30,
+  "replication_artifacts_validated": 44,
+  "models": 7,
+  "questions_per_model": 16,
+  "optimizer_updates": 0,
+  "model_files_written": false,
+  "all_models_correct_rankings": 8,
+  "all_models_complete_groups": 0,
+  "all_models_context_flips": 0,
+  "prediction_flips_pilot_rep43_rep44": [
+    0,
+    8,
+    14
+  ],
+  "independent_rechecks": "Argmax/correctness/margins,groups/contextpairs,targetNLLcounts/sums,priorCE,scorerreconciliation,comparisonalgebra andloadedsource state/step/hash verified",
+  "public_json_copies": "11 byte-identical raw copies before verification",
+  "documentation_links": "passed",
+  "independent_review": "Halley: protocol/code and exactpartition reviewedbeforefreeze; final131numerictablecells,11copies,188hashes,258audits verified; no material findings",
+  "graphify": {
+    "exit_code": 1,
+    "error": "ModuleNotFoundError: No module named graphify"
+  },
+  "release_refs": {
+    "main": "09e6d5f85949dad04866d4fd857af14a8e7fba5f",
+    "v0.0.1^{}": "09e6d5f85949dad04866d4fd857af14a8e7fba5f"
+  },
+  "package_version": "0.0.1",
+  "promoted": false,
+  "pushed": false,
+  "limitations": "Exploratory training-only forced-choice analysis at short128-pair endpoints; no generation,development/fresh tests,heldoutbinding or causal mechanism; longer-budget earlier results and priorfailedgates unchanged."
+}

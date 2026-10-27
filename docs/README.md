@@ -14,9 +14,11 @@ Start with the [release overview](../README.md) and [changelog](../CHANGELOG.md)
 
 ## Current research
 
-[Future-byte sampling-seed replication](experiments/future-byte-replication/report.md) is complete. QA benefit repeats in1/2new comparisons, failing the primary/joint gates; English-probe direction passes2/2 versus control, but all new endpoints exceed the initial English-probe loss. Keep the head optional and unpromoted. All89tests and212runtimeaudits pass. No held-out quality claim.
+[Frozen answer/position analysis](experiments/future-byte-answers/report.md) finds8/16training rankings and0/4complete groups for the initializer and all six128-pair endpoints. CE gains do not yield answer-count gains; context swaps never change predictions. All258audits and4focused tests pass, with zero optimizer updates. Prior89-test full suite remains the last full regression. Head unpromoted; fresh tests closed.
 
 ## Experiment reports
+
+- [Future-byte answer and target-position analysis](experiments/future-byte-answers/report.md)
 
 - [Future-byte sampling-seed replication](experiments/future-byte-replication/report.md)
 

@@ -1,0 +1,1317 @@
+{
+  "source": {
+    "path": "results/future-byte/future_byte/final.mlm",
+    "file_sha256": "247d24abe3d67cefbf6ea43deb504bb8c1a64f83c9e30ea304a632602ae89fe9",
+    "state_sha256": "21c625faaeea50a8925179790035e9515b21ee1521815eda40e943f59f439bc4",
+    "metadata_sha256": "79393e18e39f4570066c9bab040488953893d7de92acd8ca29e2f1ddd23bb9ce",
+    "config": {
+      "architecture": "graph",
+      "node_update": "hierarchical",
+      "groups": 4,
+      "router_balance": 0.01,
+      "node_readout": "sum",
+      "memory": "delta",
+      "memory_keys": 16,
+      "memory_lr_scale": 1.0,
+      "nodes": 8,
+      "width": 64,
+      "degree": 2,
+      "rounds": 1,
+      "batch_size": 4,
+      "length": 128,
+      "learning_rate": 0.003,
+      "shared_lr_scale": 0.1,
+      "node_lr_scale": 1.0,
+      "router_lr_scale": 1.0,
+      "weight_decay": 0.01,
+      "clip_norm": 1.0,
+      "seed": 42
+    },
+    "step": 256,
+    "expected_qa_ce": 0.1563759595155716
+  },
+  "analysis": {
+    "ranking": {
+      "questions": 16,
+      "pairs": 8,
+      "accuracy": 0.5,
+      "pair_accuracy": 0.0,
+      "changed_prediction_fraction": 0.0,
+      "balanced_fixed_choice_accuracy": 0.5,
+      "format": "chat",
+      "score_rule": "mean conditional log probability of answer bytes; separator belongs to prompt",
+      "scorer_version": 2,
+      "items": [
+        {
+          "id": "train-0000-Bon-0",
+          "pair": "train-0000-Bon",
+          "group": "train-0000",
+          "category": "training",
+          "distractors": 1,
+          "delay_bytes": 0,
+          "assignment": 0,
+          "facts": [
+            [
+              "Bon",
+              "gold"
+            ],
+            [
+              "Bom",
+              "lime"
+            ]
+          ],
+          "query_entity": "Bon",
+          "context": "Bon's color is gold. Bom's color is lime.",
+          "question": "What color belongs to Bon?",
+          "choices": [
+            "gold",
+            "lime"
+          ],
+          "answer_index": 0,
+          "wording": "f0q0",
+          "pair_type": "cross",
+          "scores": [
+            -0.5041940212249756,
+            -0.05489511787891388
+          ],
+          "prediction": 1,
+          "predicted_answer": "lime",
+          "correct": false,
+          "gold_minus_other_margin": -0.4492989033460617,
+          "exact_tie": false,
+          "near_tie": false
+        },
+        {
+          "id": "train-0000-Bom-0",
+          "pair": "train-0000-Bom",
+          "group": "train-0000",
+          "category": "training",
+          "distractors": 1,
+          "delay_bytes": 0,
+          "assignment": 0,
+          "facts": [
+            [
+              "Bon",
+              "gold"
+            ],
+            [
+              "Bom",
+              "lime"
+            ]
+          ],
+          "query_entity": "Bom",
+          "context": "Bon's color is gold. Bom's color is lime.",
+          "question": "What color belongs to Bom?",
+          "choices": [
+            "gold",
+            "lime"
+          ],
+          "answer_index": 1,
+          "wording": "f0q0",
+          "pair_type": "cross",
+          "scores": [
+            -0.4964044392108917,
+            -0.055497221648693085
+          ],
+          "prediction": 1,
+          "predicted_answer": "lime",
+          "correct": true,
+          "gold_minus_other_margin": 0.44090721756219864,
+          "exact_tie": false,
+          "near_tie": false
+        },
+        {
+          "id": "train-0000-Bon-1",
+          "pair": "train-0000-Bon",
+          "group": "train-0000",
+          "category": "training",
+          "distractors": 1,
+          "delay_bytes": 0,
+          "assignment": 1,
+          "facts": [
+            [
+              "Bon",
+              "lime"
+            ],
+            [
+              "Bom",
+              "gold"
+            ]
+          ],
+          "query_entity": "Bon",
+          "context": "Bon's color is lime. Bom's color is gold.",
+          "question": "What color belongs to Bon?",
+          "choices": [
+            "gold",
+            "lime"
+          ],
+          "answer_index": 1,
+          "wording": "f0q0",
+          "pair_type": "cross",
+          "scores": [
+            -0.4984361529350281,
+            -0.05508492887020111
+          ],
+          "prediction": 1,
+          "predicted_answer": "lime",
+          "correct": true,
+          "gold_minus_other_margin": 0.44335122406482697,
+          "exact_tie": false,
+          "near_tie": false
+        },
+        {
+          "id": "train-0000-Bom-1",
+          "pair": "train-0000-Bom",
+          "group": "train-0000",
+          "category": "training",
+          "distractors": 1,
+          "delay_bytes": 0,
+          "assignment": 1,
+          "facts": [
+            [
+              "Bon",
+              "lime"
+            ],
+            [
+              "Bom",
+              "gold"
+            ]
+          ],
+          "query_entity": "Bom",
+          "context": "Bon's color is lime. Bom's color is gold.",
+          "question": "What color belongs to Bom?",
+          "choices": [
+            "gold",
+            "lime"
+          ],
+          "answer_index": 0,
+          "wording": "f0q0",
+          "pair_type": "cross",
+          "scores": [
+            -0.49106425046920776,
+            -0.055986057966947556
+          ],
+          "prediction": 1,
+          "predicted_answer": "lime",
+          "correct": false,
+          "gold_minus_other_margin": -0.4350781925022602,
+          "exact_tie": false,
+          "near_tie": false
+        },
+        {
+          "id": "train-0001-Bon-0",
+          "pair": "train-0001-Bon",
+          "group": "train-0001",
+          "category": "training",
+          "distractors": 1,
+          "delay_bytes": 0,
+          "assignment": 0,
+          "facts": [
+            [
+              "Bom",
+              "lime"
+            ],
+            [
+              "Bon",
+              "gold"
+            ]
+          ],
+          "query_entity": "Bon",
+          "context": "Bom's color is lime. Bon's color is gold.",
+          "question": "What color belongs to Bon?",
+          "choices": [
+            "gold",
+            "lime"
+          ],
+          "answer_index": 0,
+          "wording": "f0q0",
+          "pair_type": "cross",
+          "scores": [
+            -0.4991607666015625,
+            -0.054761890321969986
+          ],
+          "prediction": 1,
+          "predicted_answer": "lime",
+          "correct": false,
+          "gold_minus_other_margin": -0.4443988762795925,
+          "exact_tie": false,
+          "near_tie": false
+        },
+        {
+          "id": "train-0001-Bom-0",
+          "pair": "train-0001-Bom",
+          "group": "train-0001",
+          "category": "training",
+          "distractors": 1,
+          "delay_bytes": 0,
+          "assignment": 0,
+          "facts": [
+            [
+              "Bom",
+              "lime"
+            ],
+            [
+              "Bon",
+              "gold"
+            ]
+          ],
+          "query_entity": "Bom",
+          "context": "Bom's color is lime. Bon's color is gold.",
+          "question": "What color belongs to Bom?",
+          "choices": [
+            "gold",
+            "lime"
+          ],
+          "answer_index": 1,
+          "wording": "f0q0",
+          "pair_type": "cross",
+          "scores": [
+            -0.4915226995944977,
+            -0.05561726540327072
+          ],
+          "prediction": 1,
+          "predicted_answer": "lime",
+          "correct": true,
+          "gold_minus_other_margin": 0.43590543419122696,
+          "exact_tie": false,
+          "near_tie": false
+        },
+        {
+          "id": "train-0001-Bon-1",
+          "pair": "train-0001-Bon",
+          "group": "train-0001",
+          "category": "training",
+          "distractors": 1,
+          "delay_bytes": 0,
+          "assignment": 1,
+          "facts": [
+            [
+              "Bom",
+              "gold"
+            ],
+            [
+              "Bon",
+              "lime"
+            ]
+          ],
+          "query_entity": "Bon",
+          "context": "Bom's color is gold. Bon's color is lime.",
+          "question": "What color belongs to Bon?",
+          "choices": [
+            "gold",
+            "lime"
+          ],
+          "answer_index": 1,
+          "wording": "f0q0",
+          "pair_type": "cross",
+          "scores": [
+            -0.5059026479721069,
+            -0.055310893803834915
+          ],
+          "prediction": 1,
+          "predicted_answer": "lime",
+          "correct": true,
+          "gold_minus_other_margin": 0.450591754168272,
+          "exact_tie": false,
+          "near_tie": false
+        },
+        {
+          "id": "train-0001-Bom-1",
+          "pair": "train-0001-Bom",
+          "group": "train-0001",
+          "category": "training",
+          "distractors": 1,
+          "delay_bytes": 0,
+          "assignment": 1,
+          "facts": [
+            [
+              "Bom",
+              "gold"
+            ],
+            [
+              "Bon",
+              "lime"
+            ]
+          ],
+          "query_entity": "Bom",
+          "context": "Bom's color is gold. Bon's color is lime.",
+          "question": "What color belongs to Bom?",
+          "choices": [
+            "gold",
+            "lime"
+          ],
+          "answer_index": 0,
+          "wording": "f0q0",
+          "pair_type": "cross",
+          "scores": [
+            -0.4977779686450958,
+            -0.055829793214797974
+          ],
+          "prediction": 1,
+          "predicted_answer": "lime",
+          "correct": false,
+          "gold_minus_other_margin": -0.44194817543029785,
+          "exact_tie": false,
+          "near_tie": false
+        },
+        {
+          "id": "train-0002-Bon-0",
+          "pair": "train-0002-Bon",
+          "group": "train-0002",
+          "category": "training",
+          "distractors": 1,
+          "delay_bytes": 0,
+          "assignment": 0,
+          "facts": [
+            [
+              "Bon",
+              "blue"
+            ],
+            [
+              "Bom",
+              "pink"
+            ]
+          ],
+          "query_entity": "Bon",
+          "context": "Bon's color is blue. Bom's color is pink.",
+          "question": "What color belongs to Bon?",
+          "choices": [
+            "blue",
+            "pink"
+          ],
+          "answer_index": 0,
+          "wording": "f0q0",
+          "pair_type": "cross",
+          "scores": [
+            -0.22274281084537506,
+            -0.1592991203069687
+          ],
+          "prediction": 1,
+          "predicted_answer": "pink",
+          "correct": false,
+          "gold_minus_other_margin": -0.06344369053840637,
+          "exact_tie": false,
+          "near_tie": false
+        },
+        {
+          "id": "train-0002-Bom-0",
+          "pair": "train-0002-Bom",
+          "group": "train-0002",
+          "category": "training",
+          "distractors": 1,
+          "delay_bytes": 0,
+          "assignment": 0,
+          "facts": [
+            [
+              "Bon",
+              "blue"
+            ],
+            [
+              "Bom",
+              "pink"
+            ]
+          ],
+          "query_entity": "Bom",
+          "context": "Bon's color is blue. Bom's color is pink.",
+          "question": "What color belongs to Bom?",
+          "choices": [
+            "blue",
+            "pink"
+          ],
+          "answer_index": 1,
+          "wording": "f0q0",
+          "pair_type": "cross",
+          "scores": [
+            -0.22536204755306244,
+            -0.1573108285665512
+          ],
+          "prediction": 1,
+          "predicted_answer": "pink",
+          "correct": true,
+          "gold_minus_other_margin": 0.06805121898651123,
+          "exact_tie": false,
+          "near_tie": false
+        },
+        {
+          "id": "train-0002-Bon-1",
+          "pair": "train-0002-Bon",
+          "group": "train-0002",
+          "category": "training",
+          "distractors": 1,
+          "delay_bytes": 0,
+          "assignment": 1,
+          "facts": [
+            [
+              "Bon",
+              "pink"
+            ],
+            [
+              "Bom",
+              "blue"
+            ]
+          ],
+          "query_entity": "Bon",
+          "context": "Bon's color is pink. Bom's color is blue.",
+          "question": "What color belongs to Bon?",
+          "choices": [
+            "blue",
+            "pink"
+          ],
+          "answer_index": 1,
+          "wording": "f0q0",
+          "pair_type": "cross",
+          "scores": [
+            -0.2282288372516632,
+            -0.1572245955467224
+          ],
+          "prediction": 1,
+          "predicted_answer": "pink",
+          "correct": true,
+          "gold_minus_other_margin": 0.0710042417049408,
+          "exact_tie": false,
+          "near_tie": false
+        },
+        {
+          "id": "train-0002-Bom-1",
+          "pair": "train-0002-Bom",
+          "group": "train-0002",
+          "category": "training",
+          "distractors": 1,
+          "delay_bytes": 0,
+          "assignment": 1,
+          "facts": [
+            [
+              "Bon",
+              "pink"
+            ],
+            [
+              "Bom",
+              "blue"
+            ]
+          ],
+          "query_entity": "Bom",
+          "context": "Bon's color is pink. Bom's color is blue.",
+          "question": "What color belongs to Bom?",
+          "choices": [
+            "blue",
+            "pink"
+          ],
+          "answer_index": 0,
+          "wording": "f0q0",
+          "pair_type": "cross",
+          "scores": [
+            -0.23084299266338348,
+            -0.1557084619998932
+          ],
+          "prediction": 1,
+          "predicted_answer": "pink",
+          "correct": false,
+          "gold_minus_other_margin": -0.0751345306634903,
+          "exact_tie": false,
+          "near_tie": false
+        },
+        {
+          "id": "train-0003-Bon-0",
+          "pair": "train-0003-Bon",
+          "group": "train-0003",
+          "category": "training",
+          "distractors": 1,
+          "delay_bytes": 0,
+          "assignment": 0,
+          "facts": [
+            [
+              "Bom",
+              "pink"
+            ],
+            [
+              "Bon",
+              "blue"
+            ]
+          ],
+          "query_entity": "Bon",
+          "context": "Bom's color is pink. Bon's color is blue.",
+          "question": "What color belongs to Bon?",
+          "choices": [
+            "blue",
+            "pink"
+          ],
+          "answer_index": 0,
+          "wording": "f0q0",
+          "pair_type": "cross",
+          "scores": [
+            -0.2255420982837677,
+            -0.15631014108657837
+          ],
+          "prediction": 1,
+          "predicted_answer": "pink",
+          "correct": false,
+          "gold_minus_other_margin": -0.06923195719718933,
+          "exact_tie": false,
+          "near_tie": false
+        },
+        {
+          "id": "train-0003-Bom-0",
+          "pair": "train-0003-Bom",
+          "group": "train-0003",
+          "category": "training",
+          "distractors": 1,
+          "delay_bytes": 0,
+          "assignment": 0,
+          "facts": [
+            [
+              "Bom",
+              "pink"
+            ],
+            [
+              "Bon",
+              "blue"
+            ]
+          ],
+          "query_entity": "Bom",
+          "context": "Bom's color is pink. Bon's color is blue.",
+          "question": "What color belongs to Bom?",
+          "choices": [
+            "blue",
+            "pink"
+          ],
+          "answer_index": 1,
+          "wording": "f0q0",
+          "pair_type": "cross",
+          "scores": [
+            -0.2280542105436325,
+            -0.15454311668872833
+          ],
+          "prediction": 1,
+          "predicted_answer": "pink",
+          "correct": true,
+          "gold_minus_other_margin": 0.07351109385490417,
+          "exact_tie": false,
+          "near_tie": false
+        },
+        {
+          "id": "train-0003-Bon-1",
+          "pair": "train-0003-Bon",
+          "group": "train-0003",
+          "category": "training",
+          "distractors": 1,
+          "delay_bytes": 0,
+          "assignment": 1,
+          "facts": [
+            [
+              "Bom",
+              "blue"
+            ],
+            [
+              "Bon",
+              "pink"
+            ]
+          ],
+          "query_entity": "Bon",
+          "context": "Bom's color is blue. Bon's color is pink.",
+          "question": "What color belongs to Bon?",
+          "choices": [
+            "blue",
+            "pink"
+          ],
+          "answer_index": 1,
+          "wording": "f0q0",
+          "pair_type": "cross",
+          "scores": [
+            -0.2201448678970337,
+            -0.1586814969778061
+          ],
+          "prediction": 1,
+          "predicted_answer": "pink",
+          "correct": true,
+          "gold_minus_other_margin": 0.0614633709192276,
+          "exact_tie": false,
+          "near_tie": false
+        },
+        {
+          "id": "train-0003-Bom-1",
+          "pair": "train-0003-Bom",
+          "group": "train-0003",
+          "category": "training",
+          "distractors": 1,
+          "delay_bytes": 0,
+          "assignment": 1,
+          "facts": [
+            [
+              "Bom",
+              "blue"
+            ],
+            [
+              "Bon",
+              "pink"
+            ]
+          ],
+          "query_entity": "Bom",
+          "context": "Bom's color is blue. Bon's color is pink.",
+          "question": "What color belongs to Bom?",
+          "choices": [
+            "blue",
+            "pink"
+          ],
+          "answer_index": 0,
+          "wording": "f0q0",
+          "pair_type": "cross",
+          "scores": [
+            -0.22270986437797546,
+            -0.1564255654811859
+          ],
+          "prediction": 1,
+          "predicted_answer": "pink",
+          "correct": false,
+          "gold_minus_other_margin": -0.06628429889678955,
+          "exact_tie": false,
+          "near_tie": false
+        }
+      ],
+      "overall": {
+        "questions": 16,
+        "pairs": 8,
+        "binding_groups": 4,
+        "accuracy": 0.5,
+        "pair_accuracy": 0.0,
+        "binding_group_accuracy": 0.0,
+        "query_flip_fraction": 0.0,
+        "correct_query_pair_fraction": 0.0,
+        "context_flip_fraction": 0.0,
+        "both_wrong_pair_fraction": 0.0
+      },
+      "correct_count": 8,
+      "complete_groups": 0,
+      "exact_ties": 0,
+      "near_ties": 0
+    },
+    "teacher": {
+      "parts": {
+        "first": {
+          "count": 16,
+          "sum_nll": 14.543656349182129,
+          "mean_nll": 0.9089785218238831
+        },
+        "rest": {
+          "count": 48,
+          "sum_nll": 0.4295635223388672,
+          "mean_nll": 0.0089492400487264
+        },
+        "newline": {
+          "count": 16,
+          "sum_nll": 0.01067352294921875,
+          "mean_nll": 0.0006670951843261719
+        },
+        "eos": {
+          "count": 16,
+          "sum_nll": 0.028199195861816406,
+          "mean_nll": 0.0017624497413635254
+        }
+      },
+      "answer_only": {
+        "count": 64,
+        "sum_nll": 14.973219871520996,
+        "mean_nll": 0.23395656049251556
+      },
+      "total": {
+        "count": 96,
+        "sum_nll": 15.012092590332031,
+        "mean_nll": 0.15637596448262533
+      },
+      "items": [
+        {
+          "id": "train-0000-Bon-0",
+          "group": "train-0000",
+          "targets": [
+            {
+              "position": 92,
+              "role": "first",
+              "nll": 1.9827795028686523
+            },
+            {
+              "position": 93,
+              "role": "rest",
+              "nll": 0.017597198486328125
+            },
+            {
+              "position": 94,
+              "role": "rest",
+              "nll": 0.00092315673828125
+            },
+            {
+              "position": 95,
+              "role": "rest",
+              "nll": 0.015477180480957031
+            },
+            {
+              "position": 96,
+              "role": "newline",
+              "nll": 0.0007162094116210938
+            },
+            {
+              "position": 97,
+              "role": "eos",
+              "nll": 0.002559661865234375
+            }
+          ],
+          "gold_answer_mean_nll": 0.5041942596435547
+        },
+        {
+          "id": "train-0000-Bom-0",
+          "group": "train-0000",
+          "targets": [
+            {
+              "position": 92,
+              "role": "first",
+              "nll": 0.19476604461669922
+            },
+            {
+              "position": 93,
+              "role": "rest",
+              "nll": 0.0072689056396484375
+            },
+            {
+              "position": 94,
+              "role": "rest",
+              "nll": 0.009998321533203125
+            },
+            {
+              "position": 95,
+              "role": "rest",
+              "nll": 0.009954452514648438
+            },
+            {
+              "position": 96,
+              "role": "newline",
+              "nll": 0.0006875991821289062
+            },
+            {
+              "position": 97,
+              "role": "eos",
+              "nll": 0.0031423568725585938
+            }
+          ],
+          "gold_answer_mean_nll": 0.055496931076049805
+        },
+        {
+          "id": "train-0000-Bon-1",
+          "group": "train-0000",
+          "targets": [
+            {
+              "position": 92,
+              "role": "first",
+              "nll": 0.18729400634765625
+            },
+            {
+              "position": 93,
+              "role": "rest",
+              "nll": 0.008717536926269531
+            },
+            {
+              "position": 94,
+              "role": "rest",
+              "nll": 0.011804580688476562
+            },
+            {
+              "position": 95,
+              "role": "rest",
+              "nll": 0.012523651123046875
+            },
+            {
+              "position": 96,
+              "role": "newline",
+              "nll": 0.0007266998291015625
+            },
+            {
+              "position": 97,
+              "role": "eos",
+              "nll": 0.0035161972045898438
+            }
+          ],
+          "gold_answer_mean_nll": 0.055084943771362305
+        },
+        {
+          "id": "train-0000-Bom-1",
+          "group": "train-0000",
+          "targets": [
+            {
+              "position": 92,
+              "role": "first",
+              "nll": 1.9142255783081055
+            },
+            {
+              "position": 93,
+              "role": "rest",
+              "nll": 0.02462482452392578
+            },
+            {
+              "position": 94,
+              "role": "rest",
+              "nll": 0.0009098052978515625
+            },
+            {
+              "position": 95,
+              "role": "rest",
+              "nll": 0.024497032165527344
+            },
+            {
+              "position": 96,
+              "role": "newline",
+              "nll": 0.0007877349853515625
+            },
+            {
+              "position": 97,
+              "role": "eos",
+              "nll": 0.0046176910400390625
+            }
+          ],
+          "gold_answer_mean_nll": 0.49106431007385254
+        },
+        {
+          "id": "train-0001-Bon-0",
+          "group": "train-0001",
+          "targets": [
+            {
+              "position": 92,
+              "role": "first",
+              "nll": 1.9541864395141602
+            },
+            {
+              "position": 93,
+              "role": "rest",
+              "nll": 0.020738601684570312
+            },
+            {
+              "position": 94,
+              "role": "rest",
+              "nll": 0.0009183883666992188
+            },
+            {
+              "position": 95,
+              "role": "rest",
+              "nll": 0.020801544189453125
+            },
+            {
+              "position": 96,
+              "role": "newline",
+              "nll": 0.000804901123046875
+            },
+            {
+              "position": 97,
+              "role": "eos",
+              "nll": 0.0037059783935546875
+            }
+          ],
+          "gold_answer_mean_nll": 0.4991612434387207
+        },
+        {
+          "id": "train-0001-Bom-0",
+          "group": "train-0001",
+          "targets": [
+            {
+              "position": 92,
+              "role": "first",
+              "nll": 0.1929941177368164
+            },
+            {
+              "position": 93,
+              "role": "rest",
+              "nll": 0.008502960205078125
+            },
+            {
+              "position": 94,
+              "role": "rest",
+              "nll": 0.011272430419921875
+            },
+            {
+              "position": 95,
+              "role": "rest",
+              "nll": 0.009699821472167969
+            },
+            {
+              "position": 96,
+              "role": "newline",
+              "nll": 0.0008459091186523438
+            },
+            {
+              "position": 97,
+              "role": "eos",
+              "nll": 0.004016876220703125
+            }
+          ],
+          "gold_answer_mean_nll": 0.055617332458496094
+        },
+        {
+          "id": "train-0001-Bon-1",
+          "group": "train-0001",
+          "targets": [
+            {
+              "position": 92,
+              "role": "first",
+              "nll": 0.1965646743774414
+            },
+            {
+              "position": 93,
+              "role": "rest",
+              "nll": 0.006443023681640625
+            },
+            {
+              "position": 94,
+              "role": "rest",
+              "nll": 0.008428573608398438
+            },
+            {
+              "position": 95,
+              "role": "rest",
+              "nll": 0.009806632995605469
+            },
+            {
+              "position": 96,
+              "role": "newline",
+              "nll": 0.0005865097045898438
+            },
+            {
+              "position": 97,
+              "role": "eos",
+              "nll": 0.0021047592163085938
+            }
+          ],
+          "gold_answer_mean_nll": 0.055310726165771484
+        },
+        {
+          "id": "train-0001-Bom-1",
+          "group": "train-0001",
+          "targets": [
+            {
+              "position": 92,
+              "role": "first",
+              "nll": 1.9603338241577148
+            },
+            {
+              "position": 93,
+              "role": "rest",
+              "nll": 0.017644882202148438
+            },
+            {
+              "position": 94,
+              "role": "rest",
+              "nll": 0.000926971435546875
+            },
+            {
+              "position": 95,
+              "role": "rest",
+              "nll": 0.012205123901367188
+            },
+            {
+              "position": 96,
+              "role": "newline",
+              "nll": 0.0007696151733398438
+            },
+            {
+              "position": 97,
+              "role": "eos",
+              "nll": 0.0025806427001953125
+            }
+          ],
+          "gold_answer_mean_nll": 0.49777770042419434
+        },
+        {
+          "id": "train-0002-Bon-0",
+          "group": "train-0002",
+          "targets": [
+            {
+              "position": 92,
+              "role": "first",
+              "nll": 0.8727788925170898
+            },
+            {
+              "position": 93,
+              "role": "rest",
+              "nll": 0.00479888916015625
+            },
+            {
+              "position": 94,
+              "role": "rest",
+              "nll": 0.007134437561035156
+            },
+            {
+              "position": 95,
+              "role": "rest",
+              "nll": 0.0062580108642578125
+            },
+            {
+              "position": 96,
+              "role": "newline",
+              "nll": 0.000732421875
+            },
+            {
+              "position": 97,
+              "role": "eos",
+              "nll": 0.0001926422119140625
+            }
+          ],
+          "gold_answer_mean_nll": 0.22274255752563477
+        },
+        {
+          "id": "train-0002-Bom-0",
+          "group": "train-0002",
+          "targets": [
+            {
+              "position": 92,
+              "role": "first",
+              "nll": 0.6095972061157227
+            },
+            {
+              "position": 93,
+              "role": "rest",
+              "nll": 0.010058403015136719
+            },
+            {
+              "position": 94,
+              "role": "rest",
+              "nll": 0.004817008972167969
+            },
+            {
+              "position": 95,
+              "role": "rest",
+              "nll": 0.0047702789306640625
+            },
+            {
+              "position": 96,
+              "role": "newline",
+              "nll": 0.00043487548828125
+            },
+            {
+              "position": 97,
+              "role": "eos",
+              "nll": 0.0002803802490234375
+            }
+          ],
+          "gold_answer_mean_nll": 0.15731072425842285
+        },
+        {
+          "id": "train-0002-Bon-1",
+          "group": "train-0002",
+          "targets": [
+            {
+              "position": 92,
+              "role": "first",
+              "nll": 0.6053886413574219
+            },
+            {
+              "position": 93,
+              "role": "rest",
+              "nll": 0.011807441711425781
+            },
+            {
+              "position": 94,
+              "role": "rest",
+              "nll": 0.005314826965332031
+            },
+            {
+              "position": 95,
+              "role": "rest",
+              "nll": 0.006386756896972656
+            },
+            {
+              "position": 96,
+              "role": "newline",
+              "nll": 0.00038909912109375
+            },
+            {
+              "position": 97,
+              "role": "eos",
+              "nll": 0.00022983551025390625
+            }
+          ],
+          "gold_answer_mean_nll": 0.15722441673278809
+        },
+        {
+          "id": "train-0002-Bom-1",
+          "group": "train-0002",
+          "targets": [
+            {
+              "position": 92,
+              "role": "first",
+              "nll": 0.9066991806030273
+            },
+            {
+              "position": 93,
+              "role": "rest",
+              "nll": 0.0038471221923828125
+            },
+            {
+              "position": 94,
+              "role": "rest",
+              "nll": 0.0066661834716796875
+            },
+            {
+              "position": 95,
+              "role": "rest",
+              "nll": 0.0061588287353515625
+            },
+            {
+              "position": 96,
+              "role": "newline",
+              "nll": 0.0007028579711914062
+            },
+            {
+              "position": 97,
+              "role": "eos",
+              "nll": 0.00020885467529296875
+            }
+          ],
+          "gold_answer_mean_nll": 0.23084282875061035
+        },
+        {
+          "id": "train-0003-Bon-0",
+          "group": "train-0003",
+          "targets": [
+            {
+              "position": 92,
+              "role": "first",
+              "nll": 0.8836851119995117
+            },
+            {
+              "position": 93,
+              "role": "rest",
+              "nll": 0.004498481750488281
+            },
+            {
+              "position": 94,
+              "role": "rest",
+              "nll": 0.0069580078125
+            },
+            {
+              "position": 95,
+              "role": "rest",
+              "nll": 0.007025718688964844
+            },
+            {
+              "position": 96,
+              "role": "newline",
+              "nll": 0.0007038116455078125
+            },
+            {
+              "position": 97,
+              "role": "eos",
+              "nll": 0.00020885467529296875
+            }
+          ],
+          "gold_answer_mean_nll": 0.2255418300628662
+        },
+        {
+          "id": "train-0003-Bom-0",
+          "group": "train-0003",
+          "targets": [
+            {
+              "position": 92,
+              "role": "first",
+              "nll": 0.5958728790283203
+            },
+            {
+              "position": 93,
+              "role": "rest",
+              "nll": 0.012266159057617188
+            },
+            {
+              "position": 94,
+              "role": "rest",
+              "nll": 0.0050640106201171875
+            },
+            {
+              "position": 95,
+              "role": "rest",
+              "nll": 0.004969596862792969
+            },
+            {
+              "position": 96,
+              "role": "newline",
+              "nll": 0.00045108795166015625
+            },
+            {
+              "position": 97,
+              "role": "eos",
+              "nll": 0.0002765655517578125
+            }
+          ],
+          "gold_answer_mean_nll": 0.15454316139221191
+        },
+        {
+          "id": "train-0003-Bon-1",
+          "group": "train-0003",
+          "targets": [
+            {
+              "position": 92,
+              "role": "first",
+              "nll": 0.6119174957275391
+            },
+            {
+              "position": 93,
+              "role": "rest",
+              "nll": 0.011232376098632812
+            },
+            {
+              "position": 94,
+              "role": "rest",
+              "nll": 0.004734992980957031
+            },
+            {
+              "position": 95,
+              "role": "rest",
+              "nll": 0.00684356689453125
+            },
+            {
+              "position": 96,
+              "role": "newline",
+              "nll": 0.0004673004150390625
+            },
+            {
+              "position": 97,
+              "role": "eos",
+              "nll": 0.00030422210693359375
+            }
+          ],
+          "gold_answer_mean_nll": 0.15868210792541504
+        },
+        {
+          "id": "train-0003-Bom-1",
+          "group": "train-0003",
+          "targets": [
+            {
+              "position": 92,
+              "role": "first",
+              "nll": 0.87457275390625
+            },
+            {
+              "position": 93,
+              "role": "rest",
+              "nll": 0.0046558380126953125
+            },
+            {
+              "position": 94,
+              "role": "rest",
+              "nll": 0.00673675537109375
+            },
+            {
+              "position": 95,
+              "role": "rest",
+              "nll": 0.004874229431152344
+            },
+            {
+              "position": 96,
+              "role": "newline",
+              "nll": 0.0008668899536132812
+            },
+            {
+              "position": 97,
+              "role": "eos",
+              "nll": 0.0002536773681640625
+            }
+          ],
+          "gold_answer_mean_nll": 0.22270989418029785
+        }
+      ]
+    },
+    "score_teacher_max_error": 6.109476089477539e-07
+  }
+}

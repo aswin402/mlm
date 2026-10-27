@@ -72,3 +72,8 @@ The [future-byte pilot](../experiments/future-byte/report.md) now implements the
 ## Replication status:2026-10-27
 
 The [new sampling-seed replication](../experiments/future-byte-replication/report.md) fails its primary QA gate(benefit1/2), despite a relative English-probe benefit2/2. All four new English-probe losses exceed the common initial value. The objective remains optional and experimental; the original favorable pilot is not evidence of robust binding, general language improvement or a reason to promote it.
+
+
+## Answer-level status:2026-10-28
+
+The [frozen answer analysis](../experiments/future-byte-answers/report.md) ranks8/16training questions and0/4complete groups for all six128-pair endpoints, with no context-swap prediction flips. The pilotauxiliary benefit includes first-byte probability improvement without changed answer choices; the new comparisons exchange correct questions without net accuracy gains. This does not reverse earlier longer-budget acquisition or establish an architectural impossibility. The feature stays unpromoted.

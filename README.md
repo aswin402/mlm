@@ -41,7 +41,7 @@ The [frozen replay diagnostic](docs/experiments/replay-interference/report.md) f
 
 The [actual-next QA→English diagnostic](docs/experiments/qa-replay-pair/report.md) restores saved sampler/carry state for five copied pairs. QA and English have mixed local effects;191 audits pass, and checkpoint files remain unchanged. Next isolate optimizer-history and router-balance effects before a training intervention.
 
-The [future-byte sampling replication](docs/experiments/future-byte-replication/report.md) found a QA training-loss benefit in1/2new comparisons, failing the predefined replication gate. English-probe loss was lower than control in2/2, but all new endpoints were worse than the common initial probe loss. The head remains optional and experimental; no model was promoted. All212runtimeaudits pass.
+The [frozen answer-level analysis](docs/experiments/future-byte-answers/report.md) finds8/16training answer rankings and0/4complete groups for all six short(128QA+128English) pilot/replication endpoints, despite some lower CE. Context swaps do not change predictions. These budgets differ from the longer historical acquisition table above. All258audits pass with zero optimizer updates; the auxiliary head remains unpromoted.
 
 ## Development
 
@@ -52,7 +52,7 @@ uv run ruff format --check src tests
 uv run ty check src
 ```
 
-The last full regression run passed 89 tests. Separate QA/replay controls are available through `python -m mlm.plasticity_run --qa-seed ... --english-seed ...`; omitted values retain config.seed and config.seed+1. Config.seed still controls initialization and subset selection.
+The last full regression run passed 89 tests; subsequent read-only answer analysis passed 4 focused tests. Separate QA/replay controls are available through `python -m mlm.plasticity_run --qa-seed ... --english-seed ...`; omitted values retain config.seed and config.seed+1. Config.seed still controls initialization and subset selection.
 
 ## Documentation
 

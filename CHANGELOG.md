@@ -4,6 +4,9 @@
 
 ### Added
 
+- Frozen seven-model answer/position analysis using unchanged candidate scoring and exact16/48/16/16teacher target partitions;4focused tests and258runtimeaudits pass.
+- No short-budget answer-ranking gain:allmodels8/16and0/4groups, with zero optimizer updates or model writes. Prior acquisition/replication results remain unchanged.
+
 - Predefined future-byte sampling replication:four new arms,1,024backboneupdates,89passing tests and212passing audits.
 - Failed primary QA replication gate(1/2); relative English-probe direction passes2/2, without retention/generalization or promotion claims.
 - Strict historical artifact-manifest validation and independent legacy-training reference tests.
