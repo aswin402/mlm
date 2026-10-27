@@ -6,6 +6,7 @@ Start with the [release overview](../README.md) and [changelog](../CHANGELOG.md)
 
 - [Original idea, research and measured progress](research.md)
 - [DeepSeek papers and proposed MLM adaptations](research/deepseek-inspirations.md)
+- [Updated DeepSeek and recurrent-memory reassessment](research/deepseek-reassessment-2026-10-28.md)
 - [Product requirements and capability gates](prd.md)
 - [Detailed usage and historical experiment log](usage.md)
 - [Data sources, preparation and split rules](data/README.md)

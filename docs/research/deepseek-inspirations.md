@@ -77,3 +77,8 @@ The [new sampling-seed replication](../experiments/future-byte-replication/repor
 ## Answer-level status:2026-10-28
 
 The [frozen answer analysis](../experiments/future-byte-answers/report.md) ranks8/16training questions and0/4complete groups for all six128-pair endpoints, with no context-swap prediction flips. The pilotauxiliary benefit includes first-byte probability improvement without changed answer choices; the new comparisons exchange correct questions without net accuracy gains. This does not reverse earlier longer-budget acquisition or establish an architectural impossibility. The feature stays unpromoted.
+
+
+## Reassessment after answer-level evidence:2026-10-28
+
+The [updated paper review](deepseek-reassessment-2026-10-28.md) adds DPO/SimPO/mDPO, Gated DeltaNet and Titans and prioritizes an unimplemented context-contrastive training hypothesis. A read-only audit of frozen scores shows near-log(2) context-discrimination loss and unchanged8/16rankings; it is not a new training improvement. Shared/routed specialists and memory control remain separate architecture hypotheses.

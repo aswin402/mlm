@@ -1,0 +1,24 @@
+{
+  "date": "2026-10-28",
+  "scope": "Documentation plus arithmetic on frozen scores only",
+  "primary_papers_reviewed": 14,
+  "saved_score_sets_rechecked": 7,
+  "preserved_frozen_inputs": 188,
+  "prior_publication_manifest": "All recorded raw/public JSON hashes match",
+  "independent_numeric_recalculation": "Direct log1p(exp()) matches stable softplus results to1e-12",
+  "analytic_checks": "log2 reference and constant-answer-prior baseline checked; score-level bias cancellation verified",
+  "documentation_links": "passed",
+  "model_inference_runs": 0,
+  "optimizer_updates": 0,
+  "new_architecture_implemented": false,
+  "new_objective_implemented": false,
+  "quality_improvement_claim": false,
+  "tests": "No new source code or test changes; research arithmetic and link/hash assertions run",
+  "release_refs": {
+    "main": "09e6d5f85949dad04866d4fd857af14a8e7fba5f",
+    "v0.0.1^{}": "09e6d5f85949dad04866d4fd857af14a8e7fba5f"
+  },
+  "package_version": "0.0.1",
+  "pushed": false,
+  "limitations": "Proposed text-context adaptation is not DeepSeek/mDPO reproduction; diagnostic loss is not evidence of capability or an established training improvement"
+}

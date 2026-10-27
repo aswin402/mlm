@@ -1,0 +1,76 @@
+{
+  "reviewed": "2026-10-28",
+  "policy": "Primary papers and official repositories; no third-party rumor/guess PR treated as architecture evidence",
+  "sources": [
+    {
+      "title": "DeepSeek-R1",
+      "url": "https://arxiv.org/html/2501.12948v1",
+      "scope_read": "Pretrained base, GRPO, cold-start supervision and distillation"
+    },
+    {
+      "title": "DeepSeekMoE",
+      "url": "https://arxiv.org/html/2401.06066v1",
+      "scope_read": "Shared and fine-grained routed feed-forward experts"
+    },
+    {
+      "title": "DeepSeek-V3",
+      "url": "https://arxiv.org/html/2412.19437v2",
+      "scope_read": "MLA, routing balance and sequential MTP"
+    },
+    {
+      "title": "DeepSeek-V4",
+      "url": "https://arxiv.org/html/2606.19348v1",
+      "scope_read": "Flash Transformer/MoE, CSA/HCA, mHC and Muon"
+    },
+    {
+      "title": "DeepSeek-V4.1-Flash",
+      "url": "https://arxiv.org/html/2609.19969v1",
+      "scope_read": "Causal encoder-decoder and KV compression; distinct successor"
+    },
+    {
+      "title": "Loss-free load balancing",
+      "url": "https://arxiv.org/html/2408.15664v1",
+      "scope_read": "Prior-batch selection-bias adjustment; causal routing caveat"
+    },
+    {
+      "title": "mHC",
+      "url": "https://arxiv.org/html/2512.24880v1",
+      "scope_read": "Constrained residual stream mixing"
+    },
+    {
+      "title": "Engram",
+      "url": "https://arxiv.org/html/2601.07372v1",
+      "scope_read": "Static learned hashed N-gram memory"
+    },
+    {
+      "title": "Native Sparse Attention",
+      "url": "https://arxiv.org/abs/2502.11089",
+      "scope_read": "Hardware-oriented sparse token attention"
+    },
+    {
+      "title": "DPO",
+      "url": "https://arxiv.org/html/2305.18290v2",
+      "scope_read": "Preference classification with a reference policy"
+    },
+    {
+      "title": "SimPO",
+      "url": "https://arxiv.org/html/2405.14734v2",
+      "scope_read": "Average sequence log probability, reference-free preference objective"
+    },
+    {
+      "title": "mDPO",
+      "url": "https://arxiv.org/html/2406.11839v1",
+      "scope_read": "Conditional preference and anchoring in multimodal models"
+    },
+    {
+      "title": "Gated DeltaNet",
+      "url": "https://arxiv.org/html/2412.06464v1",
+      "scope_read": "Gated error-correcting fast memory and hybrids"
+    },
+    {
+      "title": "Titans",
+      "url": "https://arxiv.org/html/2501.00663v1",
+      "scope_read": "Test-time neural-memory updates, momentum and forgetting"
+    }
+  ]
+}
