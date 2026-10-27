@@ -1,0 +1,72 @@
+{
+  "publication_verification_date": "2026-10-28",
+  "full_regression": {
+    "passed": 89,
+    "seconds": 293.84
+  },
+  "focused_tests": {
+    "passed": 4,
+    "seconds": 14.33
+  },
+  "interrupted_earlier_regression": "37 passed in117.52s; deliberately stopped for review fixes, superseded by final89-test run",
+  "final_static": {
+    "ruff": "passed",
+    "four_new_files_format": "passed",
+    "ty_src": "passed"
+  },
+  "runtime_audits": {
+    "passed": 212,
+    "failed": 0
+  },
+  "frozen_inputs": 140,
+  "preserved_prior_continuation_inputs": 111,
+  "validated_historical_artifacts": 30,
+  "new_arms": 4,
+  "new_backbone_updates": 1024,
+  "training_restarts": 0,
+  "independent_gate_recalculation": {
+    "primary_qa": false,
+    "secondary_english": true,
+    "joint": false,
+    "qa_passes": 1,
+    "english_passes": 2,
+    "new_comparisons": 2
+  },
+  "all_new_english_probe_endpoints_worse_than_initial": true,
+  "checkpoint_hashes": {
+    "43/control": {
+      "backbone": "4ccd63d95f6432d8d13273ce0c1c411bcc9afe700c6f728597ab787bf840bf67",
+      "head": "c995f4c843d9eee191744ccd877343acde013faae491147dbd2f2cfa8308050a"
+    },
+    "43/future_byte": {
+      "backbone": "1e5f19ef1090174a059ccd54bc672fd601cca128c6de080ecab4974b9a651a68",
+      "head": "95967a567ed4d1f7c8a0885e66ffc4a6e8dac37e8492ac27fa07120f8e5d93f5"
+    },
+    "44/control": {
+      "backbone": "14e6d678ad00d4e17fc8f5fe2db92cf502547633e32d066c4a18c8a22714d0b1",
+      "head": "c995f4c843d9eee191744ccd877343acde013faae491147dbd2f2cfa8308050a"
+    },
+    "44/future_byte": {
+      "backbone": "c108c41b30a123f43dba123dc09edb50f816f8c26451cbb2170d38fccde16100",
+      "head": "5e4e017f265d984523fca5af559b4aadc7444a5e2e9916967c5b4635bd1ca339"
+    }
+  },
+  "protocol_execution_settings": "matched",
+  "public_json_copies": "16 byte-identical raw copies before verification",
+  "documentation_links": "passed",
+  "independent_review": "Halley: protocol/code reviewed; provenance gap fixed beforefreeze; final losses,deltas,gates,exposures,timing,16JSONcopies,140hashes and212audits checked; no material findings",
+  "graphify": {
+    "exit_code": 1,
+    "error": "ModuleNotFoundError: No module named graphify"
+  },
+  "release_refs": {
+    "main": "09e6d5f85949dad04866d4fd857af14a8e7fba5f",
+    "v0.0.1^{}": "09e6d5f85949dad04866d4fd857af14a8e7fba5f"
+  },
+  "package_version": "0.0.1",
+  "old_checkpoints_changed": false,
+  "new_checkpoints_local_only": true,
+  "promoted": false,
+  "pushed": false,
+  "limitations": "Fixed model/head initialization and selected short training task; no answer accuracy, generation, development/fresh test, retention or generalization evaluation."
+}

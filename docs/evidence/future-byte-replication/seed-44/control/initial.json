@@ -1,0 +1,16 @@
+{
+  "qa": {
+    "aux_loss": 5.556087970733643,
+    "aux_positions": 64.0,
+    "loss": 6.866767883300781,
+    "main_objective": 6.893215656280518,
+    "positions": 96.0
+  },
+  "english_train_probe": {
+    "aux_loss": 5.545090198516846,
+    "aux_positions": 508.0,
+    "loss": 1.1571550369262695,
+    "main_objective": 1.1853779554367065,
+    "positions": 512.0
+  }
+}

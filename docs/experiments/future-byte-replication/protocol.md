@@ -1,0 +1,22 @@
+# Future-byte sampling-seed replication
+
+## Predefined design
+
+Repeat the exact optional rank16 future-byte weight0 versus0.1 comparison on new QA/English sampler pairs43/44 and44/45. Keep the common source initializer, full loaded backbone optimizer, head seed9042, parameterization, learning rates, clipping groups, masks and128QA+128English updates/arm unchanged. Four newly trained arms,1,024new backbone updates total,32visits/group/arm. No coefficient/rate changes, replacement seeds, early stopping, budget extension or best-checkpoint selection. Every arm independently starts at the unchanged original source/head; English carry startszero and evolves per arm, QA uses fresh carry and never overwrites English carry.
+
+This replicates sampling schedules conditional on a fixed backbone/head initialization; it is not initialization replication. QA43/E44 was historically studied for other schedules/outcomes, so these seed levels are not a random population sample. They are new for this auxiliary-objective comparison and fixed before their outcomes. The originalQA42/E43 pilot is historically selected and excluded from the new2-seed gate denominator.
+
+Primary gate: in BOTH new comparisons, active minus control aggregate QA main training CE must be <−1e-6. Secondary English-direction gate: in BOTH, the fixed English corpus-training-probe main CE difference must be <=+1e-6. Report each gate and joint conjunction separately. Thresholds are numerical descriptive tolerances, not statistical significance. No claim of held-out understanding, reasoning, answer accuracy or robust generalization even if gates pass.
+
+Evaluate the same all16 QA questions/96main targets and same first English training batch from seed43 as the pilot at initial/final, with fresh eval carry. Do NOT choose the first batch of each new replay seed as evaluation. This corpus-training probe may not be encountered in a given short replay stream; it remains selected reused training-corpus material, not a held-out retention benchmark. All evaluation is training-corpus only: no validation/test opening, ranking or generation.
+
+Freeze exact source/head identities, complete QA traces, all128 replay-batch fingerprints/stream snapshot per new seed, fixed probe fingerprints, independently reconstructed target/byte exposure, numerical settings, this method, new code/tests and all111 original continuation inputs (including completed-control preservation). Also hash original pilot's final artifacts, metrics and audit trail. Preserve all existing model/trainer/scorer/checkpoint/helper/driver code. New replication module exposes explicit sampler seeds and isolated arm training; no monkeypatching original fixed-seed globals. Exact42/43 schedule/exposure compatibility checked in tests without rerunning that historical pilot.
+
+Both arms have8,514auxiliary parameters and384,784backbone parameters; baseline has no auxiliary label gradients and its backbone uses the exact legacy trainer. Exposure and update budgets match within each seed; neither FLOPs nor English exposure match across different replay seeds by assumption. Report actual exposure, compute timing and all outcomes, including failed gates. New checkpoints only under ignored results/future-byte-replication, no overwrites, promotion, release, push or joint-training resume.
+
+## Implementation and verification plan
+
+1. New future_replication helper: explicit seeded schedule, same score definitions, per-arm training/checkpoint validation. Regression tests independently reconstruct QA permutations, replay stream/snapshots, seed handling, nondivisible budget rejection and exact legacy42/43 schedule compatibility. Test small real arm against direct existing steps, counters/carry/roundtrip/source immutability, with zero-weight legacy behavior.
+2. New future_replication_run freeze/run CLI. Validate all four arms,256steps/arm,32visits/group, initial identities, exposures, parameter counts, sampler fingerprints, finite scores/state, exact serialization values and source/input/settings immutability. Pure gate aggregation tested for equality/tolerance/sign/both-seed requirements.
+3. Focused and full regression/static checks plus independent code/protocol review before measuring; freeze manifests then train all four arms once. No failed-artifact restarts by silent overwrite.
+4. Publish compact histories/results/evidence and report both gates/all seeds. Update research/PRD/index/Unreleased; leave existing version/main/tag/checkpoints unchanged. Local research commit only.

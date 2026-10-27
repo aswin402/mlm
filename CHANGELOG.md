@@ -4,6 +4,10 @@
 
 ### Added
 
+- Predefined future-byte sampling replication:four new arms,1,024backboneupdates,89passing tests and212passing audits.
+- Failed primary QA replication gate(1/2); relative English-probe direction passes2/2, without retention/generalization or promotion claims.
+- Strict historical artifact-manifest validation and independent legacy-training reference tests.
+
 - Optional rank16 causal future-byte auxiliary head and fixed two-arm training pilot, preserving existing core model/trainer/checkpoint behavior.
 - Narrow training-loss result after128QA+128English updates/arm; no held-out quality or promotion claim.
 - Original84-test regression run,3focused post-fix checks,134finalaudits and documented audit-only continuation preserving completed control training.

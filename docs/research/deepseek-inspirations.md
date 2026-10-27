@@ -67,3 +67,8 @@ Every intervention must report all predefined seeds, held-out binding, English r
 ## Implementation status:2026-10-27
 
 The [future-byte pilot](../experiments/future-byte/report.md) now implements the optional rank16 causal-output adaptation. It observed lower main training loss at one fixed schedule and short budget, without held-out/ranking evaluation or promotion. It is not a faithful V3 sequential-MTP implementation. Other architectural proposals above remain unimplemented; the next gate is predefined replication rather than declaring general capability.
+
+
+## Replication status:2026-10-27
+
+The [new sampling-seed replication](../experiments/future-byte-replication/report.md) fails its primary QA gate(benefit1/2), despite a relative English-probe benefit2/2. All four new English-probe losses exceed the common initial value. The objective remains optional and experimental; the original favorable pilot is not evidence of robust binding, general language improvement or a reason to promote it.

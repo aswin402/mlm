@@ -14,9 +14,11 @@ Start with the [release overview](../README.md) and [changelog](../CHANGELOG.md)
 
 ## Current research
 
-[Future-byte objective pilot](experiments/future-byte/report.md) is the latest completed experiment. At128QA+128English updates/arm, weight0.1 lowers main training QA CE0.16544→0.15638 versus control; the English training-probe reduction is small. No held-out or answer-quality result is established. The optional head is implemented;134finalaudits pass after a documented serialization-audit continuation. Next replicate across predefined seeds before promotion.
+[Future-byte sampling-seed replication](experiments/future-byte-replication/report.md) is complete. QA benefit repeats in1/2new comparisons, failing the primary/joint gates; English-probe direction passes2/2 versus control, but all new endpoints exceed the initial English-probe loss. Keep the head optional and unpromoted. All89tests and212runtimeaudits pass. No held-out quality claim.
 
 ## Experiment reports
+
+- [Future-byte sampling-seed replication](experiments/future-byte-replication/report.md)
 
 - [Future-byte objective feasibility pilot](experiments/future-byte/report.md)
 
