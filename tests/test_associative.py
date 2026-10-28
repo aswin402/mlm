@@ -112,7 +112,11 @@ def test_memory_zero_gate_causality_padding_chunking_and_gradients(tmp_path):
         if roles[name] == "memory":
             assert np.isfinite(grads[name]).all() and np.linalg.norm(grads[name]) > 0, name
     first_grads = jax.grad(loss)(state.params)
-    assert abs(float(first_grads["memory_gain"])) > 0
+    for name in state.params:
+        if roles[name] == "memory":
+            assert np.isfinite(first_grads[name]).all() and np.linalg.norm(first_grads[name]) > 0, (
+                name
+            )
 
 
 def test_memory_checkpoint_update_and_validation(tmp_path):
@@ -160,3 +164,35 @@ def test_memory_checkpoint_update_and_validation(tmp_path):
         args = {"memory": "delta", **bad}
         with pytest.raises(ValidationError):
             Config(**args)
+
+
+def test_relational_memory_binds_across_separate_node_subspaces(tmp_path):
+    cfg = config().model_copy(update={"memory": "relational"})
+    base_cfg = cfg.model_copy(update={"memory": "none"})
+    base = create_state(base_cfg)
+    source = tmp_path / "base.mlm"
+    save_checkpoint(source, base, base_cfg, {"messages": True})
+    state = warm_start(source, cfg)
+    assert state.params["memory_key_kernel"].shape == (cfg.nodes, cfg.width, cfg.memory_keys)
+    assert state.params["memory_value_kernel"].shape == (cfg.nodes, cfg.width, cfg.width)
+    tokens = jnp.array([[256, 12, 31, 45, 22, 11], [256, 3, 8, 7, 2, 1]])
+    resets = jnp.zeros_like(tokens, dtype=bool).at[:, 0].set(True)
+    ref_logits, _ = base.apply_fn(
+        {"params": base.params}, tokens, initial_state(base_cfg, 2), resets
+    )
+    rel_logits, rel_state = state.apply_fn(
+        {"params": state.params}, tokens, initial_state(cfg, 2), resets
+    )
+    np.testing.assert_allclose(ref_logits, rel_logits, atol=1e-6)
+    assert np.linalg.norm(np.asarray(rel_state[:, cfg.nodes :])) > 0
+
+    def loss(p):
+        return jnp.square(
+            state.apply_fn({"params": p}, tokens, initial_state(cfg, 2), resets)[0]
+        ).mean()
+
+    grads = jax.grad(loss)(state.params)
+    roles = parameter_roles(state.params)
+    for name in state.params:
+        if roles[name] == "memory":
+            assert np.isfinite(grads[name]).all() and np.linalg.norm(grads[name]) > 0, name

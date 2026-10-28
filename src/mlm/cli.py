@@ -257,7 +257,7 @@ def main(argv=None):
         state, config, meta = load_checkpoint(args.checkpoint)
         prompt = f"<|user|>\n{args.message}\n<|assistant|>\n"
         reply = generate(state, config, prompt, args.max_bytes, messages=meta.get("messages", True))
-        print(reply.split("<|user|>")[0].split("<|end|>")[0].strip())
+        print(reply.strip())
     elif args.command == "generate":
         state, config, meta = load_checkpoint(args.checkpoint)
         print(

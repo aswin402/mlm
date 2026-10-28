@@ -160,3 +160,49 @@ def test_routed_runner_and_empty_batch_behavior(tmp_path):
     assert float(metrics["loss"]) == 0 and float(metrics["router_balance"]) == 0
     with pytest.raises(ValueError, match="empty"):
         run(args)
+
+
+def test_timescale_surprise_routing_spectrum_and_step_zero_gradients(tmp_path):
+    from mlm.binding_run import warm_start
+    from mlm.checkpoint import save_checkpoint
+    from mlm.hierarchy_run import routed_objective
+
+    dense = Config(nodes=4, width=8, batch_size=2, length=8)
+    source = tmp_path / "source.mlm"
+    save_checkpoint(source, create_state(dense), dense, {})
+    timescale_cfg = config("timescale")
+    timescale = warm_start(source, timescale_cfg)
+    tokens = jnp.array([[256, 1, 2, 3], [256, 3, 2, 1]])
+    resets = jnp.zeros_like(tokens, dtype=bool).at[:, 0].set(True)
+    t_logits, t_h, t_routes = timescale.apply_fn(
+        {"params": timescale.params},
+        tokens,
+        initial_state(timescale_cfg, 2),
+        resets,
+        return_routes=True,
+    )
+    assert np.isfinite(t_logits).all() and np.isfinite(t_h).all()
+    # Fast nodes have strictly higher initial routing share than slow nodes across the spectrum.
+    assert (
+        float(t_routes[0, 0, 0])
+        > float(t_routes[0, 0, 1])
+        > float(t_routes[0, 0, 2])
+        > float(t_routes[0, 0, 3])
+    )
+    np.testing.assert_allclose(t_routes.sum(-1), 1.0, atol=1e-6)
+    batch = {
+        "inputs": tokens,
+        "targets": (tokens + 1) % 256,
+        "mask": jnp.ones_like(tokens),
+        "resets": resets,
+    }
+
+    def loss(params):
+        return routed_objective(
+            params, timescale.apply_fn, batch, initial_state(timescale_cfg, 2), timescale_cfg
+        )[0]
+
+    grads = jax.grad(loss)(timescale.params)
+    for name in ["router_timescale_kernel", "router_surprise_kernel", "router_timescale_bias"]:
+        assert np.isfinite(grads[name]).all()
+        assert float(jnp.linalg.norm(grads[name])) > 0

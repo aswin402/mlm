@@ -91,6 +91,15 @@ def test_decay_excludes_node_biases():
     assert not mask["gru_bias"]
     assert not mask["norm_scale"]
     assert mask["input_kernel"]
+    delta_mask = decay_mask(create_state(small().model_copy(update={"memory": "delta"})).params)
+    assert not delta_mask["memory_gain"]
+    assert not delta_mask["memory_write_bias"]
+    assert delta_mask["memory_key_kernel"]
+    attn_mask = decay_mask(
+        create_state(small().model_copy(update={"node_readout": "attention"})).params
+    )
+    assert not attn_mask["attention_vector"]
+    assert attn_mask["attention_query"]
 
 
 def test_complete_rounds_match_numpy_reference():
@@ -123,3 +132,31 @@ def test_complete_rounds_match_numpy_reference():
     expected += params["vocab_bias"]
     np.testing.assert_allclose(final, h, atol=1e-6)
     np.testing.assert_allclose(logits[0, 0], expected, atol=2e-6)
+
+
+def test_learned_edge_attention_preserves_zero_gate_and_flows_step_zero_gradients():
+    cfg = small()
+    base = create_state(cfg)
+    ecfg = cfg.model_copy(update={"edge_aggregation": "attention"})
+    state = create_state(ecfg)
+    params = {**state.params, **base.params}
+    tokens = jnp.array([[BOS, 1, 2, 3, 4], [BOS, 4, 3, 2, 1]])
+    resets = jnp.zeros_like(tokens, dtype=bool).at[:, 0].set(True)
+    h = initial_state(cfg, 2)
+    ref_logits, ref_final = base.apply_fn({"params": base.params}, tokens, h, resets)
+    logits, final = state.apply_fn({"params": params}, tokens, h, resets)
+    np.testing.assert_allclose(logits, ref_logits, atol=1e-6)
+    np.testing.assert_allclose(final, ref_final, atol=1e-6)
+
+    def loss(p):
+        return jnp.square(state.apply_fn({"params": p}, tokens, h, resets)[0]).mean()
+
+    grads = jax.grad(loss)(params)
+    for name in ["edge_query", "edge_key", "edge_vector"]:
+        assert np.isfinite(grads[name]).all()
+        assert float(jnp.linalg.norm(grads[name])) > 0
+    active = {**params, "edge_vector": jnp.ones((cfg.width,)) * 0.5}
+    weighted_logits, _ = state.apply_fn({"params": active}, tokens, h, resets)
+    assert not np.allclose(weighted_logits, ref_logits)
+    with pytest.raises(ValidationError):
+        Config(architecture="gru", edge_aggregation="attention")

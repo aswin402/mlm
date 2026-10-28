@@ -54,9 +54,8 @@ def auxiliary_loss(params, logits, batch):
 
 
 def future_objective(params, head_params, apply_fn, carry, batch, config, weight):
-    main, (final, metrics) = routed_objective(params, apply_fn, batch, carry, config)
-    logits, _ = apply_fn(
-        {"params": params}, batch["inputs"], carry, batch["resets"], valid=batch["mask"]
+    main, (final, metrics, logits) = routed_objective(
+        params, apply_fn, batch, carry, config, return_logits=True
     )
     aux, count = auxiliary_loss(head_params, logits, batch)
     return main + weight * aux, (

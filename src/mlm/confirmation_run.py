@@ -75,8 +75,8 @@ def run(args):
     rng = np.random.default_rng(cfg.seed)
     order = rng.permutation(len(batches))
     position = 0
-    stream = DocumentStream(english_train, 4, cfg.length, cfg.seed + 1)
-    carry = initial_state(cfg, 4)
+    stream = DocumentStream(english_train, cfg.batch_size, cfg.length, cfg.seed + 1)
+    carry = initial_state(cfg, cfg.batch_size)
     counters = {
         name: {"updates": 0, "input_bytes": 0, "supervised_bytes": 0} for name in ["qa", "english"]
     }

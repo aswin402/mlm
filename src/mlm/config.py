@@ -9,13 +9,15 @@ class Config(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     architecture: Literal["graph", "gru"] = "graph"
-    node_update: Literal["dense", "uniform", "hierarchical"] = "dense"
+    node_update: Literal["dense", "uniform", "hierarchical", "timescale"] = "dense"
     groups: int = Field(default=4, ge=2, le=64)
     router_balance: float = Field(default=0.01, ge=0, le=1, allow_inf_nan=False)
+    edge_aggregation: Literal["sum", "attention"] = "sum"
     node_readout: Literal["sum", "attention"] = "sum"
-    memory: Literal["none", "delta"] = "none"
+    memory: Literal["none", "delta", "relational"] = "none"
     memory_keys: int = Field(default=16, ge=4, le=128)
     memory_lr_scale: float = Field(default=1.0, gt=0, le=1, allow_inf_nan=False)
+    local_plasticity: bool = False
     nodes: int = Field(default=8, ge=2, le=128)
     width: int = Field(default=32, ge=4, le=1024)
     degree: int = Field(default=2, ge=1)
@@ -36,10 +38,14 @@ class Config(BaseModel):
             raise ValueError("Delta memory requires graph architecture with sum readout")
         if self.architecture == "gru" and self.node_update != "dense":
             raise ValueError("Recurrent node routing requires graph architecture")
+        if self.architecture == "gru" and self.local_plasticity:
+            raise ValueError("Local node plasticity requires graph architecture")
         if self.node_update == "hierarchical" and (
             self.nodes % self.groups or self.groups >= self.nodes
         ):
             raise ValueError("Hierarchical groups must divide nodes with at least two children")
+        if self.architecture == "gru" and self.edge_aggregation != "sum":
+            raise ValueError("Edge attention requires graph architecture")
         if self.architecture == "gru" and self.node_readout != "sum":
             raise ValueError("Node attention requires graph architecture")
         if self.degree >= self.nodes:

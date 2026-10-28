@@ -133,9 +133,11 @@ def run(args):
     write_json(args.out / "config.json", cfg.model_dump())
     write_json(args.out / "environment.json", environment())
     stream = (
-        DocumentStream(english_train, 4, cfg.length, seeds["english"]) if args.rehearsal else None
+        DocumentStream(english_train, cfg.batch_size, cfg.length, seeds["english"])
+        if args.rehearsal
+        else None
     )
-    carry = initial_state(cfg, 4)
+    carry = initial_state(cfg, cfg.batch_size)
     counters = {
         name: {"updates": 0, "input_bytes": 0, "supervised_bytes": 0} for name in ["qa", "english"]
     }

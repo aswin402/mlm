@@ -310,3 +310,24 @@ def test_sampling_seed_validation():
             sampling_seeds(cfg, qa_seed=invalid)
         with pytest.raises(ValueError, match="seed"):
             sampling_seeds(cfg, english_seed=invalid)
+
+
+def test_local_plasticity_freezes_dormant_nodes_against_decay_and_momentum():
+    cfg = Config(nodes=4, width=8, local_plasticity=True, weight_decay=0.1)
+    state = create_state(cfg)
+    params = jax.tree.map(lambda p: p + 0.5, state.params)
+    state = state.replace(params=params)
+    grads = jax.tree.map(jnp.zeros_like, params)
+    # Activate node 1 strongly and node 2 at half strength; keep nodes 0 and 3 dormant (0 grad).
+    for name in ["input_kernel", "hidden_kernel", "gru_bias", "read_kernel"]:
+        grads[name] = grads[name].at[1].set(0.2).at[2].set(0.1)
+    updated = state.apply_gradients(grads=grads)
+    for name in ["input_kernel", "hidden_kernel", "gru_bias", "read_kernel"]:
+        # Dormant nodes 0 and 3 must remain completely untouched (even with weight_decay=0.1).
+        np.testing.assert_array_equal(updated.params[name][0], params[name][0])
+        np.testing.assert_array_equal(updated.params[name][3], params[name][3])
+        delta_1 = np.linalg.norm(updated.params[name][1] - params[name][1])
+        delta_2 = np.linalg.norm(updated.params[name][2] - params[name][2])
+        assert delta_1 > delta_2 > 0
+    with pytest.raises(ValidationError):
+        Config(architecture="gru", local_plasticity=True)

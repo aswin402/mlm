@@ -2,8 +2,15 @@
 
 ## [Unreleased]
 
+## [0.0.2] - 2026-10-28
+
 ### Added
 
+- Multi-timescale surprise-gated node routing (`node_update="timescale"`) with fast-to-slow log-odds spectrum initialization and state-transition surprise gating (`router_timescale_kernel`, `router_surprise_kernel`, `router_timescale_bias`).
+- Cross-node relational associative memory (`memory="relational"`) projecting keys, queries, and values from separate per-node recurrent subspaces `(N, D, K)` and `(N, D, D)` with $\sqrt{D}$-scaled write/readout gating.
+- Learned state-conditioned neighbor message aggregation (`edge_aggregation="attention"`) over incoming graph edges (`edge_query`, `edge_key`, `edge_vector`).
+- Activity-modulated local node plasticity (`local_plasticity=True`) scaling post-AdamW node updates (including weight decay and momentum drift) by per-node relative gradient activity so dormant nodes remain frozen.
+- Straight-through zero-init tangent gates on `memory_gain`, `attention_vector`, `edge_vector`, and `router_surprise_kernel`, preserving bit-for-bit step-0 forward equivalence after warm-start while immediately flowing non-zero step-0 gradients to all upstream parameters.
 - Fixed context-contrastive sampling replication with runtime exposure and protocol integrity checks: the new schedule remained8/16training answers and0/4groups, failing acquisition and joint gates;8focused tests passed.
 
 - Context-contrastive objective and bounded rescaling: 16/16 training answers and 4/4 groups on one schedule, with worse English probe loss; joint gate failed. Separate inference unchanged, tests and audit limits documented in docs/experiments/context-contrastive/report.md.
@@ -33,6 +40,14 @@
 - Frozen training-only replay/optimizer diagnostics with document-prefix context, loaded-Adam and zero-gradient controls, role accounting and checkpoint immutability audits.
 - Predefined 80-probe report: local QA-loss effects are snapshot-dependent; a consistently worse replay44 effect is not established.
 - 78-test regression suite and504 completed diagnostic audit checks.
+
+### Changed
+
+- Updated `decay_mask` to select weight matrices by tensor rank (`ndim >= 2 and "bias" not in name`), preventing AdamW weight decay from decaying 0D scalar `memory_gain` and 1D vector gates toward zero.
+- Replaced hardcoded node-0 attention readout query (`h[:, 0, :]`) with full-graph state pooling (`h.mean(axis=1)`).
+- Replaced hardcoded `(nodes, degree) == (8, 2)` special case in `topology` with general power-of-two stride generation for arbitrary `(nodes, degree)`.
+- Removed hardcoded string `.split()` truncation in `mlm chat` so generation relies on learned `EOS` termination, and eliminated redundant forward pass in `future_objective`.
+- Incremented package and lockfile version to 0.0.2 (105 regression tests passing).
 
 ## [0.0.1] - 2026-10-25
 

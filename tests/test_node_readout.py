@@ -82,8 +82,11 @@ def test_attention_parameters_receive_gradients_and_validate_config():
     def loss(p):
         return stream_objective(p, state.apply_fn, batch, initial_state(cfg, 4))[0]
 
+    first_grads = jax.grad(loss)(state.params)
     gradients = jax.grad(loss)(params)
     for name in ["attention_vector", "attention_key", "attention_query"]:
+        assert np.isfinite(first_grads[name]).all()
+        assert float(jnp.linalg.norm(first_grads[name])) > 0
         assert np.isfinite(gradients[name]).all()
         assert float(jnp.linalg.norm(gradients[name])) > 0
     with pytest.raises(ValidationError):

@@ -11,8 +11,11 @@ from mlm.plasticity import scale_optimizer
 
 
 def decay_mask(params):
-    """Select weight matrices by role; node-batched biases are still biases."""
-    return {name: "bias" not in name and name != "norm_scale" for name in params}
+    """Select weight matrices (rank >= 2); exclude scalars, 1D vectors, and biases."""
+    return {
+        name: getattr(value, "ndim", 0) >= 2 and "bias" not in name
+        for name, value in params.items()
+    }
 
 
 def create_state(config: Config):

@@ -21,7 +21,7 @@ from mlm.model import initial_state
 from mlm.stream import DocumentStream, evaluate_stream
 
 
-def routed_objective(params, apply_fn, batch, carry, config):
+def routed_objective(params, apply_fn, batch, carry, config, return_logits=False):
     logits, final, probabilities = apply_fn(
         {"params": params},
         batch["inputs"],
@@ -53,7 +53,8 @@ def routed_objective(params, apply_fn, batch, carry, config):
         "bytes": payload.sum(),
         "consumed_bytes": (valid * (batch["targets"] < 256)).sum(),
     }
-    return language + weight * balance, (final, metrics)
+    aux = (final, metrics, logits) if return_logits else (final, metrics)
+    return language + weight * balance, aux
 
 
 def make_routed_step(config):
@@ -129,8 +130,8 @@ def run(args):
     rng = np.random.default_rng(cfg.seed)
     order = rng.permutation(len(batches))
     position = 0
-    stream = DocumentStream(english_train, 4, cfg.length, cfg.seed + 1)
-    carry = initial_state(cfg, 4)
+    stream = DocumentStream(english_train, cfg.batch_size, cfg.length, cfg.seed + 1)
+    carry = initial_state(cfg, cfg.batch_size)
     counters = {
         name: {"updates": 0, "input_bytes": 0, "supervised_bytes": 0} for name in ["qa", "english"]
     }
