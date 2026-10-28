@@ -23,6 +23,11 @@ class Config(BaseModel):
     halt_prior: float = Field(default=0.4, gt=0, lt=1, allow_inf_nan=False)
     warmup_steps: int = Field(default=0, ge=0, le=100000)
     top_k_nodes: int = Field(default=0, ge=0, le=128)
+    shared_nodes: int = Field(default=0, ge=0, le=64)
+    router_bias_gamma: float = Field(default=0.0, ge=0, le=1, allow_inf_nan=False)
+    memory_decay: bool = False
+    mtp_weight: float = Field(default=0.0, ge=0, le=1, allow_inf_nan=False)
+    sinkhorn_edges: bool = False
     edges: tuple[tuple[int, ...], ...] | None = None
     optimizer: Literal["adamw", "muon"] = "adamw"
     nodes: int = Field(default=8, ge=2, le=128)
@@ -66,6 +71,23 @@ class Config(BaseModel):
                 )
             if self.top_k_nodes >= self.nodes:
                 raise ValueError("top_k_nodes must be smaller than nodes when active (> 0)")
+        if self.shared_nodes > 0:
+            if self.architecture == "gru" or self.node_update in {"dense", "uniform"}:
+                raise ValueError(
+                    "shared_nodes requires routed graph node_update ('hierarchical' or 'timescale')"
+                )
+            if self.shared_nodes >= self.nodes:
+                raise ValueError("shared_nodes must be smaller than nodes")
+            if self.top_k_nodes > 0 and self.shared_nodes + self.top_k_nodes > self.nodes:
+                raise ValueError("shared_nodes + top_k_nodes must not exceed nodes")
+        if self.memory_decay and self.memory == "none":
+            raise ValueError("memory_decay requires memory != 'none'")
+        if self.sinkhorn_edges and (
+            self.architecture == "gru" or self.edge_aggregation != "attention"
+        ):
+            raise ValueError("sinkhorn_edges requires graph architecture with edge attention")
+        if self.mtp_weight > 0 and self.architecture == "gru":
+            raise ValueError("mtp_weight requires graph architecture")
         if self.edges is not None:
             if self.architecture == "gru":
                 raise ValueError("Custom edges require graph architecture")

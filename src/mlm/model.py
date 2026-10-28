@@ -9,7 +9,7 @@ from flax import linen as nn
 from mlm.associative import delta_step
 from mlm.config import Config
 from mlm.data import VOCAB_SIZE
-from mlm.graph import aggregate, topology
+from mlm.graph import aggregate, sinkhorn_edge_weights, topology
 
 
 def initial_state(config: Config, batch_size: int):
@@ -32,6 +32,9 @@ class GraphLM(nn.Module):
         valid=None,
         return_routes: bool = False,
         return_ponder: bool = False,
+        return_mtp: bool = False,
+        next_tokens=None,
+        router_bias=None,
     ):
         c = self.config
         d, n = c.width, c.nodes
@@ -108,6 +111,13 @@ class GraphLM(nn.Module):
             memory_bias = self.param("memory_write_bias", nn.initializers.constant(-2.0), ())
             memory_output = self.param("memory_output_kernel", normal(1 / math.sqrt(d)), (d, d))
             memory_gain = self.param("memory_gain", nn.initializers.zeros, ())
+        if c.memory != "none" and c.memory_decay:
+            memory_decay_kernel = self.param(
+                "memory_decay_kernel", nn.initializers.zeros, (2 * d, 1)
+            )
+            memory_decay_bias = self.param("memory_decay_bias", nn.initializers.constant(3.0), ())
+        if c.mtp_weight > 0:
+            mtp_kernel = self.param("mtp_kernel", normal(1 / math.sqrt(2 * d)), (2 * d, d))
         if c.adaptive_halt:
             halt_kernel = self.param("halt_kernel", nn.initializers.zeros, (n, d, 1))
             halt_bias = self.param("halt_bias", nn.initializers.constant(-2.0), (n,))
@@ -119,6 +129,33 @@ class GraphLM(nn.Module):
 
         if valid is None:
             valid = jnp.ones_like(tokens, dtype=bool)
+
+        def apply_routing_gates(r_vec):
+            s = c.shared_nodes
+            b_sz = r_vec.shape[0]
+            if 0 < c.top_k_nodes < n - s:
+                spec = r_vec[:, s:]
+                sel = (
+                    spec + jax.lax.stop_gradient(router_bias[None, s:])
+                    if router_bias is not None
+                    else spec
+                )
+                _, top_idx = jax.lax.top_k(sel, c.top_k_nodes)
+                k_mask = jnp.zeros_like(spec).at[jnp.arange(b_sz)[:, None], top_idx].set(1.0)
+                hard_spec = spec * k_mask
+                spec_out = spec + jax.lax.stop_gradient(hard_spec - spec)
+                if s > 0:
+                    return jnp.concatenate(
+                        [jnp.ones((b_sz, s), dtype=r_vec.dtype), spec_out], axis=-1
+                    )
+                return spec_out
+            out = r_vec
+            if router_bias is not None:
+                shift = jax.nn.sigmoid(jax.lax.stop_gradient(router_bias[None, :])) - 0.5
+                out = jnp.clip(out + jax.lax.stop_gradient(shift), 0.0, 1.0)
+            if s > 0:
+                out = out.at[:, :s].set(1.0)
+            return out
 
         def token_step(packed, item):
             token, reset, active = item
@@ -153,14 +190,15 @@ class GraphLM(nn.Module):
             else:
                 probabilities = jnp.full((tokens.shape[0], n), 1.0 / n)
                 route_probs = probabilities
+            if c.shared_nodes > 0 and c.node_update in {"hierarchical", "timescale"}:
+                s = c.shared_nodes
+                spec_p = route_probs[:, s:]
+                spec_norm = spec_p / jnp.maximum(spec_p.sum(axis=-1, keepdims=True), 1e-6)
+                shared_p = jnp.full((tokens.shape[0], s), 1.0 / n, dtype=route_probs.dtype)
+                route_probs = jnp.concatenate([shared_p, spec_norm * ((n - s) / n)], axis=-1)
             rates = jnp.ones_like(probabilities) if c.node_update == "dense" else probabilities
-            if 0 < c.top_k_nodes < n and c.node_update == "hierarchical":
-                _, top_idx = jax.lax.top_k(rates, c.top_k_nodes)
-                k_mask = (
-                    jnp.zeros_like(rates).at[jnp.arange(rates.shape[0])[:, None], top_idx].set(1.0)
-                )
-                hard_rates = rates * k_mask
-                rates = rates + jax.lax.stop_gradient(hard_rates - rates)
+            if c.node_update == "hierarchical":
+                rates = apply_routing_gates(rates)
 
             def graph_round(_, old):
                 if not messages:
@@ -176,6 +214,8 @@ class GraphLM(nn.Module):
                     ediff = etangent - jax.lax.stop_gradient(etangent)
                     eenergy = efeatures @ edge_vector + ediff
                     eweights = jax.nn.softmax(eenergy, axis=2)
+                    if c.sinkhorn_edges:
+                        eweights = sinkhorn_edge_weights(eweights, edges, n)
                     msg = aggregate(old @ msg_kernel, edges, weights=eweights)
                 else:
                     msg = aggregate(old @ msg_kernel, edges)
@@ -204,16 +244,7 @@ class GraphLM(nn.Module):
                     surprise = math.sqrt(d) * (
                         jnp.einsum("bnd,ndc->bn", s_features, surprise_kernel) + s_diff
                     )
-                    step_rates = jax.nn.sigmoid(base_timescale + surprise)
-                    if 0 < c.top_k_nodes < n:
-                        _, top_idx = jax.lax.top_k(step_rates, c.top_k_nodes)
-                        k_mask = (
-                            jnp.zeros_like(step_rates)
-                            .at[jnp.arange(step_rates.shape[0])[:, None], top_idx]
-                            .set(1.0)
-                        )
-                        hard_rates = step_rates * k_mask
-                        step_rates = step_rates + jax.lax.stop_gradient(hard_rates - step_rates)
+                    step_rates = apply_routing_gates(jax.nn.sigmoid(base_timescale + surprise))
                     return old + step_rates[:, :, None] * (updated - old)
                 return old + rates[:, :, None] * (updated - old)
 
@@ -291,7 +322,24 @@ class GraphLM(nn.Module):
                     )[:, 0]
                 key = key * jax.lax.rsqrt(jnp.square(key).sum(-1, keepdims=True) + 1e-6)
                 query = query * jax.lax.rsqrt(jnp.square(query).sum(-1, keepdims=True) + 1e-6)
-                memory, recalled = delta_step(memory, key, value, query, beta)
+                if c.memory_decay:
+                    d_feat = features if c.memory == "delta" else gate_features
+                    d_gate = jax.lax.stop_gradient(
+                        jnp.where(
+                            jnp.all(memory_decay_kernel == 0),
+                            jnp.ones_like(memory_decay_kernel),
+                            0.0,
+                        )
+                    )
+                    d_tan = d_feat @ d_gate
+                    d_diff = d_tan - jax.lax.stop_gradient(d_tan)
+                    decay_gate = jax.nn.sigmoid(
+                        math.sqrt(d) * (d_feat @ memory_decay_kernel + d_diff) + memory_decay_bias
+                    )[:, 0]
+                    alpha = 1.0 - 0.1 * beta * (1.0 - decay_gate)
+                else:
+                    alpha = None
+                memory, recalled = delta_step(memory, key, value, query, beta, alpha=alpha)
                 mem_scale = math.sqrt(d) if c.memory == "relational" else 1.0
                 mem_out = (recalled @ memory_output) * mem_scale
                 mem_gate = jax.lax.stop_gradient(jnp.where(memory_gain == 0, 1.0, 0.0))
@@ -304,27 +352,26 @@ class GraphLM(nn.Module):
             logits = (z * scale + norm_bias) @ vocab_kernel + vocab_bias
             packed = jnp.concatenate([h, memory], axis=1) if c.memory != "none" else h
             h = jnp.where(active[:, None, None], packed, previous)
-            if return_routes and return_ponder:
-                routes = jnp.where(active[:, None], route_probs, 0.0)
-                return h, (logits, routes, ponder_kl)
-            if return_routes:
-                routes = jnp.where(active[:, None], route_probs, 0.0)
-                return h, (logits, routes)
-            if return_ponder:
-                return h, (logits, ponder_kl)
-            return h, logits
+            routes = jnp.where(active[:, None], route_probs, 0.0)
+            return h, (logits, routes, ponder_kl, z)
 
-        final, output = jax.lax.scan(token_step, state, (tokens.T, resets.T, valid.T))
-        if return_routes and return_ponder:
-            logits, routes, ponder_kl = output
-            return logits.transpose(1, 0, 2), final, routes.transpose(1, 0, 2), ponder_kl.T
+        final, (logits_t, routes_t, ponder_t, z_t) = jax.lax.scan(
+            token_step, state, (tokens.T, resets.T, valid.T)
+        )
+        logits = logits_t.transpose(1, 0, 2)
+        out_items = [logits, final]
         if return_routes:
-            logits, routes = output
-            return logits.transpose(1, 0, 2), final, routes.transpose(1, 0, 2)
+            out_items.append(routes_t.transpose(1, 0, 2))
         if return_ponder:
-            logits, ponder_kl = output
-            return logits.transpose(1, 0, 2), final, ponder_kl.T
-        return output.transpose(1, 0, 2), final
+            out_items.append(ponder_t.T)
+        if return_mtp:
+            z_bt = z_t.transpose(1, 0, 2)
+            next_tok = tokens if next_tokens is None else next_tokens
+            mtp_inp = jnp.concatenate([z_bt, embedding[next_tok]], axis=-1)
+            mtp_hidden = jnp.tanh(mtp_inp @ mtp_kernel)
+            mtp_logits = (mtp_hidden * scale + norm_bias) @ vocab_kernel + vocab_bias
+            out_items.append(mtp_logits)
+        return tuple(out_items)
 
 
 class PlainGRU(nn.Module):

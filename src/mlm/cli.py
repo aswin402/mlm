@@ -273,6 +273,7 @@ def main(argv=None):
     continual.add_argument("--english-seed", type=int)
     continual.add_argument("--auto-grow", action="store_true")
     continual.add_argument("--rewire", action="store_true")
+    continual.add_argument("--grpo", action="store_true")
     args = parser.parse_args(argv)
     if args.command == "train":
         run_train(args)

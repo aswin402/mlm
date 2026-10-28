@@ -46,32 +46,54 @@ def create_state(config: Config):
 
 def objective(params, apply_fn, batch, config, messages=True):
     use_ponder = config.adaptive_halt and config.ponder_beta > 0
+    use_mtp = config.architecture == "graph" and config.mtp_weight > 0
+    kwargs = {"messages": messages}
     if use_ponder:
-        logits, _, ponder_kl = apply_fn(
-            {"params": params},
-            batch["inputs"],
-            initial_state(config, batch["inputs"].shape[0]),
-            batch["resets"],
-            messages=messages,
-            return_ponder=True,
-        )
-    else:
-        logits, _ = apply_fn(
-            {"params": params},
-            batch["inputs"],
-            initial_state(config, batch["inputs"].shape[0]),
-            batch["resets"],
-            messages=messages,
-        )
+        kwargs["return_ponder"] = True
+    if use_mtp:
+        kwargs["return_mtp"] = True
+        kwargs["next_tokens"] = jnp.minimum(batch["targets"], 258)
+    out = apply_fn(
+        {"params": params},
+        batch["inputs"],
+        initial_state(config, batch["inputs"].shape[0]),
+        batch["resets"],
+        **kwargs,
+    )
+    logits = out[0]
+    idx = 2
+    ponder_kl = out[idx] if use_ponder else None
+    if use_ponder:
+        idx += 1
+    mtp_logits = out[idx] if use_mtp else None
+
     losses = optax.softmax_cross_entropy_with_integer_labels(logits, batch["targets"])
     mask = batch["mask"]
     denom = jnp.maximum(mask.sum(), 1)
     loss = (losses * mask).sum() / denom
-    ponder_loss = (ponder_kl * mask).sum() / denom if use_ponder else jnp.asarray(0.0, loss.dtype)
+    ponder_loss = (
+        (ponder_kl * mask).sum() / denom
+        if (use_ponder and ponder_kl is not None)
+        else jnp.asarray(0.0, loss.dtype)
+    )
+    if use_mtp and mtp_logits is not None and batch["targets"].shape[1] > 1:
+        mtp_targets = batch["targets"][:, 1:]
+        mtp_valid = (
+            mask[:, :-1]
+            * mask[:, 1:]
+            * (~batch["resets"][:, 1:])
+            * (batch["targets"][:, :-1] == batch["inputs"][:, 1:])
+        )
+        mtp_ce = optax.softmax_cross_entropy_with_integer_labels(mtp_logits[:, :-1], mtp_targets)
+        mtp_loss = (mtp_ce * mtp_valid).sum() / jnp.maximum(mtp_valid.sum(), 1)
+    else:
+        mtp_loss = jnp.asarray(0.0, loss.dtype)
     payload = mask * (batch["targets"] < 256)
     byte_nll = (losses * payload).sum()
-    return loss + config.ponder_beta * ponder_loss, {
+    total = loss + config.ponder_beta * ponder_loss + config.mtp_weight * mtp_loss
+    return total, {
         "loss": loss,
+        "mtp_loss": mtp_loss,
         "byte_nll": byte_nll,
         "bytes": payload.sum(),
         "positions": mask.sum(),

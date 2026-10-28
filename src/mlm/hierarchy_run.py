@@ -21,36 +21,50 @@ from mlm.model import initial_state
 from mlm.plasticity import (
     LaneSchedule,
     PlasticityController,
+    build_grpo_question_group,
+    make_grpo_step,
     maybe_grow_and_prune,
     rewire_edges,
+    update_router_load_bias,
 )
 from mlm.stream import DocumentStream, evaluate_stream
 from mlm.training import create_state
 
 
 def routed_objective(
-    params, apply_fn, batch, carry, config, return_logits=False, running_usage=None
+    params,
+    apply_fn,
+    batch,
+    carry,
+    config,
+    return_logits=False,
+    running_usage=None,
+    router_bias=None,
 ):
     use_ponder = config.adaptive_halt and config.ponder_beta > 0
+    use_mtp = config.architecture == "graph" and config.mtp_weight > 0
+    kwargs = {"valid": batch["mask"], "return_routes": True}
     if use_ponder:
-        logits, final, probabilities, ponder_kl = apply_fn(
-            {"params": params},
-            batch["inputs"],
-            carry,
-            batch["resets"],
-            valid=batch["mask"],
-            return_routes=True,
-            return_ponder=True,
-        )
-    else:
-        logits, final, probabilities = apply_fn(
-            {"params": params},
-            batch["inputs"],
-            carry,
-            batch["resets"],
-            valid=batch["mask"],
-            return_routes=True,
-        )
+        kwargs["return_ponder"] = True
+    if use_mtp:
+        kwargs["return_mtp"] = True
+        kwargs["next_tokens"] = jnp.minimum(batch["targets"], 258)
+    if router_bias is not None:
+        kwargs["router_bias"] = router_bias
+    out = apply_fn(
+        {"params": params},
+        batch["inputs"],
+        carry,
+        batch["resets"],
+        **kwargs,
+    )
+    logits, final, probabilities = out[0], out[1], out[2]
+    idx = 3
+    ponder_kl = out[idx] if use_ponder else None
+    if use_ponder:
+        idx += 1
+    mtp_logits = out[idx] if use_mtp else None
+
     losses = optax.softmax_cross_entropy_with_integer_labels(logits, batch["targets"])
     valid = batch["mask"]
     targets = valid * batch.get("loss_mask", valid)
@@ -67,11 +81,26 @@ def routed_objective(
     entropy = -(probabilities * jnp.log(jnp.maximum(probabilities, 1e-9))).sum(-1)
     weight = config.router_balance if config.node_update in {"hierarchical", "timescale"} else 0.0
     ponder_loss = (
-        (ponder_kl * valid).sum() / positions if use_ponder else jnp.asarray(0.0, language.dtype)
+        (ponder_kl * valid).sum() / positions
+        if (use_ponder and ponder_kl is not None)
+        else jnp.asarray(0.0, language.dtype)
     )
+    if use_mtp and mtp_logits is not None and batch["targets"].shape[1] > 1:
+        mtp_targets = batch["targets"][:, 1:]
+        mtp_valid = (
+            valid[:, :-1]
+            * targets[:, 1:]
+            * (~batch["resets"][:, 1:])
+            * (batch["targets"][:, :-1] == batch["inputs"][:, 1:])
+        )
+        mtp_ce = optax.softmax_cross_entropy_with_integer_labels(mtp_logits[:, :-1], mtp_targets)
+        mtp_loss = (mtp_ce * mtp_valid).sum() / jnp.maximum(mtp_valid.sum(), 1)
+    else:
+        mtp_loss = jnp.asarray(0.0, language.dtype)
     payload = targets * (batch["targets"] < 256)
     metrics = {
         "loss": language,
+        "mtp_loss": mtp_loss,
         "router_balance": balance,
         "ponder_kl": ponder_loss,
         "route_usage": usage,
@@ -82,13 +111,18 @@ def routed_objective(
         "consumed_bytes": (valid * (batch["targets"] < 256)).sum(),
     }
     aux = (final, metrics, logits) if return_logits else (final, metrics)
-    total_loss = language + weight * balance + config.ponder_beta * ponder_loss
+    total_loss = (
+        language
+        + weight * balance
+        + config.ponder_beta * ponder_loss
+        + config.mtp_weight * mtp_loss
+    )
     return total_loss, aux
 
 
 def make_routed_step(config):
     @jax.jit
-    def step(state, carry, batch, running_usage=None):
+    def step(state, carry, batch, running_usage=None, router_bias=None):
         (_, (final, metrics)), gradients = jax.value_and_grad(routed_objective, has_aux=True)(
             state.params,
             state.apply_fn,
@@ -97,6 +131,7 @@ def make_routed_step(config):
             config,
             False,
             running_usage,
+            router_bias,
         )
         candidate = state.apply_gradients(grads=gradients)
         leaves = jax.tree.leaves((candidate.params, candidate.opt_state, gradients, final, metrics))
@@ -338,7 +373,19 @@ def run_continual(args) -> dict:
     )
     carry = initial_state(cfg, cfg.batch_size)
     running_usage = jnp.full((cfg.nodes,), 1.0 / cfg.nodes, dtype=jnp.float32)
+    router_bias = jnp.zeros((cfg.nodes,), dtype=jnp.float32)
     step_fn = make_routed_step(cfg)
+    use_grpo = bool(getattr(args, "grpo", False))
+    grpo_step_fn = make_grpo_step(cfg) if use_grpo else None
+    grpo_groups = (
+        [
+            build_grpo_question_group(questions[i : i + 4], cfg.length)
+            for i in range(0, len(questions), 4)
+        ]
+        if use_grpo
+        else []
+    )
+    ref_params = state.params if use_grpo else None
 
     qa_corpus_bytes = float(sum(int(np.sum(b["mask"])) for b in batches))
     eng_corpus_bytes = float(sum(len(d.encode("utf-8")) for d in english_train))
@@ -393,14 +440,20 @@ def run_continual(args) -> dict:
             if position >= len(order):
                 order = rng.permutation(len(batches))
                 position = 0
-            batch = batches[int(order[position])]
+            batch_idx = int(order[position])
+            batch = batches[batch_idx]
             position += 1
             state, _, raw = step_fn(
                 state,
                 initial_state(cfg, cfg.batch_size),
                 jax.tree.map(jnp.asarray, batch),
                 running_usage,
+                router_bias if cfg.router_bias_gamma > 0 else None,
             )
+            if use_grpo and grpo_step_fn is not None and grpo_groups:
+                ref_params = state.params
+                g_batch, g_rewards = grpo_groups[batch_idx % len(grpo_groups)]
+                state, _ = grpo_step_fn(state, ref_params, g_batch, g_rewards)
         else:
             batch = stream.next_batch()
             state, carry, raw = step_fn(
@@ -408,11 +461,16 @@ def run_continual(args) -> dict:
                 carry,
                 jax.tree.map(jnp.asarray, batch),
                 running_usage,
+                router_bias if cfg.router_bias_gamma > 0 else None,
             )
         raw = jax.device_get(raw)
         if not bool(raw["finite"]) or not bool(raw["updated"]):
             raise FloatingPointError("Rejected continual update")
         running_usage = 0.95 * running_usage + 0.05 * jnp.asarray(raw["route_usage"])
+        if cfg.router_bias_gamma > 0:
+            router_bias = update_router_load_bias(
+                router_bias, running_usage, cfg.router_bias_gamma, cfg.shared_nodes
+            )
         counters[lane]["updates"] += 1
         counters[lane]["input_bytes"] += int(raw["consumed_bytes"])
         counters[lane]["supervised_bytes"] += int(raw["bytes"])
@@ -444,7 +502,11 @@ def run_continual(args) -> dict:
                     batches, ids = build_batches(records, questions, cfg)
                     carry = initial_state(cfg, cfg.batch_size)
                     running_usage = jnp.full((cfg.nodes,), 1.0 / cfg.nodes, dtype=jnp.float32)
+                    router_bias = jnp.zeros((cfg.nodes,), dtype=jnp.float32)
                     step_fn = make_routed_step(cfg)
+                    if use_grpo:
+                        grpo_step_fn = make_grpo_step(cfg)
+                        ref_params = state.params
                     growth_events.append({"step": step_idx, **g_info, "nodes": cfg.nodes})
                     row["nodes"] = cfg.nodes
 
@@ -453,6 +515,8 @@ def run_continual(args) -> dict:
                 if r_info["rewired"] > 0:
                     cfg = new_cfg
                     step_fn = make_routed_step(cfg)
+                    if use_grpo:
+                        grpo_step_fn = make_grpo_step(cfg)
                     rewire_events.append(
                         {"step": step_idx, "rewired": r_info["rewired"], "edges": r_info["edges"]}
                     )

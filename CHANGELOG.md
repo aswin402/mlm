@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+## [0.0.6] - 2026-10-29
+
+### Added
+
+- DeepSeekMoE always-active shared nodes + routed specialist nodes (`shared_nodes` in `Config` and `apply_routing_gates` in `GraphLM.__call__`), pinning the first $N_s$ nodes to update rate $1.0$ on every token while routing and load-balancing across the remaining $N - N_s$ specialist nodes.
+- DeepSeek-V3 auxiliary-loss-free router load balancing (`router_bias_gamma` in `Config`, `update_router_load_bias` in `mlm.plasticity`, and `router_bias` in `GraphLM.__call__`, `routed_objective`, `make_routed_step`, and `run_continual`) adjusting specialist routing logits via a non-gradient sign step $b_i \leftarrow b_i + \gamma\,\text{sign}(\bar{u} - u_i)$.
+- Gated DeltaNet write-coupled data-dependent associative memory decay (`memory_decay=True` in `Config`, `alpha` retention scaling in `delta_step`, and straight-through gated `memory_decay_kernel` / `memory_decay_bias` in `GraphLM.__call__`).
+- DeepSeek-V3 causal target-conditioned multi-token prediction (`mtp_weight` in `Config`, `return_mtp` / `next_tokens` and `mtp_kernel` in `GraphLM.__call__`, and boundary-checked `mtp_loss` in `objective` and `routed_objective`).
+- DeepSeek mHC manifold-constrained doubly-stochastic graph message mixing (`sinkhorn_edges=True` in `Config` and `sinkhorn_edge_weights` in `mlm.graph`) using vectorized Sinkhorn-Knopp alternating sender/receiver normalization.
+- DeepSeek-R1 critic-free Group Relative Policy Optimization (`grpo_objective`, `make_grpo_step`, and `build_grpo_question_group` in `mlm.plasticity`, `--grpo` CLI flag on `mlm continual`, and `configs/deepseek-v1.json`) with group-normalized verifiable rewards, clipped policy ratios, and unbiased non-negative KL regularization.
+
+### Changed
+
+- Incremented package and lockfile version to 0.0.6 (120 regression tests passing).
+
 ## [0.0.5] - 2026-10-29
 
 ### Added

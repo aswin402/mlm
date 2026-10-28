@@ -26,6 +26,20 @@ def aggregate(states, edges, weights=None):
     return jnp.einsum("bnk,bnkd->bnd", weights, neighbors) * jnp.sqrt(edges.shape[1])
 
 
+def sinkhorn_edge_weights(weights, edges, n_nodes: int, iters: int = 3):
+    """Project positive edge weights [B,N,K] onto the doubly-stochastic manifold (mHC)."""
+    import jax
+
+    sender_one_hot = jax.nn.one_hot(edges, n_nodes, dtype=weights.dtype)
+    w = jnp.maximum(weights, 1e-6)
+    for _ in range(iters):
+        col_sums = jnp.einsum("bnk,nks->bs", w, sender_one_hot)
+        edge_col_norm = jnp.einsum("bs,nks->bnk", col_sums, sender_one_hot)
+        w = w / jnp.maximum(edge_col_norm, 1e-6)
+        w = w / jnp.maximum(w.sum(axis=-1, keepdims=True), 1e-6)
+    return 0.5 * weights + 0.5 * w
+
+
 def model_topology(config):
     if config.architecture == "gru":
         return None

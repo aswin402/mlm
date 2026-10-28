@@ -24,6 +24,7 @@ SHARED_PARAMETERS = {
     "attention_query",
     "attention_key",
     "attention_vector",
+    "mtp_kernel",
 }
 ROUTER_PARAMETERS = {
     "router_group_kernel",
@@ -44,6 +45,8 @@ MEMORY_PARAMETERS = {
     "memory_value_kernel",
     "memory_write_kernel",
     "memory_write_bias",
+    "memory_decay_kernel",
+    "memory_decay_bias",
     "memory_output_kernel",
     "memory_gain",
 }
@@ -350,14 +353,18 @@ def prune_nodes(config, params: dict, protect: int = 2, min_norm: float = 0.05):
     if config.node_update == "hierarchical":
         raise ValueError("Node pruning requires non-hierarchical routing")
     n = config.nodes
-    protect = max(config.degree + 1, int(protect))
+    protect = max(config.degree + 1, config.shared_nodes + 1, int(protect))
     norms = np.linalg.norm(np.asarray(params["read_kernel"]), axis=(1, 2))
     keep = [i for i in range(n) if i < protect or float(norms[i]) >= min_norm]
     if len(keep) == n:
         return config, params, 0
     idx = jnp.asarray(keep, dtype=jnp.int32)
     n_new = len(keep)
-    new_top_k = min(config.top_k_nodes, n_new - 1) if config.top_k_nodes > 0 else 0
+    new_top_k = (
+        min(config.top_k_nodes, max(1, n_new - config.shared_nodes - 1))
+        if config.top_k_nodes > 0
+        else 0
+    )
     new_config = config.model_copy(update={"nodes": n_new, "edges": None, "top_k_nodes": new_top_k})
     new_params = dict(params)
     for name in (
@@ -786,3 +793,186 @@ class LaneSchedule:
         chosen = max(self.names, key=lambda n: self.credit[n])
         self.credit[chosen] -= 1.0
         return chosen
+
+
+def update_router_load_bias(
+    router_bias,
+    route_usage,
+    gamma: float,
+    shared_nodes: int = 0,
+):
+    """DeepSeek-V3 auxiliary-loss-free load-balancing bias update over specialist nodes."""
+    b = jnp.asarray(router_bias, dtype=jnp.float32)
+    u = jnp.asarray(route_usage, dtype=jnp.float32)
+    if gamma <= 0.0 or u.shape[0] <= shared_nodes:
+        return b
+    spec_u = u[shared_nodes:]
+    target = jnp.mean(spec_u)
+    delta = gamma * jnp.sign(target - spec_u)
+    spec_b = b[shared_nodes:] + delta
+    spec_b = spec_b - jnp.mean(spec_b)
+    if shared_nodes > 0:
+        return jnp.concatenate([jnp.zeros((shared_nodes,), dtype=b.dtype), spec_b], axis=0)
+    return spec_b
+
+
+def grpo_objective(
+    params,
+    ref_params,
+    apply_fn,
+    batch,
+    rewards,
+    config,
+    clip_eps: float = 0.2,
+    kl_beta: float = 0.04,
+    sft_alpha: float = 0.2,
+):
+    """DeepSeek-R1 critic-free Group Relative Policy Optimization (GRPO) objective."""
+    from mlm.model import initial_state
+
+    g_size = batch["inputs"].shape[0]
+    carry = initial_state(config, g_size)
+    logits, _ = apply_fn(
+        {"params": params},
+        batch["inputs"],
+        carry,
+        batch["resets"],
+        valid=batch["mask"],
+    )
+    ref_logits, _ = apply_fn(
+        {"params": jax.lax.stop_gradient(ref_params)},
+        batch["inputs"],
+        carry,
+        batch["resets"],
+        valid=batch["mask"],
+    )
+    valid = batch["mask"]
+    target_mask = valid * batch.get("loss_mask", valid)
+    counts = jnp.maximum(target_mask.sum(axis=-1), 1.0)
+
+    token_nll = optax.softmax_cross_entropy_with_integer_labels(logits, batch["targets"])
+    ref_token_nll = optax.softmax_cross_entropy_with_integer_labels(
+        jax.lax.stop_gradient(ref_logits), batch["targets"]
+    )
+    seq_logp = -(token_nll * target_mask).sum(axis=-1) / counts
+    ref_seq_logp = -(ref_token_nll * target_mask).sum(axis=-1) / counts
+
+    r_raw = jnp.asarray(rewards, dtype=seq_logp.dtype)
+    if r_raw.ndim == 2:
+        r_mean_g = jnp.mean(r_raw, axis=-1, keepdims=True)
+        r_std_g = jnp.sqrt(jnp.mean(jnp.square(r_raw - r_mean_g), axis=-1, keepdims=True) + 1e-8)
+        advantages = jax.lax.stop_gradient(((r_raw - r_mean_g) / (r_std_g + 1e-4)).reshape(-1))
+        pos_weights = jnp.where(r_raw > r_mean_g, 1.0, 0.0).reshape(-1)
+        r = r_raw.reshape(-1)
+        r_mean = jnp.mean(r)
+    else:
+        r = r_raw
+        r_mean = jnp.mean(r)
+        r_std = jnp.sqrt(jnp.mean(jnp.square(r - r_mean)) + 1e-8)
+        advantages = jax.lax.stop_gradient((r - r_mean) / (r_std + 1e-4))
+        pos_weights = jnp.where(r > r_mean, 1.0, 0.0)
+
+    log_ratio = jnp.clip(seq_logp - ref_seq_logp, -10.0, 10.0)
+    ratio = jnp.exp(log_ratio)
+    clipped_ratio = jnp.clip(ratio, 1.0 - clip_eps, 1.0 + clip_eps)
+    pg_loss = -jnp.mean(jnp.minimum(ratio * advantages, clipped_ratio * advantages))
+
+    # DeepSeek-R1 unbiased non-negative KL estimator: exp(ref - cur) - (ref - cur) - 1
+    diff_ref_cur = jnp.clip(ref_seq_logp - seq_logp, -10.0, 10.0)
+    kl_div = jnp.mean(jnp.exp(diff_ref_cur) - diff_ref_cur - 1.0)
+
+    pos_denom = jnp.maximum(pos_weights.sum(), 1.0)
+    sft_loss = jnp.sum((-seq_logp) * pos_weights) / pos_denom
+
+    total = pg_loss + kl_beta * kl_div + sft_alpha * sft_loss
+    metrics = {
+        "loss": total,
+        "pg_loss": pg_loss,
+        "kl_div": kl_div,
+        "sft_loss": sft_loss,
+        "mean_reward": r_mean,
+        "advantages": advantages,
+        "seq_logp": seq_logp,
+    }
+    return total, metrics
+
+
+def make_grpo_step(config, clip_eps: float = 0.2, kl_beta: float = 0.04, sft_alpha: float = 0.2):
+    """Create a JIT-compiled critic-free GRPO update step."""
+
+    @jax.jit
+    def step(state, ref_params, batch, rewards):
+        (loss, metrics), grads = jax.value_and_grad(grpo_objective, has_aux=True)(
+            state.params,
+            ref_params,
+            state.apply_fn,
+            batch,
+            rewards,
+            config,
+            clip_eps,
+            kl_beta,
+            sft_alpha,
+        )
+        candidate = state.apply_gradients(grads=grads)
+        leaves = jax.tree.leaves((candidate.params, candidate.opt_state, grads, loss))
+        finite = jnp.all(jnp.stack([jnp.isfinite(x).all() for x in leaves]))
+        new_state = jax.lax.cond(finite, lambda: candidate, lambda: state)
+        return new_state, {**metrics, "finite": finite}
+
+    return step
+
+
+def build_grpo_question_group(question: dict | list[dict], length: int):
+    """Build a verifiable GRPO candidate group batch and rewards from a QA item or group."""
+    from mlm.data import BOS, EOS
+
+    q_list = [question] if isinstance(question, dict) else list(question)
+    rows_meta = []
+    reward_rows = []
+    for q in q_list:
+        prompt = f"<|user|>\n{q['context']}\n{q['question']}\n<|assistant|>\n"
+        prompt_bytes = list(prompt.encode("utf-8"))
+        if "choices" in q:
+            candidates = list(q["choices"])
+            correct = candidates[int(q["answer_index"])]
+        else:
+            candidates = list(q["candidates"])
+            correct = q["answer"]
+        r_vec = []
+        for cand in candidates:
+            rows_meta.append((prompt_bytes, list(cand.encode("utf-8"))))
+            r_vec.append(1.0 if cand == correct else 0.0)
+        reward_rows.append(r_vec)
+
+    total_rows = len(rows_meta)
+    inputs = np.full((total_rows, length), EOS, dtype=np.int32)
+    targets = np.full((total_rows, length), EOS, dtype=np.int32)
+    mask = np.zeros((total_rows, length), dtype=np.float32)
+    loss_mask = np.zeros((total_rows, length), dtype=np.float32)
+    resets = np.zeros((total_rows, length), dtype=bool)
+
+    for idx, (prompt_bytes, ans_bytes) in enumerate(rows_meta):
+        seq = [BOS, *prompt_bytes, *ans_bytes]
+        if len(seq) - 1 > length:
+            seq = [BOS, *prompt_bytes[: max(1, length - len(ans_bytes) - 1)], *ans_bytes]
+        n_pos = min(len(seq) - 1, length)
+        inputs[idx, :n_pos] = seq[:n_pos]
+        targets[idx, :n_pos] = seq[1 : n_pos + 1]
+        mask[idx, :n_pos] = 1.0
+        ans_start = max(0, n_pos - len(ans_bytes))
+        loss_mask[idx, ans_start:n_pos] = 1.0
+        resets[idx, 0] = True
+
+    rewards_arr = (
+        np.asarray(reward_rows[0], dtype=np.float32)
+        if isinstance(question, dict)
+        else np.asarray(reward_rows, dtype=np.float32)
+    )
+    batch = {
+        "inputs": jnp.asarray(inputs),
+        "targets": jnp.asarray(targets),
+        "mask": jnp.asarray(mask),
+        "loss_mask": jnp.asarray(loss_mask),
+        "resets": jnp.asarray(resets),
+    }
+    return batch, jnp.asarray(rewards_arr)

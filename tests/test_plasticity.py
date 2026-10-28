@@ -14,18 +14,23 @@ from mlm.checkpoint import load_checkpoint, save_checkpoint
 from mlm.config import Config
 from mlm.confirmation_data import prepare
 from mlm.generate import LiveLearner, generate
+from mlm.graph import sinkhorn_edge_weights, topology
 from mlm.hierarchy_run import make_routed_step, routed_objective, run_continual
 from mlm.model import initial_state
 from mlm.plasticity import (
     LaneSchedule,
     PlasticityController,
+    build_grpo_question_group,
     edge_affinity_matrix,
+    grpo_objective,
+    make_grpo_step,
     maybe_grow_and_prune,
     newton_schulz,
     parameter_roles,
     prune_nodes,
     recombine_grow_nodes,
     rewire_edges,
+    update_router_load_bias,
 )
 from mlm.plasticity_run import run
 from mlm.training import create_state, decay_mask, make_train_step
@@ -738,3 +743,127 @@ def test_continual_cli_runner_end_to_end(tmp_path):
     assert (out_dir / "best.mlm").exists()
     assert (out_dir / "latest.mlm").exists()
     assert (out_dir / "summary.json").exists()
+
+
+def test_deepseek_shared_nodes_and_loss_free_load_balancing():
+    cfg = Config(
+        nodes=4,
+        width=8,
+        degree=2,
+        groups=2,
+        node_update="timescale",
+        shared_nodes=1,
+        top_k_nodes=1,
+        router_bias_gamma=0.05,
+        batch_size=2,
+        length=4,
+    )
+    state = create_state(cfg)
+    carry = jnp.ones((2, 4, 8), dtype=jnp.float32) * 0.5
+    tokens = jnp.asarray([[65], [66]], dtype=jnp.int32)
+    resets = jnp.zeros_like(tokens, dtype=bool)
+    _, final_state, routes = state.apply_fn(
+        {"params": state.params}, tokens, carry, resets, return_routes=True
+    )
+    deltas = np.linalg.norm(np.asarray(final_state - carry), axis=-1)
+    # Shared node 0 must always update; among specialist nodes 1..3, exactly top_k_nodes=1 updates
+    assert np.all(deltas[:, 0] > 0.0)
+    assert np.all(np.sum(deltas[:, 1:] > 0.0, axis=-1) == 1)
+    assert np.all(np.sum(deltas[:, 1:] == 0.0, axis=-1) == 2)
+    assert np.allclose(np.asarray(routes[:, :, 0]), 0.25)
+
+    # Test auxiliary-loss-free load bias update
+    bias0 = jnp.zeros((4,), dtype=jnp.float32)
+    usage = jnp.asarray([0.25, 0.60, 0.10, 0.05], dtype=jnp.float32)
+    bias1 = update_router_load_bias(bias0, usage, gamma=0.05, shared_nodes=1)
+    assert float(bias1[0]) == 0.0
+    assert float(bias1[1]) < 0.0 and float(bias1[2]) > 0.0 and float(bias1[3]) > 0.0
+
+
+def test_gated_deltanet_memory_decay_and_mhc_sinkhorn_edges():
+    cfg = Config(
+        nodes=4,
+        width=8,
+        degree=2,
+        rounds=2,
+        node_update="timescale",
+        edge_aggregation="attention",
+        sinkhorn_edges=True,
+        memory="relational",
+        memory_keys=4,
+        memory_decay=True,
+        batch_size=2,
+        length=6,
+    )
+    state = create_state(cfg)
+    edges = jnp.asarray(topology(4, 2))
+    raw_w = jax.nn.softmax(jnp.asarray([[[2.0, 0.1], [2.5, 0.2], [0.1, 1.8], [0.3, 1.5]]]), axis=-1)
+    ds_w = sinkhorn_edge_weights(raw_w, edges, 4, iters=5)
+    assert np.allclose(np.asarray(ds_w.sum(axis=-1)), 1.0, atol=1e-4)
+
+    batch = {
+        "inputs": jnp.asarray(
+            [[65, 66, 67, 68, 69, 70], [71, 72, 73, 74, 75, 76]], dtype=jnp.int32
+        ),
+        "targets": jnp.asarray(
+            [[66, 67, 68, 69, 70, 71], [72, 73, 74, 75, 76, 77]], dtype=jnp.int32
+        ),
+        "mask": jnp.ones((2, 6), dtype=jnp.float32),
+        "resets": jnp.zeros((2, 6), dtype=bool).at[:, 0].set(True),
+    }
+    carry = initial_state(cfg, 2)
+    _, grads = jax.value_and_grad(routed_objective, has_aux=True)(
+        state.params, state.apply_fn, batch, carry, cfg
+    )
+    assert float(jnp.linalg.norm(grads["memory_decay_kernel"])) > 0.0
+    assert float(jnp.linalg.norm(grads["memory_decay_bias"])) > 0.0
+
+
+def test_deepseek_v3_causal_mtp_and_r1_grpo_step():
+    cfg = Config(
+        nodes=4,
+        width=8,
+        degree=2,
+        node_update="timescale",
+        mtp_weight=0.2,
+        batch_size=3,
+        length=32,
+        learning_rate=1e-2,
+    )
+    state = create_state(cfg)
+    batch = {
+        "inputs": jnp.asarray(
+            [[256, 65, 66, 67], [256, 68, 69, 70], [256, 71, 72, 73]], dtype=jnp.int32
+        ),
+        "targets": jnp.asarray(
+            [[65, 66, 67, 68], [68, 69, 70, 71], [71, 72, 73, 74]], dtype=jnp.int32
+        ),
+        "mask": jnp.ones((3, 4), dtype=jnp.float32),
+        "resets": jnp.zeros((3, 4), dtype=bool).at[:, 0].set(True),
+    }
+    (_, (_, metrics)), grads = jax.value_and_grad(routed_objective, has_aux=True)(
+        state.params, state.apply_fn, batch, initial_state(cfg, 3), cfg
+    )
+    assert float(metrics["mtp_loss"]) > 0.0
+    assert float(jnp.linalg.norm(grads["mtp_kernel"])) > 0.0
+
+    # Test DeepSeek-R1 critic-free GRPO step on a candidate question group
+    question = {
+        "context": "Alice keeps a ruby.",
+        "question": "What does Alice keep?",
+        "candidates": ["ruby", "coin", "lamp"],
+        "answer": "ruby",
+    }
+    g_batch, g_rewards = build_grpo_question_group(question, length=64)
+    ref_params = state.params
+    _, init_m = grpo_objective(state.params, ref_params, state.apply_fn, g_batch, g_rewards, cfg)
+    init_gap = float(init_m["seq_logp"][0] - jnp.mean(init_m["seq_logp"][1:]))
+
+    grpo_step = make_grpo_step(cfg)
+    for _ in range(4):
+        state, step_m = grpo_step(state, ref_params, g_batch, g_rewards)
+    assert bool(step_m["finite"])
+    assert float(step_m["kl_div"]) >= -1e-6
+    _, final_m = grpo_objective(state.params, ref_params, state.apply_fn, g_batch, g_rewards, cfg)
+    final_gap = float(final_m["seq_logp"][0] - jnp.mean(final_m["seq_logp"][1:]))
+    assert final_gap > init_gap
