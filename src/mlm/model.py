@@ -24,7 +24,14 @@ class GraphLM(nn.Module):
 
     @nn.compact
     def __call__(
-        self, tokens, state, resets, messages: bool = True, valid=None, return_routes=False
+        self,
+        tokens,
+        state,
+        resets,
+        messages: bool = True,
+        valid=None,
+        return_routes: bool = False,
+        return_ponder: bool = False,
     ):
         c = self.config
         d, n = c.width, c.nodes
@@ -124,13 +131,24 @@ class GraphLM(nn.Module):
                     jnp.einsum("bi,gij->bgj", context, child_kernel) + child_bias, axis=-1
                 )
                 probabilities = (parent[:, :, None] * child).reshape((-1, n))
+                det_ctx = jax.lax.stop_gradient(context)
+                det_parent = jax.nn.softmax(det_ctx @ group_kernel + group_bias, axis=-1)
+                det_child = jax.nn.softmax(
+                    jnp.einsum("bi,gij->bgj", det_ctx, child_kernel) + child_bias, axis=-1
+                )
+                route_probs = (det_parent[:, :, None] * det_child).reshape((-1, n))
             elif c.node_update == "timescale":
                 context = jnp.concatenate([embedding[token], h.mean(axis=1)], axis=-1)
                 base_timescale = math.sqrt(d) * (context @ timescale_kernel) + timescale_bias
                 raw_rates = jax.nn.sigmoid(base_timescale)
                 probabilities = raw_rates / jnp.maximum(raw_rates.sum(axis=-1, keepdims=True), 1e-6)
+                det_ctx = jax.lax.stop_gradient(context)
+                det_base = math.sqrt(d) * (det_ctx @ timescale_kernel) + timescale_bias
+                det_raw = jax.nn.sigmoid(det_base)
+                route_probs = det_raw / jnp.maximum(det_raw.sum(axis=-1, keepdims=True), 1e-6)
             else:
                 probabilities = jnp.full((tokens.shape[0], n), 1.0 / n)
+                route_probs = probabilities
             rates = jnp.ones_like(probabilities) if c.node_update == "dense" else probabilities
 
             def graph_round(_, old):
@@ -182,7 +200,7 @@ class GraphLM(nn.Module):
             if c.adaptive_halt:
 
                 def halt_round(r, carry):
-                    curr_h, h_acc, rem = carry
+                    curr_h, h_acc, rem, kl_acc = carry
                     next_h = graph_round(r, curr_h)
                     h_gate = jax.lax.stop_gradient(
                         jnp.where(jnp.all(halt_kernel == 0), jnp.ones_like(halt_kernel), 0.0)
@@ -197,17 +215,31 @@ class GraphLM(nn.Module):
                     is_last = (r == c.rounds - 1) & (c.rounds > 1)
                     p = jnp.where(is_last, rem, rem * lam)
                     next_rem = jnp.where(is_last, jnp.zeros_like(rem), rem * (1.0 - lam))
+                    q_r = jnp.where(
+                        is_last,
+                        (1.0 - c.halt_prior) ** r,
+                        c.halt_prior * ((1.0 - c.halt_prior) ** r),
+                    )
+                    kl_step = p * (jnp.log(jnp.maximum(p, 1e-9)) - jnp.log(jnp.maximum(q_r, 1e-9)))
                     frozen_h = curr_h + rem[:, :, None] * (next_h - curr_h)
                     next_acc = h_acc + p[:, :, None] * frozen_h
-                    return frozen_h, next_acc, next_rem
+                    return frozen_h, next_acc, next_rem, kl_acc + kl_step
 
                 init_rem = jnp.ones((tokens.shape[0], n), dtype=h.dtype)
-                _, h_acc, rem = jax.lax.fori_loop(
-                    0, c.rounds, halt_round, (h, jnp.zeros_like(h), init_rem)
+                init_kl = jnp.zeros((tokens.shape[0], n), dtype=h.dtype)
+                _, h_acc, rem, kl_acc = jax.lax.fori_loop(
+                    0, c.rounds, halt_round, (h, jnp.zeros_like(h), init_rem, init_kl)
                 )
+                if c.rounds == 1:
+                    kl_acc = kl_acc + rem * (
+                        jnp.log(jnp.maximum(rem, 1e-9))
+                        - jnp.log(jnp.maximum(1.0 - c.halt_prior, 1e-9))
+                    )
                 h = h_acc + rem[:, :, None] * h
+                ponder_kl = jnp.where(active, kl_acc.mean(axis=-1), 0.0)
             else:
                 h = jax.lax.fori_loop(0, c.rounds, graph_round, h)
+                ponder_kl = jnp.zeros((tokens.shape[0],), dtype=h.dtype)
             if c.node_readout == "sum":
                 z = jnp.einsum("bni,nij->bj", h, read_kernel) / math.sqrt(n)
             else:
@@ -252,15 +284,26 @@ class GraphLM(nn.Module):
             logits = (z * scale + norm_bias) @ vocab_kernel + vocab_bias
             packed = jnp.concatenate([h, memory], axis=1) if c.memory != "none" else h
             h = jnp.where(active[:, None, None], packed, previous)
+            if return_routes and return_ponder:
+                routes = jnp.where(active[:, None], route_probs, 0.0)
+                return h, (logits, routes, ponder_kl)
             if return_routes:
-                routes = jnp.where(active[:, None], probabilities, 0.0)
+                routes = jnp.where(active[:, None], route_probs, 0.0)
                 return h, (logits, routes)
+            if return_ponder:
+                return h, (logits, ponder_kl)
             return h, logits
 
         final, output = jax.lax.scan(token_step, state, (tokens.T, resets.T, valid.T))
+        if return_routes and return_ponder:
+            logits, routes, ponder_kl = output
+            return logits.transpose(1, 0, 2), final, routes.transpose(1, 0, 2), ponder_kl.T
         if return_routes:
             logits, routes = output
             return logits.transpose(1, 0, 2), final, routes.transpose(1, 0, 2)
+        if return_ponder:
+            logits, ponder_kl = output
+            return logits.transpose(1, 0, 2), final, ponder_kl.T
         return output.transpose(1, 0, 2), final
 
 

@@ -19,6 +19,9 @@ class Config(BaseModel):
     memory_lr_scale: float = Field(default=1.0, gt=0, le=1, allow_inf_nan=False)
     local_plasticity: bool = False
     adaptive_halt: bool = False
+    ponder_beta: float = Field(default=0.0, ge=0, le=1, allow_inf_nan=False)
+    halt_prior: float = Field(default=0.4, gt=0, lt=1, allow_inf_nan=False)
+    warmup_steps: int = Field(default=0, ge=0, le=100000)
     optimizer: Literal["adamw", "muon"] = "adamw"
     nodes: int = Field(default=8, ge=2, le=128)
     width: int = Field(default=32, ge=4, le=1024)

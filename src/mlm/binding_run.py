@@ -62,7 +62,36 @@ def build_batches(records, questions, config):
     return batches, identities
 
 
-def warm_start(source, config):
+def _copy_matching_opt_state(target, source, shared_keys):
+    if isinstance(target, dict) and isinstance(source, dict):
+        return {
+            k: (
+                source[k]
+                if (
+                    k in shared_keys
+                    and k in source
+                    and getattr(source[k], "shape", None) == getattr(v, "shape", None)
+                )
+                else _copy_matching_opt_state(v, source.get(k), shared_keys)
+            )
+            for k, v in target.items()
+        }
+    if isinstance(target, tuple) and isinstance(source, tuple) and len(target) == len(source):
+        items = [
+            _copy_matching_opt_state(t, s, shared_keys) for t, s in zip(target, source, strict=True)
+        ]
+        return type(target)(*items) if hasattr(target, "_fields") else tuple(items)
+    if (
+        hasattr(target, "shape")
+        and hasattr(source, "shape")
+        and target.shape == source.shape
+        and target.dtype == source.dtype
+    ):
+        return source
+    return target
+
+
+def warm_start(source, config, preserve_moments: bool = False):
     old, old_config, meta = load_checkpoint(source)
     if not meta.get("messages", True):
         raise ValueError("This experiment requires graph messages enabled")
@@ -78,6 +107,9 @@ def warm_start(source, config):
         if params[key].shape != value.shape:
             raise ValueError("Source parameter shape mismatch")
         params[key] = value
+    if preserve_moments:
+        opt_state = _copy_matching_opt_state(fresh.opt_state, old.opt_state, set(old.params))
+        return fresh.replace(params=params, opt_state=opt_state)
     return fresh.replace(params=params)
 
 

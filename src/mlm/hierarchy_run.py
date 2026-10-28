@@ -21,15 +21,29 @@ from mlm.model import initial_state
 from mlm.stream import DocumentStream, evaluate_stream
 
 
-def routed_objective(params, apply_fn, batch, carry, config, return_logits=False):
-    logits, final, probabilities = apply_fn(
-        {"params": params},
-        batch["inputs"],
-        carry,
-        batch["resets"],
-        valid=batch["mask"],
-        return_routes=True,
-    )
+def routed_objective(
+    params, apply_fn, batch, carry, config, return_logits=False, running_usage=None
+):
+    use_ponder = config.adaptive_halt and config.ponder_beta > 0
+    if use_ponder:
+        logits, final, probabilities, ponder_kl = apply_fn(
+            {"params": params},
+            batch["inputs"],
+            carry,
+            batch["resets"],
+            valid=batch["mask"],
+            return_routes=True,
+            return_ponder=True,
+        )
+    else:
+        logits, final, probabilities = apply_fn(
+            {"params": params},
+            batch["inputs"],
+            carry,
+            batch["resets"],
+            valid=batch["mask"],
+            return_routes=True,
+        )
     losses = optax.softmax_cross_entropy_with_integer_labels(logits, batch["targets"])
     valid = batch["mask"]
     targets = valid * batch.get("loss_mask", valid)
@@ -37,15 +51,22 @@ def routed_objective(params, apply_fn, batch, carry, config, return_logits=False
     language = (losses * targets).sum() / count
     positions = jnp.maximum(valid.sum(), 1)
     usage = (probabilities * valid[..., None]).sum(axis=(0, 1)) / positions
-    balance = jnp.where(
-        valid.sum() > 0, jnp.maximum(0.0, config.nodes * jnp.square(usage).sum() - 1), 0.0
-    )
+    if running_usage is not None:
+        ref_usage = jax.lax.stop_gradient(running_usage)
+        balance_raw = config.nodes * (ref_usage * usage).sum() - 1.0
+    else:
+        balance_raw = config.nodes * jnp.square(usage).sum() - 1.0
+    balance = jnp.where(valid.sum() > 0, jnp.maximum(0.0, balance_raw), 0.0)
     entropy = -(probabilities * jnp.log(jnp.maximum(probabilities, 1e-9))).sum(-1)
-    weight = config.router_balance if config.node_update == "hierarchical" else 0.0
+    weight = config.router_balance if config.node_update in {"hierarchical", "timescale"} else 0.0
+    ponder_loss = (
+        (ponder_kl * valid).sum() / positions if use_ponder else jnp.asarray(0.0, language.dtype)
+    )
     payload = targets * (batch["targets"] < 256)
     metrics = {
         "loss": language,
         "router_balance": balance,
+        "ponder_kl": ponder_loss,
         "route_usage": usage,
         "route_entropy": (entropy * valid).sum() / positions,
         "input_positions": valid.sum(),
@@ -54,18 +75,21 @@ def routed_objective(params, apply_fn, batch, carry, config, return_logits=False
         "consumed_bytes": (valid * (batch["targets"] < 256)).sum(),
     }
     aux = (final, metrics, logits) if return_logits else (final, metrics)
-    return language + weight * balance, aux
+    total_loss = language + weight * balance + config.ponder_beta * ponder_loss
+    return total_loss, aux
 
 
 def make_routed_step(config):
     @jax.jit
-    def step(state, carry, batch):
+    def step(state, carry, batch, running_usage=None):
         (_, (final, metrics)), gradients = jax.value_and_grad(routed_objective, has_aux=True)(
             state.params,
             state.apply_fn,
             batch,
             jax.lax.stop_gradient(carry),
             config,
+            False,
+            running_usage,
         )
         candidate = state.apply_gradients(grads=gradients)
         leaves = jax.tree.leaves((candidate.params, candidate.opt_state, gradients, final, metrics))

@@ -9,11 +9,22 @@ import optax
 import pytest
 from pydantic import ValidationError
 
+from mlm.binding_run import warm_start
 from mlm.checkpoint import load_checkpoint, save_checkpoint
 from mlm.config import Config
 from mlm.confirmation_data import prepare
-from mlm.generate import generate
-from mlm.plasticity import newton_schulz, parameter_roles, recombine_grow_nodes
+from mlm.generate import LiveLearner, generate
+from mlm.hierarchy_run import routed_objective
+from mlm.model import initial_state
+from mlm.plasticity import (
+    LaneSchedule,
+    PlasticityController,
+    maybe_grow_and_prune,
+    newton_schulz,
+    parameter_roles,
+    prune_nodes,
+    recombine_grow_nodes,
+)
 from mlm.plasticity_run import run
 from mlm.training import create_state, decay_mask, make_train_step
 
@@ -444,3 +455,162 @@ def test_generate_spike_frequency_adaptation_suppresses_repetition():
         generate(state, cfg, "Hi", max_bytes=4, adapt_strength=-0.1)
     with pytest.raises(ValueError, match="adapt_decay"):
         generate(state, cfg, "Hi", max_bytes=4, adapt_decay=1.5)
+
+
+def test_cross_window_router_balance_detaches_trunk_and_ponder_kl():
+    cfg = Config(
+        nodes=4,
+        width=8,
+        rounds=3,
+        node_update="timescale",
+        router_balance=0.1,
+        adaptive_halt=True,
+        ponder_beta=0.05,
+        halt_prior=0.4,
+    )
+    state = create_state(cfg)
+    batch = {
+        "inputs": jnp.array([[256, 65, 66, 67], [256, 68, 69, 70]], dtype=jnp.int32),
+        "targets": jnp.array([[65, 66, 67, 257], [68, 69, 70, 257]], dtype=jnp.int32),
+        "mask": jnp.ones((2, 4), dtype=jnp.float32),
+        "resets": jnp.array([[True, False, False, False], [True, False, False, False]]),
+    }
+    running_usage = jnp.array([0.7, 0.1, 0.1, 0.1], dtype=jnp.float32)
+
+    def balance_only(params):
+        _, (_, metrics) = routed_objective(
+            params,
+            state.apply_fn,
+            batch,
+            initial_state(cfg, 2),
+            cfg,
+            running_usage=running_usage,
+        )
+        return metrics["router_balance"]
+
+    grads_bal = jax.grad(balance_only)(state.params)
+    # Balance penalty must update router weights without distorting trunk weights
+    assert np.linalg.norm(grads_bal["router_timescale_kernel"]) > 0
+    np.testing.assert_allclose(grads_bal["input_kernel"], 0.0, atol=1e-7)
+    np.testing.assert_allclose(grads_bal["hidden_kernel"], 0.0, atol=1e-7)
+
+    total_loss, (_, metrics) = routed_objective(
+        state.params,
+        state.apply_fn,
+        batch,
+        initial_state(cfg, 2),
+        cfg,
+        running_usage=running_usage,
+    )
+    assert float(metrics["ponder_kl"]) > 0
+    assert float(total_loss) > float(metrics["loss"])
+
+
+def test_warm_start_preserves_moments_and_warmup_ramp(tmp_path):
+    base_cfg = Config(nodes=4, width=8, batch_size=2, length=8)
+    state = create_state(base_cfg)
+    grads = jax.tree.map(lambda p: jnp.ones_like(p) * 0.15, state.params)
+    state = state.apply_gradients(grads=grads)
+    ckpt = tmp_path / "warm.mlm"
+    save_checkpoint(ckpt, state, base_cfg, {"messages": True})
+
+    target_cfg = base_cfg.model_copy(update={"memory": "relational", "memory_keys": 4})
+    restored = warm_start(ckpt, target_cfg, preserve_moments=True)
+    cold = warm_start(ckpt, target_cfg, preserve_moments=False)
+    restored_norm = sum(float(jnp.linalg.norm(x)) for x in jax.tree.leaves(restored.opt_state))
+    cold_norm = sum(float(jnp.linalg.norm(x)) for x in jax.tree.leaves(cold.opt_state))
+    assert restored_norm > 0 and cold_norm == 0.0
+
+    # Test linear warmup ramp on step 1 vs step 0 without warmup
+    warm_cfg = Config(nodes=4, width=8, warmup_steps=10)
+    no_warm_cfg = Config(nodes=4, width=8, warmup_steps=0)
+    s_warm = create_state(warm_cfg)
+    s_nowarm = create_state(no_warm_cfg)
+    g = jax.tree.map(lambda p: jnp.ones_like(p) * 0.1, s_warm.params)
+    u_warm, _ = s_warm.tx.update(g, s_warm.opt_state, s_warm.params)
+    u_nowarm, _ = s_nowarm.tx.update(g, s_nowarm.opt_state, s_nowarm.params)
+    np.testing.assert_allclose(
+        u_warm["input_kernel"], u_nowarm["input_kernel"] * 0.1, rtol=1e-6, atol=1e-8
+    )
+
+
+def test_plasticity_controller_and_lane_schedule():
+    ctrl = PlasticityController(scale=0.4)
+    for step_i in range(12):
+        ctrl.tick(40)
+        ctrl.observe(2.5 - 0.0001 * step_i, se=0.02)
+    state_dict = ctrl.state()
+    restored = PlasticityController.restore(state_dict)
+    assert restored.scale == pytest.approx(ctrl.scale)
+
+    # Trigger a confirmed regime jump (> Floor jump 0.25 across two consecutive readings)
+    before = restored.scale
+    assert restored.observe(3.1, se=0.02) is None
+    note = restored.observe(3.15, se=0.02)
+    assert note is not None and "regime change" in note
+    assert restored.scale > before
+
+    sched = LaneSchedule(["qa", "english"], sizes={"qa": 500.0, "english": 50000.0})
+    for idx in range(1, 8):
+        sched.note_read("qa", 200.0)
+        sched.note_read("english", 200.0)
+        # English improves steeply while QA is flat and repeatedly re-read
+        sched.observe({"qa": 1.5 - 0.001 * idx, "english": 3.0 * (idx**-0.35)})
+    shares = sched.step()
+    assert shares["english"] > shares["qa"]
+    picks = [sched.pick() for _ in range(10)]
+    assert picks.count("english") >= picks.count("qa")
+
+
+def test_node_saturation_pruning_and_auto_growth():
+    cfg = Config(nodes=6, width=8, degree=2, node_update="timescale")
+    state = create_state(cfg)
+    # Make nodes 4 and 5 near-zero readout norm so they are pruned
+    rk = state.params["read_kernel"].at[4:].set(1e-4)
+    params = {**state.params, "read_kernel": rk}
+    pruned_cfg, pruned_params, removed = prune_nodes(cfg, params, protect=4, min_norm=0.01)
+    assert removed == 2 and pruned_cfg.nodes == 4
+    assert pruned_params["input_kernel"].shape[0] == 4
+
+    # Make all 4 remaining nodes active with high routing entropy -> triggers auto-growth
+    active_rk = jnp.ones_like(pruned_params["read_kernel"]) * 0.2
+    active_params = {**pruned_params, "read_kernel": active_rk}
+    usage = np.array([0.25, 0.25, 0.25, 0.25])
+    grown_cfg, grown_params, info = maybe_grow_and_prune(
+        pruned_cfg,
+        active_params,
+        usage,
+        train_loss=2.0,
+        val_loss=2.1,
+        add_nodes=2,
+        max_nodes=8,
+        max_gap=0.5,
+    )
+    assert info["grew"] == 2 and grown_cfg.nodes == 6
+    assert grown_params["input_kernel"].shape[0] == 6
+
+    # Large generalization gap blocks growth (memorization guard)
+    held_cfg, _, held_info = maybe_grow_and_prune(
+        pruned_cfg,
+        active_params,
+        usage,
+        train_loss=1.0,
+        val_loss=2.0,
+        add_nodes=2,
+        max_nodes=8,
+        max_gap=0.5,
+    )
+    assert held_info["grew"] == 0 and held_cfg.nodes == 4
+
+
+def test_live_learner_online_chat_stream_updates(tmp_path):
+    cfg = Config(nodes=4, width=8, batch_size=1, length=16)
+    state = create_state(cfg)
+    learner = LiveLearner(state, cfg, chunk=8, context=16)
+    reply, steps = learner.chat_turn("Hello world!", max_bytes=8, learn=True)
+    assert isinstance(reply, str)
+    assert len(steps) >= 1 and int(learner.state.step) >= 1
+    out_ckpt = tmp_path / "learned.mlm"
+    save_checkpoint(out_ckpt, learner.state, cfg, {"messages": True})
+    loaded, _, _ = load_checkpoint(out_ckpt)
+    assert int(loaded.step) == int(learner.state.step)

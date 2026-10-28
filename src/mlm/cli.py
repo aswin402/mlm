@@ -17,7 +17,7 @@ from mlm.checkpoint import load_checkpoint, save_checkpoint
 from mlm.config import Config
 from mlm.data import corpus_hash, encode, make_batch, read_training_data
 from mlm.evaluate import evaluate
-from mlm.generate import generate
+from mlm.generate import LiveLearner, generate
 from mlm.training import create_state, make_train_step
 
 
@@ -250,6 +250,8 @@ def main(argv=None):
     chat.add_argument("--max-bytes", type=int, default=160)
     chat.add_argument("--adapt-strength", type=float, default=0.0)
     chat.add_argument("--adapt-decay", type=float, default=0.88)
+    chat.add_argument("--learn", action="store_true", help="Online stream update on exchange")
+    chat.add_argument("--save-out", type=Path, help="Optional path to save updated checkpoint")
     args = parser.parse_args(argv)
     if args.command == "train":
         run_train(args)
@@ -259,16 +261,31 @@ def main(argv=None):
         run(args)
     elif args.command == "chat":
         state, config, meta = load_checkpoint(args.checkpoint)
-        prompt = f"<|user|>\n{args.message}\n<|assistant|>\n"
-        reply = generate(
-            state,
-            config,
-            prompt,
-            args.max_bytes,
-            messages=meta.get("messages", True),
-            adapt_strength=args.adapt_strength,
-            adapt_decay=args.adapt_decay,
-        )
+        messages = meta.get("messages", True)
+        if args.learn:
+            learner = LiveLearner(
+                state, config, chunk=max(2, min(16, config.length)), messages=messages
+            )
+            reply, _ = learner.chat_turn(
+                args.message,
+                max_bytes=args.max_bytes,
+                adapt_strength=args.adapt_strength,
+                adapt_decay=args.adapt_decay,
+                learn=True,
+            )
+            if args.save_out:
+                save_checkpoint(args.save_out, learner.state, config, meta)
+        else:
+            prompt = f"<|user|>\n{args.message}\n<|assistant|>\n"
+            reply = generate(
+                state,
+                config,
+                prompt,
+                args.max_bytes,
+                messages=messages,
+                adapt_strength=args.adapt_strength,
+                adapt_decay=args.adapt_decay,
+            )
         print(reply.strip())
     elif args.command == "generate":
         state, config, meta = load_checkpoint(args.checkpoint)

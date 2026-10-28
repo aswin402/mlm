@@ -1,9 +1,11 @@
 """Explicit parameter roles, Muon orthogonalized updates, and recombinative node growth."""
 
 import math
+from collections import deque
 
 import jax
 import jax.numpy as jnp
+import numpy as np
 import optax
 
 NS_COEFFS = (3.4445, -4.7750, 2.0315)
@@ -89,7 +91,11 @@ def node_activity_scales(grads, params):
 def scale_optimizer(optimizer, params, config):
     """Scale final updates, including decay, without changing moments or state shape."""
     scales = role_scales(config)
-    if all(value == 1 for value in scales.values()) and not config.local_plasticity:
+    if (
+        all(value == 1 for value in scales.values())
+        and not config.local_plasticity
+        and config.warmup_steps == 0
+    ):
         return optimizer
     roles = parameter_roles(params)
     multipliers = {name: scales[role] for name, role in roles.items()}
@@ -97,16 +103,29 @@ def scale_optimizer(optimizer, params, config):
     def update(updates, state, params=None):
         raw_grads = updates
         updates, state = optimizer.update(updates, state, params)
+        warmup = jnp.asarray(1.0, dtype=jnp.float32)
+        if config.warmup_steps > 0:
+            counts = [
+                x
+                for x in jax.tree.leaves(state)
+                if getattr(x, "ndim", -1) == 0 and jnp.issubdtype(x.dtype, jnp.integer)
+            ]
+            if counts:
+                warmup = jnp.minimum(
+                    1.0, jnp.asarray(counts[0], dtype=jnp.float32) / config.warmup_steps
+                )
         if config.local_plasticity:
             activity = node_activity_scales(raw_grads, params or raw_grads)
             updates = jax.tree.map(
-                lambda value, scale, act: value * (scale * act),
+                lambda value, scale, act: value * (scale * warmup * act),
                 updates,
                 multipliers,
                 activity,
             )
         else:
-            updates = jax.tree.map(lambda value, scale: value * scale, updates, multipliers)
+            updates = jax.tree.map(
+                lambda value, scale: value * (scale * warmup), updates, multipliers
+            )
         return updates, state
 
     return optax.GradientTransformation(optimizer.init, update)
@@ -293,3 +312,385 @@ def recombine_grow_nodes(
         new_params["router_child_bias"] = jnp.concatenate([cb, extra_cb], axis=-1)
 
     return new_config, new_params
+
+
+def node_saturation(route_usage, read_kernel, min_norm: float = 0.05) -> dict:
+    """Measure graph node utilization entropy and idle readout gates (mini-AGI Pool.saturation)."""
+    u = np.asarray(route_usage, dtype=np.float64)
+    u = np.clip(u, 0.0, None)
+    total = max(float(u.sum()), 1e-12)
+    u = u / total
+    n = len(u)
+    ideal = 1.0 / max(n, 1)
+    p = np.clip(u, 1e-12, 1.0)
+    ent = float(-np.sum(p * np.log(p)))
+    norms = np.linalg.norm(np.asarray(read_kernel, dtype=np.float64), axis=(1, 2))
+    return {
+        "nodes": n,
+        "idle": int(np.sum(norms < min_norm)),
+        "idle_by_routing": int(np.sum(u < 0.1 * ideal)),
+        "entropy_frac": ent / max(math.log(max(n, 2)), 1e-9),
+        "peak_over_ideal": float(np.max(u)) / ideal,
+    }
+
+
+def prune_nodes(config, params: dict, protect: int = 2, min_norm: float = 0.05):
+    """Prune speculative nodes (> protect) whose readout norm remained below min_norm."""
+    if config.architecture != "graph":
+        raise ValueError("Node pruning requires graph architecture")
+    if config.node_update == "hierarchical":
+        raise ValueError("Node pruning requires non-hierarchical routing")
+    n = config.nodes
+    protect = max(config.degree + 1, int(protect))
+    norms = np.linalg.norm(np.asarray(params["read_kernel"]), axis=(1, 2))
+    keep = [i for i in range(n) if i < protect or float(norms[i]) >= min_norm]
+    if len(keep) == n:
+        return config, params, 0
+    idx = jnp.asarray(keep, dtype=jnp.int32)
+    n_new = len(keep)
+    new_config = config.model_copy(update={"nodes": n_new})
+    new_params = dict(params)
+    for name in (
+        "input_kernel",
+        "hidden_kernel",
+        "gru_bias",
+        "read_kernel",
+        "router_surprise_kernel",
+        "halt_kernel",
+        "memory_key_kernel",
+        "memory_query_kernel",
+        "memory_value_kernel",
+        "router_timescale_bias",
+        "halt_bias",
+    ):
+        if name in params and params[name].shape[0] == n:
+            new_params[name] = params[name][idx]
+    if config.node_readout == "sum":
+        new_params["read_kernel"] = new_params["read_kernel"] * math.sqrt(n_new / n)
+    if "router_timescale_kernel" in params:
+        new_params["router_timescale_kernel"] = params["router_timescale_kernel"][:, idx]
+    return new_config, new_params, n - n_new
+
+
+def maybe_grow_and_prune(
+    config,
+    params: dict,
+    route_usage,
+    train_loss: float | None = None,
+    val_loss: float | None = None,
+    add_nodes: int = 2,
+    max_nodes: int = 32,
+    max_gap: float = 0.5,
+    protect: int = 2,
+    min_norm: float = 0.05,
+    birth_gate: float = 0.05,
+):
+    """Autonomous node pruning and saturation-triggered growth (mini-AGI AutoGrow)."""
+    pruned = 0
+    if config.node_update != "hierarchical" and config.nodes > max(protect, config.degree + 1):
+        config, params, pruned = prune_nodes(config, params, protect=protect, min_norm=min_norm)
+    sat = node_saturation(
+        np.asarray(route_usage)[: config.nodes], params["read_kernel"], min_norm=min_norm
+    )
+    gap = (
+        (float(val_loss) - float(train_loss))
+        if (val_loss is not None and train_loss is not None)
+        else None
+    )
+    may_grow = gap is None or max_gap <= 0 or gap < max_gap
+    grew = 0
+    if (
+        may_grow
+        and config.nodes + add_nodes <= max_nodes
+        and sat["idle"] == 0
+        and sat["entropy_frac"] >= 0.85
+    ):
+        config, params = recombine_grow_nodes(
+            config, params, add_nodes=add_nodes, birth_gate=birth_gate
+        )
+        grew = add_nodes
+    return config, params, {"grew": grew, "pruned": pruned, "saturation": sat}
+
+
+class PlasticityController:
+    """Held-out-governed learning rate controller (mini-AGI minagi/plasticity.py)."""
+
+    FLOOR = 0.01
+    CEIL = 1.0
+    LAM = 0.97
+    LAM_FAST = 0.85
+    EFFECT = 45.0
+    MIN_EFF = 6.0
+    NUDGE = 0.0008
+    NUDGE_DOWN = 0.004
+    T_W_DOWN = 6.0
+    T_MID = 2.2
+    T_W = 0.75
+    MAX_MOVE = 0.02
+    JUMP_SE = 4.0
+    HOLD_SE = 2.0
+    FLOOR_JUMP = 0.25
+    UP = 2.0
+    WARMUP = 100
+    SPIKE = 5.0
+
+    def __init__(self, scale: float = 1.0):
+        self.scale = float(scale)
+        self.slow = self._sums()
+        self.fast = self._sums()
+        self.i = 0.0
+        self.se_hist: deque[float] = deque(maxlen=64)
+        self.prev: float | None = None
+        self.held: dict | None = None
+        self.step = 0
+        self.events: list[dict] = []
+
+    @staticmethod
+    def _sums() -> dict[str, float]:
+        return {"w": 0.0, "w2": 0.0, "x": 0.0, "y": 0.0, "xx": 0.0, "xy": 0.0, "yy": 0.0}
+
+    def factor(self) -> float:
+        w = min(1.0, (self.step + 1) / self.WARMUP) if self.step < self.WARMUP else 1.0
+        return self.scale * w
+
+    def tick(self, steps: int = 1) -> None:
+        self.step += int(steps)
+
+    def _se(self) -> float:
+        if not self.se_hist:
+            return 0.0
+        s = sorted(self.se_hist)
+        n = len(s)
+        return s[n // 2] if n % 2 else 0.5 * (s[n // 2 - 1] + s[n // 2])
+
+    def _accumulate(self, y: float) -> None:
+        self.i += 1.0
+        x = self.i
+        for sums, lam in ((self.slow, self.LAM), (self.fast, self.LAM_FAST)):
+            for k in ("w", "x", "y", "xx", "xy", "yy"):
+                sums[k] *= lam
+            sums["w2"] *= lam * lam
+            sums["w"] += 1.0
+            sums["w2"] += 1.0
+            sums["x"] += x
+            sums["y"] += y
+            sums["xx"] += x * x
+            sums["xy"] += x * y
+            sums["yy"] += y * y
+        self.prev = y
+
+    @staticmethod
+    def _fit(sums: dict[str, float]) -> tuple[float, float, float]:
+        if sums["w"] <= 2:
+            return 0.0, 0.0, 0.0
+        n_eff = (sums["w"] ** 2) / max(sums["w2"], 1e-12)
+        sxx = sums["xx"] - (sums["x"] ** 2) / sums["w"]
+        sxy = sums["xy"] - sums["x"] * sums["y"] / sums["w"]
+        syy = sums["yy"] - (sums["y"] ** 2) / sums["w"]
+        if sxx <= 0 or n_eff <= 2:
+            return 0.0, n_eff, 0.0
+        slope = sxy / sxx
+        resid = max(syy - slope * sxy, 0.0)
+        sigma = math.sqrt(resid / (n_eff - 2)) if n_eff > 2 else 0.0
+        if sigma <= 0:
+            return 0.0, n_eff, 0.0
+        t = -slope / (sigma / math.sqrt(sxx))
+        e = -slope / sigma
+        return max(-50.0, min(50.0, t)), n_eff, e
+
+    def _verdict(self) -> tuple[float, float, float]:
+        t_s, n_s, e_s = self._fit(self.slow)
+        _, n_f, e_f = self._fit(self.fast)
+        t = min(t_s, self.EFFECT * e_s)
+        if n_f >= self.MIN_EFF:
+            t = min(t, self.EFFECT * e_f)
+        return max(-50.0, min(50.0, t)), n_s, e_s
+
+    @classmethod
+    def nudge(cls, t: float) -> float:
+        up = t >= cls.T_MID
+        gain = cls.NUDGE if up else cls.NUDGE_DOWN
+        width = cls.T_W if up else cls.T_W_DOWN
+        f = math.exp(gain * math.tanh((t - cls.T_MID) / width))
+        return max(1.0 - cls.MAX_MOVE, min(1.0 + cls.MAX_MOVE, f))
+
+    def observe(self, val: float, se: float | None = None) -> str | None:
+        if not math.isfinite(float(val)):
+            return None
+        y = float(val)
+        if se is not None and math.isfinite(float(se)) and float(se) > 0:
+            self.se_hist.append(float(se))
+        s = self._se()
+        h, self.held = self.held, None
+        if h is not None and h.get("jump"):
+            if y > h["from"] + self.HOLD_SE * max(s, 1e-9):
+                before = self.scale
+                self.scale = min(self.CEIL, self.scale * self.UP)
+                self.events.append({"at": self.step, "kind": "regime", "scale": self.scale})
+                self.slow, self.fast, self.i = self._sums(), self._sums(), 0.0
+                self._accumulate(y)
+                return f"regime change: rate {before:.3f} -> {self.scale:.3f}"
+        if self.prev is not None and y - self.prev > max(self.JUMP_SE * s, self.FLOOR_JUMP):
+            self.held = {"val": y, "from": self.prev, "jump": True}
+            return None
+        self._accumulate(y)
+        t, n_eff, e = self._verdict()
+        if n_eff >= self.MIN_EFF:
+            self.scale = max(self.FLOOR, min(self.CEIL, self.scale * self.nudge(t)))
+        return None
+
+    def state(self) -> dict:
+        t, n_eff, e = self._verdict()
+        return {
+            "scale": self.scale,
+            "prev": self.prev,
+            "slow": dict(self.slow),
+            "fast": dict(self.fast),
+            "i": self.i,
+            "se": list(self.se_hist),
+            "step": self.step,
+            "n_eff": round(n_eff, 2),
+            "t": round(t, 3),
+            "e": round(e, 4),
+            "events": self.events[-20:],
+        }
+
+    @classmethod
+    def restore(cls, d: dict | None):
+        ctrl = cls()
+        if not d:
+            return ctrl
+        ctrl.scale = float(d.get("scale", 1.0))
+        ctrl.prev = d.get("prev")
+        if isinstance(d.get("slow"), dict):
+            ctrl.slow.update({k: float(v) for k, v in d["slow"].items() if k in ctrl.slow})
+        if isinstance(d.get("fast"), dict):
+            ctrl.fast.update({k: float(v) for k, v in d["fast"].items() if k in ctrl.fast})
+        ctrl.i = float(d.get("i", 0.0))
+        ctrl.step = int(d.get("step", 0))
+        for v in d.get("se") or []:
+            ctrl.se_hist.append(float(v))
+        ctrl.events = list(d.get("events") or [])
+        return ctrl
+
+
+class LaneSchedule:
+    """Power-law marginal-worth curriculum & smooth credit scheduler (mini-AGI minagi/lanes.py)."""
+
+    TAU = 0.15
+    MIN_EFF = 4.0
+    FLOOR = 0.25
+    CEIL = 3.0
+    STEP = 0.05
+    R_STAR = 15.4
+
+    def __init__(self, lanes: list[str], sizes: dict[str, float] | None = None, mode: str = "auto"):
+        if mode not in ("auto", "equal"):
+            raise ValueError("mode must be 'auto' or 'equal'")
+        self.names = list(lanes)
+        self.sizes = {n: float((sizes or {}).get(n, 0.0)) for n in self.names}
+        self.mode = mode
+        n = max(len(self.names), 1)
+        self.shares = {k: 1.0 / n for k in self.names}
+        self.read = {k: 0.0 for k in self.names}
+        self.fits: dict[str, list[float]] = {}
+        self.last: float | None = None
+        self.credit = {k: 0.0 for k in self.names}
+
+    def note_read(self, lane: str, bytes_read: float) -> None:
+        if lane in self.read:
+            self.read[lane] += float(bytes_read)
+
+    def observe(self, per_subject: dict[str, float]) -> None:
+        if self.mode != "auto":
+            return
+        total = sum(self.read.values())
+        decay = (
+            1.0
+            if (self.last is None or self.last <= 0 or total <= 0)
+            else math.exp(-max(0.0, math.log(total / self.last)) / self.TAU)
+        )
+        self.last = total
+        for f in self.fits.values():
+            for idx in range(5):
+                f[idx] *= decay
+        for lane in self.names:
+            if self.read[lane] <= 0:
+                continue
+            y = per_subject.get(lane)
+            if y is None or y <= 0:
+                continue
+            x = math.log(self.read[lane])
+            ly = math.log(float(y))
+            f = self.fits.setdefault(lane, [0.0] * 5)
+            f[0] += 1.0
+            f[1] += x
+            f[2] += ly
+            f[3] += x * x
+            f[4] += x * ly
+
+    def fit(self, lane: str) -> tuple[float, float] | None:
+        f = self.fits.get(lane)
+        if not f or f[0] < self.MIN_EFF or self.read.get(lane, 0.0) <= 0:
+            return None
+        w, sx, sy, sxx, sxy = f
+        var = sxx / w - (sx / w) ** 2
+        if var <= 1e-12:
+            return None
+        b = (sxy / w - (sx / w) * (sy / w)) / var
+        a = sy / w - b * sx / w
+        return -b, math.exp(a + b * math.log(self.read[lane]))
+
+    def worth(self, lane: str) -> float | None:
+        got = self.fit(lane)
+        if got is None or self.read[lane] <= 0:
+            return None
+        alpha, loss_now = got
+        return (abs(alpha) * loss_now / self.read[lane]) * self.reread(lane)
+
+    def reread(self, lane: str) -> float:
+        size = self.sizes.get(lane, 0.0)
+        if size <= 0:
+            return 1.0
+        return math.exp(-max(0.0, self.read[lane] / size - 1.0) / self.R_STAR)
+
+    def targets(self) -> dict[str, float]:
+        n = len(self.names)
+        if self.mode != "auto" or n == 0:
+            return dict(self.shares)
+        val = {k: self.worth(k) for k in self.names}
+        known = sorted(v for v in val.values() if v is not None)
+        if not known or known[-1] <= 0:
+            base = {k: self.reread(k) for k in self.names}
+            tot = max(sum(base.values()), 1e-12)
+            return {k: base[k] / tot for k in self.names}
+        typical = known[len(known) // 2]
+        w_map: dict[str, float] = {}
+        for k in self.names:
+            vk = val[k]
+            w_map[k] = vk if vk is not None else typical * self.reread(k)
+        tot = max(sum(w_map.values()), 1e-12)
+        lo, hi = self.FLOOR / n, self.CEIL / n
+        clipped = {k: max(lo, min(hi, w_map[k] / tot)) for k in self.names}
+        s = sum(clipped.values())
+        return {k: clipped[k] / s for k in self.names}
+
+    def step(self) -> dict[str, float]:
+        if self.mode != "auto":
+            return dict(self.shares)
+        t = self.targets()
+        new = {}
+        for k in self.names:
+            s = max(self.shares[k], 1e-9)
+            r = math.log(max(t[k], 1e-9) / s)
+            new[k] = s * math.exp(max(-self.STEP, min(self.STEP, r)))
+        tot = sum(new.values())
+        self.shares = {k: new[k] / tot for k in self.names}
+        return dict(self.shares)
+
+    def pick(self) -> str:
+        for k in self.names:
+            self.credit[k] += self.shares[k]
+        chosen = max(self.names, key=lambda n: self.credit[n])
+        self.credit[chosen] -= 1.0
+        return chosen

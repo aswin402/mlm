@@ -45,19 +45,32 @@ def create_state(config: Config):
 
 
 def objective(params, apply_fn, batch, config, messages=True):
-    logits, _ = apply_fn(
-        {"params": params},
-        batch["inputs"],
-        initial_state(config, batch["inputs"].shape[0]),
-        batch["resets"],
-        messages=messages,
-    )
+    use_ponder = config.adaptive_halt and config.ponder_beta > 0
+    if use_ponder:
+        logits, _, ponder_kl = apply_fn(
+            {"params": params},
+            batch["inputs"],
+            initial_state(config, batch["inputs"].shape[0]),
+            batch["resets"],
+            messages=messages,
+            return_ponder=True,
+        )
+    else:
+        logits, _ = apply_fn(
+            {"params": params},
+            batch["inputs"],
+            initial_state(config, batch["inputs"].shape[0]),
+            batch["resets"],
+            messages=messages,
+        )
     losses = optax.softmax_cross_entropy_with_integer_labels(logits, batch["targets"])
     mask = batch["mask"]
-    loss = (losses * mask).sum() / jnp.maximum(mask.sum(), 1)
+    denom = jnp.maximum(mask.sum(), 1)
+    loss = (losses * mask).sum() / denom
+    ponder_loss = (ponder_kl * mask).sum() / denom if use_ponder else jnp.asarray(0.0, loss.dtype)
     payload = mask * (batch["targets"] < 256)
     byte_nll = (losses * payload).sum()
-    return loss, {
+    return loss + config.ponder_beta * ponder_loss, {
         "loss": loss,
         "byte_nll": byte_nll,
         "bytes": payload.sum(),

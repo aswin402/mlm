@@ -1,6 +1,6 @@
 # Mini Learning Model (MLM)
 
-Version **0.0.3** — an experimental byte-level language model built from small GRU networks connected by a directed graph, with multi-timescale surprise-gated routing, PonderNet-style adaptive round halting, learned neighbor edge attention, cross-node relational associative memory, activity-modulated local node plasticity, recombinative node growth, and hybrid Muon/AdamW optimization.
+Version **0.0.4** — an experimental byte-level language model built from small GRU networks connected by a directed graph, with multi-timescale surprise-gated routing, PonderNet-style adaptive round halting with geometric KL regularization, learned neighbor edge attention, cross-node relational associative memory, activity-modulated local node plasticity, autonomous saturation-triggered node growth and pruning, held-out-governed plasticity and power-law curriculum scheduling, online stream learning during chat, and hybrid Muon/AdamW optimization.
 
 The prototype trains and can memorize tiny binding tasks. Learning remains sensitive to English replay sampling, and reliable generalization and chat are not established. Automatic node growth, graph rewiring, sparse execution and a Transformer-replacement claim remain future research.
 
@@ -19,11 +19,11 @@ Use a fresh output directory. The bundled smoke data is a small original fixture
 
 ## Architecture
 
-- Directed power-of-two stride graph of recurrent GRU nodes with synchronous or learned state-conditioned neighbor attention (`edge_aggregation="sum" | "attention"`) and optional PonderNet-style adaptive halting across message-passing rounds (`adaptive_halt=True`).
-- Learned node update routing supporting dense, uniform, hierarchical group/child softmax, and multi-timescale surprise-gated updates (`node_update="dense" | "uniform" | "hierarchical" | "timescale"`).
+- Directed power-of-two stride graph of recurrent GRU nodes with synchronous or learned state-conditioned neighbor attention (`edge_aggregation="sum" | "attention"`) and optional PonderNet-style adaptive halting across message-passing rounds (`adaptive_halt=True`, `ponder_beta`, `halt_prior`).
+- Learned node update routing supporting dense, uniform, hierarchical group/child softmax, and multi-timescale surprise-gated updates (`node_update="dense" | "uniform" | "hierarchical" | "timescale"`), with detached trunk state routing (`stop_gradient`) and cross-window EMA load balancing (`running_usage`).
 - Associative fast-weight memory supporting both collapsed delta-rule (`memory="delta"`) and cross-node relational binding (`memory="relational"`) across separate per-node key, query, and value subspaces, with straight-through zero-init tangent gates for immediate step-0 gradient flow.
-- Activity-modulated local node plasticity (`local_plasticity=True`) that scales per-node updates (including weight decay) by relative node gradient activity, plus recombinative node growth (`recombine_grow_nodes`) with `birth_gate` scaling.
-- Hybrid Nesterov-Muon Newton-Schulz orthogonalized momentum for 2D/3D hidden weight matrices with dormant-slice preservation (`optimizer="muon"`) alongside rank-aware Optax AdamW (`optimizer="adamw"`), spike-frequency adaptation decoding (`--adapt-strength`, `--adapt-decay`), and atomic resumable checkpoints.
+- Activity-modulated local node plasticity (`local_plasticity=True`) that scales per-node updates (including weight decay) by relative node gradient activity, plus saturation-triggered recombinative node growth and dead-node pruning (`recombine_grow_nodes`, `node_saturation`, `prune_nodes`, `maybe_grow_and_prune`) with `birth_gate` scaling.
+- Hybrid Nesterov-Muon Newton-Schulz orthogonalized momentum for 2D/3D hidden weight matrices with dormant-slice preservation (`optimizer="muon"`) alongside rank-aware Optax AdamW (`optimizer="adamw"`), warm optimizer moment preservation (`preserve_moments=True`), linear warmup (`warmup_steps`), held-out-governed LR control (`PlasticityController`), power-law marginal-worth curriculum scheduling (`LaneSchedule`), spike-frequency adaptation decoding (`--adapt-strength`, `--adapt-decay`), online continual chat learning (`LiveLearner`, `mlm chat --learn`), and atomic resumable checkpoints.
 
 There is no inference-time entity parser, regex answer generator or symbolic answer lookup. Synthetic task labels are used for training and grading.
 
@@ -55,7 +55,7 @@ uv run ruff format --check src tests
 uv run ty check src
 ```
 
-The full regression suite passes 109 tests across core graph dynamics, multi-timescale routing, adaptive round halting, learned edge attention, cross-node relational memory, activity-modulated local plasticity, Muon orthogonalization, recombinative node growth, spike-frequency adaptation decoding, and historical experiment audits. Separate QA/replay controls are available through `python -m mlm.plasticity_run --qa-seed ... --english-seed ...`; omitted values retain config.seed and config.seed+1. Config.seed still controls initialization and subset selection.
+The full regression suite passes 114 tests across core graph dynamics, multi-timescale routing, adaptive round halting and geometric ponder KL regularization, detached cross-window router balance, learned edge attention, cross-node relational memory, activity-modulated local plasticity, Muon orthogonalization, warm optimizer moment preservation, saturation-triggered node growth and pruning, held-out-governed plasticity and power-law lane scheduling, spike-frequency adaptation decoding, online continual chat learning, and historical experiment audits. Separate QA/replay controls are available through `python -m mlm.plasticity_run --qa-seed ... --english-seed ...`; omitted values retain config.seed and config.seed+1. Config.seed still controls initialization and subset selection.
 
 ## Documentation
 

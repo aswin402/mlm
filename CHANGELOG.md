@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+## [0.0.4] - 2026-10-28
+
+### Added
+
+- Cross-window EMA router load-balance regularization (`running_usage` in `routed_objective` and `make_routed_step`) and detached trunk state routing (`jax.lax.stop_gradient(context)` on `route_probs` when `return_routes=True` in `GraphLM.__call__`) so router load-balancing updates router weights without distorting trunk representations across both `"hierarchical"` and `"timescale"` routing modes.
+- Geometric ponder prior KL regularization (`ponder_beta`, `halt_prior` in `Config` and `return_ponder=True` in `GraphLM.__call__`), regularizing per-round adaptive halting probabilities toward a truncated geometric distribution $\text{Geom}(\text{halt\_prior})$ in both `objective` and `routed_objective`.
+- Warm optimizer moment preservation (`preserve_moments=True` in `warm_start` via `_copy_matching_opt_state`) to carry over matching AdamW second-moment (`nu`) and Muon momentum (`muon_bufs`) buffers across continual learning phases, alongside linear learning-rate warmup (`warmup_steps` in `Config` and `scale_optimizer`).
+- Held-out-governed learning rate controller (`PlasticityController`) using dual slow/fast exponentially weighted least-squares (EWLS) fits ($\lambda = 0.97, 0.85$), scale-free effect size $e = -\text{slope}/\sigma$, asymmetric log-space nudges, and confirmed regime-change step-up (`UP = 2.0`) with `.state()` / `.restore()` checkpoint support.
+- Power-law curriculum & marginal-worth lane scheduler (`LaneSchedule`) fitting log-loss vs. log-bytes scaling slopes ($\tau = 0.15$) per corpus/skill lane, computing marginal worth $|\alpha_s| L_s / D_s$ with Muennighoff repetition discounting $\exp(-\text{epochs}/15.4)$, and selecting batches via deterministic smooth weighted round-robin credit.
+- Saturation-triggered autonomous node growth and gate-based pruning (`node_saturation`, `prune_nodes`, `maybe_grow_and_prune`) measuring active `birth_gate` saturation and normalized entropy, pruning dead nodes with $\sqrt{N_{\text{kept}}/N_{\text{old}}}$ readout compensation, and triggering `recombine_grow_nodes` when capacity saturates.
+- Online continual byte-stream learning during live chat (`LiveLearner` in `mlm.generate` and `--learn`, `--save-out` CLI flags for `mlm chat`) performing bounded online gradient updates every `chunk` bytes while keeping structural gates frozen (`freeze_gates=True`).
+
+### Changed
+
+- Incremented package and lockfile version to 0.0.4 (114 regression tests passing).
+
 ## [0.0.3] - 2026-10-28
 
 ### Added
