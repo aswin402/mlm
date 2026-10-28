@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## [0.0.3] - 2026-10-28
+
+### Added
+
+- Hybrid Nesterov-Muon optimizer (`optimizer="muon"`) using 5 quintic Newton-Schulz iterations `(3.4445, -4.7750, 2.0315)` with unit-RMS step scaling `sqrt(max(rows, cols))` on internal 2D and 3D weight matrices (`newton_schulz`, `muon_mask`, `make_muon_adamw`) and dormant-slice momentum preservation when a node slice receives zero gradient, while keeping embeddings, output heads, biases, and 1D/0D parameters on AdamW.
+- PonderNet-style adaptive halting across recurrent graph message-passing rounds (`adaptive_halt=True`, `halt_kernel`, `halt_bias`) with remaining-probability state freezing (`halt_freeze`) and straight-through zero-init tangent gating for step-1 gradient flow.
+- Recombinative graph node growth (`recombine_grow_nodes`) expanding trained `GraphLM` parameter sets from `N` to `N + add_nodes` nodes by recombining high-norm parent node channel slices with symmetry-breaking noise, $\sqrt{N_{\text{new}}/N}$ parent readout compensation, and `birth_gate` scaling on newborn nodes.
+- Biological spike-frequency adaptation trace during deterministic byte generation (`adapt_strength`, `adapt_decay` in `generate` and `--adapt-strength`, `--adapt-decay` CLI flags for `mlm generate` and `mlm chat`) to suppress repetitive greedy decoding loops without random sampling.
+
+### Changed
+
+- Registered `halt_kernel` and `halt_bias` under `ROUTER_PARAMETERS` so role-based learning rate multipliers apply uniformly.
+- Incremented package and lockfile version to 0.0.3 (109 regression tests passing).
+
 ## [0.0.2] - 2026-10-28
 
 ### Added

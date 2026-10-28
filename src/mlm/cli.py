@@ -237,6 +237,8 @@ def main(argv=None):
     generate_parser.add_argument("checkpoint", type=Path)
     generate_parser.add_argument("--prompt", default="")
     generate_parser.add_argument("--max-bytes", type=int, default=128)
+    generate_parser.add_argument("--adapt-strength", type=float, default=0.0)
+    generate_parser.add_argument("--adapt-decay", type=float, default=0.88)
     evaluation = commands.add_parser("evaluate", help="Evaluate independent document prefixes")
     evaluation.add_argument("checkpoint", type=Path)
     evaluation.add_argument("--data", type=Path, required=True)
@@ -246,6 +248,8 @@ def main(argv=None):
     chat.add_argument("checkpoint", type=Path)
     chat.add_argument("--message", required=True)
     chat.add_argument("--max-bytes", type=int, default=160)
+    chat.add_argument("--adapt-strength", type=float, default=0.0)
+    chat.add_argument("--adapt-decay", type=float, default=0.88)
     args = parser.parse_args(argv)
     if args.command == "train":
         run_train(args)
@@ -256,14 +260,28 @@ def main(argv=None):
     elif args.command == "chat":
         state, config, meta = load_checkpoint(args.checkpoint)
         prompt = f"<|user|>\n{args.message}\n<|assistant|>\n"
-        reply = generate(state, config, prompt, args.max_bytes, messages=meta.get("messages", True))
+        reply = generate(
+            state,
+            config,
+            prompt,
+            args.max_bytes,
+            messages=meta.get("messages", True),
+            adapt_strength=args.adapt_strength,
+            adapt_decay=args.adapt_decay,
+        )
         print(reply.strip())
     elif args.command == "generate":
         state, config, meta = load_checkpoint(args.checkpoint)
         print(
             args.prompt
             + generate(
-                state, config, args.prompt, args.max_bytes, messages=meta.get("messages", True)
+                state,
+                config,
+                args.prompt,
+                args.max_bytes,
+                messages=meta.get("messages", True),
+                adapt_strength=args.adapt_strength,
+                adapt_decay=args.adapt_decay,
             )
         )
     else:

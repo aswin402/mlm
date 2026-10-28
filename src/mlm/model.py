@@ -101,6 +101,9 @@ class GraphLM(nn.Module):
             memory_bias = self.param("memory_write_bias", nn.initializers.constant(-2.0), ())
             memory_output = self.param("memory_output_kernel", normal(1 / math.sqrt(d)), (d, d))
             memory_gain = self.param("memory_gain", nn.initializers.zeros, ())
+        if c.adaptive_halt:
+            halt_kernel = self.param("halt_kernel", nn.initializers.zeros, (n, d, 1))
+            halt_bias = self.param("halt_bias", nn.initializers.constant(-2.0), (n,))
         edges = jnp.asarray(topology(n, c.degree))
 
         if valid is None:
@@ -176,7 +179,35 @@ class GraphLM(nn.Module):
                     return old + step_rates[:, :, None] * (updated - old)
                 return old + rates[:, :, None] * (updated - old)
 
-            h = jax.lax.fori_loop(0, c.rounds, graph_round, h)
+            if c.adaptive_halt:
+
+                def halt_round(r, carry):
+                    curr_h, h_acc, rem = carry
+                    next_h = graph_round(r, curr_h)
+                    h_gate = jax.lax.stop_gradient(
+                        jnp.where(jnp.all(halt_kernel == 0), jnp.ones_like(halt_kernel), 0.0)
+                    )
+                    h_tangent = jnp.einsum("bnd,ndc->bn", next_h, h_gate)
+                    h_diff = h_tangent - jax.lax.stop_gradient(h_tangent)
+                    halt_logits = (
+                        math.sqrt(d) * (jnp.einsum("bnd,ndc->bn", next_h, halt_kernel) + h_diff)
+                        + halt_bias
+                    )
+                    lam = jax.nn.sigmoid(halt_logits)
+                    is_last = (r == c.rounds - 1) & (c.rounds > 1)
+                    p = jnp.where(is_last, rem, rem * lam)
+                    next_rem = jnp.where(is_last, jnp.zeros_like(rem), rem * (1.0 - lam))
+                    frozen_h = curr_h + rem[:, :, None] * (next_h - curr_h)
+                    next_acc = h_acc + p[:, :, None] * frozen_h
+                    return frozen_h, next_acc, next_rem
+
+                init_rem = jnp.ones((tokens.shape[0], n), dtype=h.dtype)
+                _, h_acc, rem = jax.lax.fori_loop(
+                    0, c.rounds, halt_round, (h, jnp.zeros_like(h), init_rem)
+                )
+                h = h_acc + rem[:, :, None] * h
+            else:
+                h = jax.lax.fori_loop(0, c.rounds, graph_round, h)
             if c.node_readout == "sum":
                 z = jnp.einsum("bni,nij->bj", h, read_kernel) / math.sqrt(n)
             else:

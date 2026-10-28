@@ -18,6 +18,8 @@ class Config(BaseModel):
     memory_keys: int = Field(default=16, ge=4, le=128)
     memory_lr_scale: float = Field(default=1.0, gt=0, le=1, allow_inf_nan=False)
     local_plasticity: bool = False
+    adaptive_halt: bool = False
+    optimizer: Literal["adamw", "muon"] = "adamw"
     nodes: int = Field(default=8, ge=2, le=128)
     width: int = Field(default=32, ge=4, le=1024)
     degree: int = Field(default=2, ge=1)
@@ -40,6 +42,8 @@ class Config(BaseModel):
             raise ValueError("Recurrent node routing requires graph architecture")
         if self.architecture == "gru" and self.local_plasticity:
             raise ValueError("Local node plasticity requires graph architecture")
+        if self.architecture == "gru" and self.adaptive_halt:
+            raise ValueError("Adaptive halting requires graph architecture")
         if self.node_update == "hierarchical" and (
             self.nodes % self.groups or self.groups >= self.nodes
         ):

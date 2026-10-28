@@ -12,9 +12,10 @@ from pydantic import ValidationError
 from mlm.checkpoint import load_checkpoint, save_checkpoint
 from mlm.config import Config
 from mlm.confirmation_data import prepare
-from mlm.plasticity import parameter_roles
+from mlm.generate import generate
+from mlm.plasticity import newton_schulz, parameter_roles, recombine_grow_nodes
 from mlm.plasticity_run import run
-from mlm.training import create_state, decay_mask
+from mlm.training import create_state, decay_mask, make_train_step
 
 
 def test_role_rates_scale_adamw_updates_and_roundtrip(tmp_path):
@@ -331,3 +332,115 @@ def test_local_plasticity_freezes_dormant_nodes_against_decay_and_momentum():
         assert delta_1 > delta_2 > 0
     with pytest.raises(ValidationError):
         Config(architecture="gru", local_plasticity=True)
+
+
+def test_muon_optimizer_orthogonalizes_and_preserves_dormant_slices(tmp_path):
+    key = jax.random.PRNGKey(7)
+    mat_tall = jax.random.normal(key, (12, 6))
+    orth_tall = newton_schulz(mat_tall, steps=5)
+    gram_tall = orth_tall.T @ orth_tall
+    np.testing.assert_allclose(np.diag(gram_tall), np.ones(6), atol=0.35)
+
+    mat_3d = jax.random.normal(key, (4, 6, 10))
+    orth_3d = newton_schulz(mat_3d, steps=5)
+    assert orth_3d.shape == (4, 6, 10)
+
+    cfg = Config(nodes=4, width=8, optimizer="muon", weight_decay=0.05)
+    state = create_state(cfg)
+    # First step: populate momentum on all nodes
+    grads_all = jax.tree.map(lambda p: jnp.ones_like(p) * 0.1, state.params)
+    state1 = state.apply_gradients(grads=grads_all)
+
+    # Second step: zero gradient on node 0 of input_kernel; active gradient on nodes 1..3
+    grads_partial = jax.tree.map(lambda p: jnp.ones_like(p) * 0.1, state1.params)
+    grads_partial["input_kernel"] = grads_partial["input_kernel"].at[0].set(0.0)
+    state2 = state1.apply_gradients(grads=grads_partial)
+
+    # Node 0 of input_kernel must not change or decay when its slice gradient is zero
+    np.testing.assert_array_equal(
+        state2.params["input_kernel"][0], state1.params["input_kernel"][0]
+    )
+    assert np.linalg.norm(state2.params["input_kernel"][1] - state1.params["input_kernel"][1]) > 0
+
+    # Round-trip checkpoint with Muon state
+    ckpt = tmp_path / "muon.mlm"
+    save_checkpoint(ckpt, state2, cfg, {"messages": True})
+    loaded, loaded_cfg, _ = load_checkpoint(ckpt)
+    assert loaded_cfg == cfg
+    a = state2.apply_gradients(grads=grads_all)
+    b = loaded.apply_gradients(grads=grads_all)
+    for x, y in zip(jax.tree.leaves(a.params), jax.tree.leaves(b.params), strict=True):
+        np.testing.assert_allclose(x, y, rtol=1e-6, atol=1e-7)
+
+
+def test_adaptive_halt_trains_halt_head_across_rounds():
+    cfg = Config(nodes=4, width=8, rounds=3, adaptive_halt=True)
+    state = create_state(cfg)
+    assert "halt_kernel" in state.params and "halt_bias" in state.params
+    batch = {
+        "inputs": jnp.array([[256, 65, 66, 67], [256, 68, 69, 70]], dtype=jnp.int32),
+        "targets": jnp.array([[65, 66, 67, 257], [68, 69, 70, 257]], dtype=jnp.int32),
+        "mask": jnp.ones((2, 4), dtype=jnp.float32),
+        "resets": jnp.array([[True, False, False, False], [True, False, False, False]]),
+    }
+    step = make_train_step(cfg)
+    updated, metrics = step(state, batch)
+    assert bool(metrics["finite"])
+    assert np.linalg.norm(updated.params["halt_kernel"]) > 0
+    assert np.linalg.norm(updated.params["halt_bias"] - state.params["halt_bias"]) > 0
+    with pytest.raises(ValidationError):
+        Config(architecture="gru", adaptive_halt=True)
+
+
+def test_recombine_grow_nodes_expands_graph_and_trains():
+    cfg = Config(
+        nodes=4,
+        width=8,
+        rounds=2,
+        node_update="timescale",
+        memory="relational",
+        memory_keys=4,
+        adaptive_halt=True,
+    )
+    state = create_state(cfg)
+    new_cfg, new_params = recombine_grow_nodes(cfg, state.params, add_nodes=2, birth_gate=0.05)
+    assert new_cfg.nodes == 6
+    assert new_params["input_kernel"].shape == (6, 16, 24)
+    assert new_params["hidden_kernel"].shape == (6, 8, 24)
+    assert new_params["read_kernel"].shape == (6, 8, 8)
+    assert new_params["router_timescale_kernel"].shape == (16, 6)
+    assert new_params["router_surprise_kernel"].shape == (6, 8, 1)
+    assert new_params["halt_kernel"].shape == (6, 8, 1)
+    assert new_params["memory_key_kernel"].shape == (6, 8, 4)
+
+    grown_state = create_state(new_cfg).replace(params=new_params)
+    batch = {
+        "inputs": jnp.array([[256, 65, 66, 67], [256, 68, 69, 70]], dtype=jnp.int32),
+        "targets": jnp.array([[65, 66, 67, 257], [68, 69, 70, 257]], dtype=jnp.int32),
+        "mask": jnp.ones((2, 4), dtype=jnp.float32),
+        "resets": jnp.array([[True, False, False, False], [True, False, False, False]]),
+    }
+    step = make_train_step(new_cfg)
+    grown_state, metrics = step(grown_state, batch)
+    assert bool(metrics["finite"])
+
+
+def test_generate_spike_frequency_adaptation_suppresses_repetition():
+    cfg = Config(nodes=4, width=8)
+    state = create_state(cfg)
+    # Force vocab_bias to strongly prefer 'a' (97) and slightly less 'b' (98)
+    bias = jnp.full((258,), -50.0).at[97].set(10.0).at[98].set(9.2)
+    params = {
+        **state.params,
+        "vocab_kernel": jnp.zeros_like(state.params["vocab_kernel"]),
+        "vocab_bias": bias,
+    }
+    state = state.replace(params=params)
+    greedy = generate(state, cfg, "Hi", max_bytes=12, adapt_strength=0.0)
+    adapted = generate(state, cfg, "Hi", max_bytes=12, adapt_strength=1.0, adapt_decay=0.9)
+    assert greedy == "a" * 12
+    assert "b" in adapted and adapted != greedy
+    with pytest.raises(ValueError, match="adapt_strength"):
+        generate(state, cfg, "Hi", max_bytes=4, adapt_strength=-0.1)
+    with pytest.raises(ValueError, match="adapt_decay"):
+        generate(state, cfg, "Hi", max_bytes=4, adapt_decay=1.5)

@@ -7,7 +7,7 @@ from flax.training.train_state import TrainState
 
 from mlm.config import Config
 from mlm.model import initial_state, make_model
-from mlm.plasticity import scale_optimizer
+from mlm.plasticity import make_muon_adamw, scale_optimizer
 
 
 def decay_mask(params):
@@ -28,17 +28,18 @@ def create_state(config: Config):
         jnp.ones_like(tokens, dtype=bool),
     )["params"]
     decay = decay_mask(params)
-    optimizer = optax.chain(
-        optax.clip_by_global_norm(config.clip_norm),
-        optax.adamw(
+    if config.optimizer == "muon":
+        core_tx = make_muon_adamw(params, config, decay)
+    else:
+        core_tx = optax.adamw(
             config.learning_rate,
             b1=0.9,
             b2=0.999,
             eps=1e-8,
             weight_decay=config.weight_decay,
             mask=decay,
-        ),
-    )
+        )
+    optimizer = optax.chain(optax.clip_by_global_norm(config.clip_norm), core_tx)
     optimizer = scale_optimizer(optimizer, params, config)
     return TrainState.create(apply_fn=model.apply, params=params, tx=optimizer)
 
