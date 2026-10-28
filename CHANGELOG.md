@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## [0.0.5] - 2026-10-29
+
+### Added
+
+- Top-$k$ sparse active-node routing (`top_k_nodes` in `Config` and `GraphLM.__call__`) using straight-through top-$k$ gating so unselected nodes remain at rest with identically zero recurrent state drift while preserving router gradient flow.
+- Learned directed graph edge rewiring (`edge_affinity_matrix` and `rewire_edges` in `mlm.plasticity`, custom `edges` in `Config` and `model_topology` in `mlm.graph`) computing functional alignment between sender state/message subspaces and receiver message-input/attention subspaces to prune weak incoming edges and sprout high-affinity connections.
+- Unified `mlm continual` CLI command and `run_continual` loop (`mlm.hierarchy_run`) integrating `LaneSchedule`, `PlasticityController`, cross-window EMA `running_usage`, plateau-gated `maybe_grow_and_prune` and `rewire_edges`, and slice-preserving optimizer moment transfer (`_copy_matching_opt_state` in `mlm.binding_run`).
+- Canonical `configs/mini-agi-v4.json` configuration and multi-seed continual replication across `QA43/English44` and `QA44/English45`, where `mini_agi_v4` reduced held-out QA validation loss by 17.6%–20.0% (`1.3649` / `1.3448` vs `1.6567` / `1.6809`) and held-out English validation loss by 3.1%–4.2% (`2.6777` / `2.6574` vs `2.7623` / `2.7727`) across both seed pairs.
+
+### Changed
+
+- Upgraded `_copy_matching_opt_state` to slice-copy parent node moments along grown dimensions (`axis=0` and `axis=-1`) when `recombine_grow_nodes` expands the graph.
+- Incremented package and lockfile version to 0.0.5 (117 regression tests passing).
+
 ## [0.0.4] - 2026-10-28
 
 ### Added

@@ -223,7 +223,16 @@ def recombine_grow_nodes(
     n_new = n + add_nodes
     if config.node_update == "hierarchical" and n_new % config.groups != 0:
         raise ValueError("New node count must be divisible by hierarchical groups")
-    new_config = config.model_copy(update={"nodes": n_new})
+    new_edges = None
+    if config.edges is not None:
+        from mlm.graph import topology
+
+        default_new = topology(n_new, config.degree)
+        new_edges = tuple(
+            tuple(config.edges[i]) if i < n else tuple(int(x) for x in default_new[i])
+            for i in range(n_new)
+        )
+    new_config = config.model_copy(update={"nodes": n_new, "edges": new_edges})
     norms = jnp.linalg.norm(params["read_kernel"], axis=(1, 2))
     order = jnp.argsort(-norms)
     rng = jax.random.PRNGKey(config.seed + n_new)
@@ -348,7 +357,8 @@ def prune_nodes(config, params: dict, protect: int = 2, min_norm: float = 0.05):
         return config, params, 0
     idx = jnp.asarray(keep, dtype=jnp.int32)
     n_new = len(keep)
-    new_config = config.model_copy(update={"nodes": n_new})
+    new_top_k = min(config.top_k_nodes, n_new - 1) if config.top_k_nodes > 0 else 0
+    new_config = config.model_copy(update={"nodes": n_new, "edges": None, "top_k_nodes": new_top_k})
     new_params = dict(params)
     for name in (
         "input_kernel",
@@ -410,6 +420,88 @@ def maybe_grow_and_prune(
         )
         grew = add_nodes
     return config, params, {"grew": grew, "pruned": pruned, "saturation": sat}
+
+
+def edge_affinity_matrix(config, params: dict) -> np.ndarray:
+    """Compute learned directed functional affinity S[i, j] from sender j to receiver i."""
+    if config.architecture != "graph":
+        raise ValueError("Edge affinity requires graph architecture")
+    d = config.width
+    read_k = np.asarray(params["read_kernel"], dtype=np.float64)
+    hid_k = np.asarray(params["hidden_kernel"], dtype=np.float64)
+    inp_k = np.asarray(params["input_kernel"], dtype=np.float64)
+    msg_k = np.asarray(params["message_kernel"], dtype=np.float64)
+
+    u_sub = np.concatenate([read_k, hid_k], axis=-1)
+    u_norms = np.maximum(np.linalg.norm(u_sub, axis=(1, 2), keepdims=True), 1e-8)
+    u_hat = u_sub / u_norms
+    transmitted = np.einsum("ab,nbc->nac", msg_k, u_hat)
+
+    rec_sub = inp_k[:, d:, :]
+    rec_norms = np.maximum(np.linalg.norm(rec_sub, axis=(1, 2), keepdims=True), 1e-8)
+    r_hat = rec_sub / rec_norms
+
+    coupling = np.einsum("idr,jdc->ijrc", r_hat, transmitted)
+    affinity = np.linalg.norm(coupling, axis=(2, 3))
+
+    if config.edge_aggregation == "attention" and "edge_query" in params:
+        eq = np.asarray(params["edge_query"], dtype=np.float64)
+        ek = np.asarray(params["edge_key"], dtype=np.float64)
+        ev = np.asarray(params["edge_vector"], dtype=np.float64)
+        u_mean = u_hat.mean(axis=-1)
+        q_i = (u_mean @ eq)[:, None, :]
+        k_j = (u_mean @ ek)[None, :, :]
+        ev_dir = ev if np.linalg.norm(ev) > 1e-8 else np.ones_like(ev) / math.sqrt(d)
+        attn_score = np.tanh(q_i + k_j) @ ev_dir
+        affinity = affinity + attn_score
+
+    np.fill_diagonal(affinity, -np.inf)
+    return affinity
+
+
+def rewire_edges(
+    config,
+    params: dict,
+    max_rewire_per_node: int = 1,
+    min_gain: float = 1e-4,
+    max_total_rewires: int | None = None,
+):
+    """Prune weakest incoming edges and sprout highest-affinity learned directed edges."""
+    if config.architecture != "graph":
+        raise ValueError("Edge rewiring requires graph architecture")
+    from mlm.config import Config
+    from mlm.graph import topology
+
+    affinity = edge_affinity_matrix(config, params)
+    current = (
+        np.array(config.edges, dtype=np.int32)
+        if config.edges is not None
+        else topology(config.nodes, config.degree).copy()
+    )
+    rewired = 0
+    n = config.nodes
+    for i in range(n):
+        if max_total_rewires is not None and rewired >= max_total_rewires:
+            break
+        row = [int(x) for x in current[i]]
+        for _ in range(max_rewire_per_node):
+            if max_total_rewires is not None and rewired >= max_total_rewires:
+                break
+            weak_pos = min(range(len(row)), key=lambda pos: affinity[i, row[pos]])
+            weak_node = row[weak_pos]
+            candidates = [j for j in range(n) if j != i and j not in row]
+            if not candidates:
+                break
+            best_node = max(candidates, key=lambda j: affinity[i, j])
+            if affinity[i, best_node] - affinity[i, weak_node] > min_gain:
+                row[weak_pos] = best_node
+                rewired += 1
+            else:
+                break
+        current[i] = np.array(row, dtype=np.int32)
+    edges_tuple = tuple(tuple(int(x) for x in row) for row in current)
+    new_config = Config.model_validate({**config.model_dump(), "edges": edges_tuple})
+    return new_config, {"rewired": rewired, "edges": edges_tuple, "affinity": affinity}
 
 
 class PlasticityController:

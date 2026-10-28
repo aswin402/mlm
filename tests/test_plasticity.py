@@ -14,16 +14,18 @@ from mlm.checkpoint import load_checkpoint, save_checkpoint
 from mlm.config import Config
 from mlm.confirmation_data import prepare
 from mlm.generate import LiveLearner, generate
-from mlm.hierarchy_run import routed_objective
+from mlm.hierarchy_run import make_routed_step, routed_objective, run_continual
 from mlm.model import initial_state
 from mlm.plasticity import (
     LaneSchedule,
     PlasticityController,
+    edge_affinity_matrix,
     maybe_grow_and_prune,
     newton_schulz,
     parameter_roles,
     prune_nodes,
     recombine_grow_nodes,
+    rewire_edges,
 )
 from mlm.plasticity_run import run
 from mlm.training import create_state, decay_mask, make_train_step
@@ -614,3 +616,125 @@ def test_live_learner_online_chat_stream_updates(tmp_path):
     save_checkpoint(out_ckpt, learner.state, cfg, {"messages": True})
     loaded, _, _ = load_checkpoint(out_ckpt)
     assert int(loaded.step) == int(learner.state.step)
+
+
+def test_top_k_sparse_node_routing_preserves_dormant_states():
+    cfg = Config(
+        nodes=4,
+        width=8,
+        degree=2,
+        groups=2,
+        node_update="timescale",
+        top_k_nodes=2,
+        batch_size=2,
+        length=4,
+    )
+    state = create_state(cfg)
+    carry = jnp.ones((2, 4, 8), dtype=jnp.float32) * 0.5
+    tokens = jnp.asarray([[65], [66]], dtype=jnp.int32)
+    resets = jnp.zeros_like(tokens, dtype=bool)
+    _, final_state = state.apply_fn({"params": state.params}, tokens, carry, resets)
+    # Exactly 2 nodes per batch element should update; 2 nodes must remain identically unchanged
+    deltas = np.linalg.norm(np.asarray(final_state - carry), axis=-1)
+    assert np.all(np.sum(deltas == 0.0, axis=-1) == 2)
+    assert np.all(np.sum(deltas > 0.0, axis=-1) == 2)
+
+    # Verify gradients still flow to the router via straight-through estimator
+    batch = {
+        "inputs": jnp.asarray([[65, 66, 67, 68], [69, 70, 71, 72]], dtype=jnp.int32),
+        "targets": jnp.asarray([[66, 67, 68, 69], [70, 71, 72, 73]], dtype=jnp.int32),
+        "mask": jnp.ones((2, 4), dtype=jnp.float32),
+        "resets": jnp.zeros((2, 4), dtype=bool).at[:, 0].set(True),
+    }
+    _, grads = jax.value_and_grad(routed_objective, has_aux=True)(
+        state.params, state.apply_fn, batch, carry, cfg
+    )
+    assert float(jnp.linalg.norm(grads["router_timescale_kernel"])) > 0.0
+
+
+def test_learned_edge_rewiring_and_custom_topology():
+    cfg = Config(
+        nodes=4,
+        width=8,
+        degree=2,
+        node_update="timescale",
+        edge_aggregation="attention",
+        batch_size=2,
+        length=8,
+    )
+    state = create_state(cfg)
+    # Boost coupling from node 0 -> node 3 so node 3 wants node 0 in its incoming edges
+    params = dict(state.params)
+    params["read_kernel"] = params["read_kernel"].at[0].set(5.0)
+    params["input_kernel"] = params["input_kernel"].at[3, 8:, :].set(5.0)
+    aff = edge_affinity_matrix(cfg, params)
+    assert aff.shape == (4, 4)
+    assert all(not np.isfinite(aff[i, i]) for i in range(4))
+
+    rewired_cfg, info = rewire_edges(cfg, params, max_rewire_per_node=1, min_gain=1e-6)
+    assert info["rewired"] >= 1
+    assert rewired_cfg.edges is not None and len(rewired_cfg.edges) == 4
+    # Step with rewired topology
+    step_fn = make_routed_step(rewired_cfg)
+    batch = {
+        "inputs": jnp.ones((2, 8), dtype=jnp.int32) * 65,
+        "targets": jnp.ones((2, 8), dtype=jnp.int32) * 66,
+        "mask": jnp.ones((2, 8), dtype=jnp.float32),
+        "resets": jnp.zeros((2, 8), dtype=bool).at[:, 0].set(True),
+    }
+    new_state, _, metrics = step_fn(state, initial_state(rewired_cfg, 2), batch)
+    assert bool(metrics["finite"]) and int(new_state.step) == 1
+
+
+def test_continual_cli_runner_end_to_end(tmp_path):
+    data_dir = tmp_path / "data"
+    prepare(data_dir)
+    eng_train = tmp_path / "eng_train.txt"
+    eng_dev = tmp_path / "eng_dev.txt"
+    eng_train.write_text(
+        "The quick brown fox jumps over the lazy dog.\n\nPack my box with five dozen liquor jugs.\n"
+    )
+    eng_dev.write_text(
+        "Sphinx of black quartz, judge my vow.\n\nHow vexingly quick daft zebras jump.\n"
+    )
+    cfg = Config(
+        nodes=4,
+        width=8,
+        degree=2,
+        rounds=2,
+        groups=2,
+        node_update="timescale",
+        edge_aggregation="attention",
+        memory="relational",
+        memory_keys=4,
+        local_plasticity=True,
+        adaptive_halt=True,
+        ponder_beta=1e-3,
+        optimizer="muon",
+        batch_size=4,
+        length=128,
+        learning_rate=3e-3,
+    )
+    cfg_path = tmp_path / "cfg.json"
+    cfg_path.write_text(cfg.model_dump_json(indent=2))
+    out_dir = tmp_path / "continual_out"
+    args = SimpleNamespace(
+        data=data_dir,
+        config=cfg_path,
+        init=None,
+        out=out_dir,
+        english_train=eng_train,
+        english_dev=eng_dev,
+        steps=4,
+        eval_every=2,
+        max_records=4,
+        qa_seed=42,
+        english_seed=43,
+        auto_grow=True,
+        rewire=True,
+    )
+    summary = run_continual(args)
+    assert summary["steps"] == 4
+    assert (out_dir / "best.mlm").exists()
+    assert (out_dir / "latest.mlm").exists()
+    assert (out_dir / "summary.json").exists()

@@ -22,6 +22,8 @@ class Config(BaseModel):
     ponder_beta: float = Field(default=0.0, ge=0, le=1, allow_inf_nan=False)
     halt_prior: float = Field(default=0.4, gt=0, lt=1, allow_inf_nan=False)
     warmup_steps: int = Field(default=0, ge=0, le=100000)
+    top_k_nodes: int = Field(default=0, ge=0, le=128)
+    edges: tuple[tuple[int, ...], ...] | None = None
     optimizer: Literal["adamw", "muon"] = "adamw"
     nodes: int = Field(default=8, ge=2, le=128)
     width: int = Field(default=32, ge=4, le=1024)
@@ -57,4 +59,23 @@ class Config(BaseModel):
             raise ValueError("Node attention requires graph architecture")
         if self.degree >= self.nodes:
             raise ValueError("degree must be smaller than nodes")
+        if self.top_k_nodes > 0:
+            if self.architecture == "gru" or self.node_update in {"dense", "uniform"}:
+                raise ValueError(
+                    "top_k_nodes requires routed graph node_update ('hierarchical' or 'timescale')"
+                )
+            if self.top_k_nodes >= self.nodes:
+                raise ValueError("top_k_nodes must be smaller than nodes when active (> 0)")
+        if self.edges is not None:
+            if self.architecture == "gru":
+                raise ValueError("Custom edges require graph architecture")
+            if len(self.edges) != self.nodes or any(len(row) != self.degree for row in self.edges):
+                raise ValueError("edges must have shape (nodes, degree)")
+            for i, row in enumerate(self.edges):
+                if len(set(row)) != self.degree or any(
+                    not (0 <= j < self.nodes) or j == i for j in row
+                ):
+                    raise ValueError(
+                        "Each node's incoming edges must be distinct valid neighbor indices != self"
+                    )
         return self

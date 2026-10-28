@@ -252,6 +252,27 @@ def main(argv=None):
     chat.add_argument("--adapt-decay", type=float, default=0.88)
     chat.add_argument("--learn", action="store_true", help="Online stream update on exchange")
     chat.add_argument("--save-out", type=Path, help="Optional path to save updated checkpoint")
+    continual = commands.add_parser(
+        "continual",
+        help="Autonomous continual learning with LaneSchedule, controller, growth, and rewiring",
+    )
+    continual.add_argument("--data", type=Path, default=Path("data/confirmation-v1"))
+    continual.add_argument("--config", type=Path, required=True)
+    continual.add_argument("--init", type=Path)
+    continual.add_argument("--out", type=Path, required=True)
+    continual.add_argument(
+        "--english-train", type=Path, default=Path("data/hf/stories/train.jsonl")
+    )
+    continual.add_argument(
+        "--english-dev", type=Path, default=Path("data/hf/stories/validation.jsonl")
+    )
+    continual.add_argument("--steps", type=int, default=200)
+    continual.add_argument("--eval-every", type=int, default=50)
+    continual.add_argument("--max-records", type=int)
+    continual.add_argument("--qa-seed", type=int)
+    continual.add_argument("--english-seed", type=int)
+    continual.add_argument("--auto-grow", action="store_true")
+    continual.add_argument("--rewire", action="store_true")
     args = parser.parse_args(argv)
     if args.command == "train":
         run_train(args)
@@ -259,6 +280,11 @@ def main(argv=None):
         from mlm.streamrun import run
 
         run(args)
+    elif args.command == "continual":
+        from mlm.hierarchy_run import run_continual
+
+        summary = run_continual(args)
+        print(json.dumps(summary, indent=2), flush=True)
     elif args.command == "chat":
         state, config, meta = load_checkpoint(args.checkpoint)
         messages = meta.get("messages", True)

@@ -10,7 +10,7 @@ import jax.numpy as jnp
 import numpy as np
 import optax
 
-from mlm.binding_run import better, build_batches, warm_start
+from mlm.binding_run import _copy_matching_opt_state, better, build_batches, warm_start
 from mlm.checkpoint import save_checkpoint
 from mlm.cli import environment, write_json
 from mlm.comprehension import evaluate_questions
@@ -18,7 +18,14 @@ from mlm.config import Config
 from mlm.data import read_documents, read_training_data
 from mlm.gradual_eval import order_robust
 from mlm.model import initial_state
+from mlm.plasticity import (
+    LaneSchedule,
+    PlasticityController,
+    maybe_grow_and_prune,
+    rewire_edges,
+)
 from mlm.stream import DocumentStream, evaluate_stream
+from mlm.training import create_state
 
 
 def routed_objective(
@@ -281,6 +288,207 @@ def run(args):
     }
     write_json(args.out / "summary.json", summary)
     print(json.dumps(summary), flush=True)
+
+
+def run_continual(args) -> dict:
+    """Autonomous continual loop with LaneSchedule, PlasticityController, growth, and rewiring."""
+    if args.steps < 1 or args.eval_every < 1:
+        raise ValueError("Positive budget and eval-every required")
+    if args.out.exists() and any(args.out.iterdir()):
+        raise ValueError("Use an empty output directory")
+    cfg = Config.model_validate_json(args.config.read_text())
+    if cfg.architecture != "graph":
+        raise ValueError("Continual graph runner requires graph architecture")
+    max_rec = getattr(args, "max_records", None)
+    train_lines = (args.data / "train.jsonl").read_text().splitlines()
+    records = [json.loads(line) for line in (train_lines[:max_rec] if max_rec else train_lines)]
+    all_questions = json.loads((args.data / "train-questions.json").read_text())["questions"]
+    questions = all_questions[: len(records)]
+    batches, ids = build_batches(records, questions, cfg)
+    dev_docs, dev_masks, _ = read_training_data(args.data / "validation.jsonl")
+    dev_questions = json.loads((args.data / "validation-questions.json").read_text())["questions"]
+    if max_rec:
+        dev_docs = dev_docs[:max_rec]
+        if dev_masks is not None:
+            dev_masks = dev_masks[:max_rec]
+        dev_questions = dev_questions[:max_rec]
+    english_train, _, _ = read_training_data(args.english_train)
+    english_dev, _, _ = read_training_data(args.english_dev)
+
+    init_path = getattr(args, "init", None)
+    state = (
+        warm_start(init_path, cfg, preserve_moments=True)
+        if init_path is not None
+        else create_state(cfg)
+    )
+    args.out.mkdir(parents=True, exist_ok=True)
+    write_json(args.out / "config.json", cfg.model_dump())
+    write_json(args.out / "environment.json", environment())
+
+    qa_seed = getattr(args, "qa_seed", None)
+    eng_seed = getattr(args, "english_seed", None)
+    rng = np.random.default_rng(cfg.seed if qa_seed is None else int(qa_seed))
+    order = rng.permutation(len(batches))
+    position = 0
+    stream = DocumentStream(
+        english_train,
+        cfg.batch_size,
+        cfg.length,
+        (cfg.seed + 1) if eng_seed is None else int(eng_seed),
+    )
+    carry = initial_state(cfg, cfg.batch_size)
+    running_usage = jnp.full((cfg.nodes,), 1.0 / cfg.nodes, dtype=jnp.float32)
+    step_fn = make_routed_step(cfg)
+
+    qa_corpus_bytes = float(sum(int(np.sum(b["mask"])) for b in batches))
+    eng_corpus_bytes = float(sum(len(d.encode("utf-8")) for d in english_train))
+    lanes = LaneSchedule(
+        ["qa", "english"],
+        sizes={"qa": qa_corpus_bytes, "english": eng_corpus_bytes},
+    )
+    controller = PlasticityController(scale=1.0)
+    counters = {
+        name: {"updates": 0, "input_bytes": 0, "supervised_bytes": 0} for name in ["qa", "english"]
+    }
+    latest_losses: dict[str, float] = {}
+    logs = []
+    growth_events = []
+    rewire_events = []
+
+    def rebuild_state_for_config(new_cfg: Config, new_params: dict):
+        fresh = create_state(new_cfg)
+        preserved_opt = _copy_matching_opt_state(
+            fresh.opt_state, state.opt_state, set(new_params.keys())
+        )
+        return fresh.replace(step=state.step, params=new_params, opt_state=preserved_opt)
+
+    def evaluate_step(step_num: int) -> dict:
+        train_eval = evaluate_questions(state, cfg, questions, format="chat")
+        dev_eval = evaluate_questions(state, cfg, dev_questions, format="chat")
+        qa_val = float(evaluate_stream(state, cfg, dev_docs, loss_masks=dev_masks)["loss"])
+        eng_val = float(evaluate_stream(state, cfg, english_dev)["loss"])
+        controller.observe(qa_val)
+        return {
+            "step": step_num,
+            "optimizer_step": int(state.step),
+            "nodes": cfg.nodes,
+            "train_qa_accuracy": float(train_eval["accuracy"]),
+            "dev_qa_accuracy": float(dev_eval["accuracy"]),
+            "qa_validation_loss": qa_val,
+            "english_validation_loss": eng_val,
+            "lane_shares": dict(lanes.shares),
+            "controller_scale": float(controller.scale),
+            "counters": json.loads(json.dumps(counters)),
+        }
+
+    initial_row = evaluate_step(0)
+    best_key = (initial_row["dev_qa_accuracy"], initial_row["qa_validation_loss"])
+    save_checkpoint(args.out / "best.mlm", state, cfg, {"step": 0, "lanes": lanes.shares})
+    save_checkpoint(args.out / "latest.mlm", state, cfg, {"step": 0, "lanes": lanes.shares})
+    logs.append(initial_row)
+
+    for step_idx in range(1, args.steps + 1):
+        lane = lanes.pick()
+        if lane == "qa":
+            if position >= len(order):
+                order = rng.permutation(len(batches))
+                position = 0
+            batch = batches[int(order[position])]
+            position += 1
+            state, _, raw = step_fn(
+                state,
+                initial_state(cfg, cfg.batch_size),
+                jax.tree.map(jnp.asarray, batch),
+                running_usage,
+            )
+        else:
+            batch = stream.next_batch()
+            state, carry, raw = step_fn(
+                state,
+                carry,
+                jax.tree.map(jnp.asarray, batch),
+                running_usage,
+            )
+        raw = jax.device_get(raw)
+        if not bool(raw["finite"]) or not bool(raw["updated"]):
+            raise FloatingPointError("Rejected continual update")
+        running_usage = 0.95 * running_usage + 0.05 * jnp.asarray(raw["route_usage"])
+        counters[lane]["updates"] += 1
+        counters[lane]["input_bytes"] += int(raw["consumed_bytes"])
+        counters[lane]["supervised_bytes"] += int(raw["bytes"])
+        lanes.note_read(lane, float(raw["consumed_bytes"]))
+        latest_losses[lane] = float(raw["loss"])
+
+        if step_idx % 10 == 0:
+            lanes.observe(latest_losses)
+            lanes.step()
+
+        if step_idx % args.eval_every == 0 or step_idx == args.steps:
+            lanes.observe(latest_losses)
+            lanes.step()
+            prev_qa_val = logs[-1]["qa_validation_loss"] if logs else None
+            row = evaluate_step(step_idx)
+            plateaued = prev_qa_val is not None and row["qa_validation_loss"] >= prev_qa_val - 0.02
+
+            if step_idx < args.steps and plateaued and getattr(args, "auto_grow", False):
+                new_cfg, new_params, g_info = maybe_grow_and_prune(
+                    cfg,
+                    state.params,
+                    running_usage,
+                    train_loss=latest_losses.get("qa"),
+                    val_loss=row["qa_validation_loss"],
+                )
+                if new_cfg.nodes != cfg.nodes:
+                    cfg = new_cfg
+                    state = rebuild_state_for_config(cfg, new_params)
+                    batches, ids = build_batches(records, questions, cfg)
+                    carry = initial_state(cfg, cfg.batch_size)
+                    running_usage = jnp.full((cfg.nodes,), 1.0 / cfg.nodes, dtype=jnp.float32)
+                    step_fn = make_routed_step(cfg)
+                    growth_events.append({"step": step_idx, **g_info, "nodes": cfg.nodes})
+                    row["nodes"] = cfg.nodes
+
+            if step_idx < args.steps and plateaued and getattr(args, "rewire", False):
+                new_cfg, r_info = rewire_edges(cfg, state.params, max_total_rewires=1)
+                if r_info["rewired"] > 0:
+                    cfg = new_cfg
+                    step_fn = make_routed_step(cfg)
+                    rewire_events.append(
+                        {"step": step_idx, "rewired": r_info["rewired"], "edges": r_info["edges"]}
+                    )
+
+            meta = {
+                "step": step_idx,
+                "lanes": dict(lanes.shares),
+                "controller": controller.state(),
+            }
+            write_json(args.out / "config.json", cfg.model_dump())
+            save_checkpoint(args.out / "latest.mlm", state, cfg, meta)
+            if better(row["dev_qa_accuracy"], row["qa_validation_loss"], best_key):
+                best_key = (row["dev_qa_accuracy"], row["qa_validation_loss"])
+                save_checkpoint(args.out / "best.mlm", state, cfg, meta)
+            logs.append(row)
+            (args.out / "metrics.jsonl").write_text("".join(json.dumps(r) + "\n" for r in logs))
+
+    summary = {
+        "steps": args.steps,
+        "optimizer_updates": int(state.step),
+        "nodes": cfg.nodes,
+        "edges": cfg.edges,
+        "parameters": sum(int(p.size) for p in jax.tree.leaves(state.params)),
+        "counters": counters,
+        "final_lane_shares": dict(lanes.shares),
+        "controller_scale": float(controller.scale),
+        "best_dev_qa_accuracy": best_key[0],
+        "best_qa_validation_loss": best_key[1],
+        "final_train_qa_accuracy": logs[-1]["train_qa_accuracy"],
+        "final_dev_qa_accuracy": logs[-1]["dev_qa_accuracy"],
+        "final_english_validation_loss": logs[-1]["english_validation_loss"],
+        "growth_events": growth_events,
+        "rewire_events": rewire_events,
+    }
+    write_json(args.out / "summary.json", summary)
+    return summary
 
 
 def main():

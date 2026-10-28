@@ -66,13 +66,9 @@ def _copy_matching_opt_state(target, source, shared_keys):
     if isinstance(target, dict) and isinstance(source, dict):
         return {
             k: (
-                source[k]
-                if (
-                    k in shared_keys
-                    and k in source
-                    and getattr(source[k], "shape", None) == getattr(v, "shape", None)
-                )
-                else _copy_matching_opt_state(v, source.get(k), shared_keys)
+                _copy_matching_opt_state(v, source.get(k), shared_keys)
+                if (k in shared_keys or isinstance(v, dict))
+                else v
             )
             for k, v in target.items()
         }
@@ -81,13 +77,14 @@ def _copy_matching_opt_state(target, source, shared_keys):
             _copy_matching_opt_state(t, s, shared_keys) for t, s in zip(target, source, strict=True)
         ]
         return type(target)(*items) if hasattr(target, "_fields") else tuple(items)
-    if (
-        hasattr(target, "shape")
-        and hasattr(source, "shape")
-        and target.shape == source.shape
-        and target.dtype == source.dtype
-    ):
-        return source
+    if hasattr(target, "shape") and hasattr(source, "shape") and target.dtype == source.dtype:
+        if target.shape == source.shape:
+            return source
+        if len(target.shape) == len(source.shape) and len(target.shape) >= 1:
+            if target.shape[1:] == source.shape[1:] and target.shape[0] > source.shape[0]:
+                return target.at[: source.shape[0]].set(source)
+            if target.shape[:-1] == source.shape[:-1] and target.shape[-1] > source.shape[-1]:
+                return target.at[..., : source.shape[-1]].set(source)
     return target
 
 

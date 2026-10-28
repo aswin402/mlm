@@ -111,7 +111,11 @@ class GraphLM(nn.Module):
         if c.adaptive_halt:
             halt_kernel = self.param("halt_kernel", nn.initializers.zeros, (n, d, 1))
             halt_bias = self.param("halt_bias", nn.initializers.constant(-2.0), (n,))
-        edges = jnp.asarray(topology(n, c.degree))
+        edges = (
+            jnp.asarray(c.edges, dtype=jnp.int32)
+            if c.edges is not None
+            else jnp.asarray(topology(n, c.degree))
+        )
 
         if valid is None:
             valid = jnp.ones_like(tokens, dtype=bool)
@@ -150,6 +154,13 @@ class GraphLM(nn.Module):
                 probabilities = jnp.full((tokens.shape[0], n), 1.0 / n)
                 route_probs = probabilities
             rates = jnp.ones_like(probabilities) if c.node_update == "dense" else probabilities
+            if 0 < c.top_k_nodes < n and c.node_update == "hierarchical":
+                _, top_idx = jax.lax.top_k(rates, c.top_k_nodes)
+                k_mask = (
+                    jnp.zeros_like(rates).at[jnp.arange(rates.shape[0])[:, None], top_idx].set(1.0)
+                )
+                hard_rates = rates * k_mask
+                rates = rates + jax.lax.stop_gradient(hard_rates - rates)
 
             def graph_round(_, old):
                 if not messages:
@@ -194,6 +205,15 @@ class GraphLM(nn.Module):
                         jnp.einsum("bnd,ndc->bn", s_features, surprise_kernel) + s_diff
                     )
                     step_rates = jax.nn.sigmoid(base_timescale + surprise)
+                    if 0 < c.top_k_nodes < n:
+                        _, top_idx = jax.lax.top_k(step_rates, c.top_k_nodes)
+                        k_mask = (
+                            jnp.zeros_like(step_rates)
+                            .at[jnp.arange(step_rates.shape[0])[:, None], top_idx]
+                            .set(1.0)
+                        )
+                        hard_rates = step_rates * k_mask
+                        step_rates = step_rates + jax.lax.stop_gradient(hard_rates - step_rates)
                     return old + step_rates[:, :, None] * (updated - old)
                 return old + rates[:, :, None] * (updated - old)
 

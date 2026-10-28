@@ -27,4 +27,8 @@ def aggregate(states, edges, weights=None):
 
 
 def model_topology(config):
-    return None if config.architecture == "gru" else topology(config.nodes, config.degree).tolist()
+    if config.architecture == "gru":
+        return None
+    if config.edges is not None:
+        return [list(row) for row in config.edges]
+    return topology(config.nodes, config.degree).tolist()
