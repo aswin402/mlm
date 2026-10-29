@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [0.0.10] - 2026-10-30
+
+### Added
+
+- Liquid AI LFM 2.5 / STAR (`arXiv:2411.17800`, `arXiv:2511.23404`) Linear Input-Varying (LIV) double-gated short-range causal convolution (`rel_liv_gate_kernel`, `rel_liv_conv_kernel` in `GraphLM.__call__` and `MEMORY_PARAMETERS` in `mlm.plasticity`), providing adaptive sub-token stem mixing across causal 4-byte receptives fields.
+- Input-varying per-key liquid time-constant associative memory decay ($\alpha_{b,k} = \exp(-\Delta_{b,k}(x_t))$) in `delta_step` (`mlm.associative`) and `memory_decay_kernel` (`(2 * d, memory_keys)` in `GraphLM.__call__`), enabling concurrent fast working-memory slots and slow long-horizon factual slots.
+- True 2-hop disjoint-clause transitive relational composition ($A \to B \to C$) with expected-question-position anchoring (`s1_mean`, `q_win_t`, `q_win_h2`, `ctx_t`), clause-interval bridge extraction (`hop_bridge`, `clause_same`, `clause_disjoint`), and Zipf delimiter-invariant autoregressive in-span byte continuation (`tok_freq`, `in_span_prev`) in `GraphLM.__call__`.
+- 2-hop counterfactual reading comprehension evaluation suite (`data/evaluation/reading-v2-multihop.json`) with 16 probes across 8 counterfactual pairs (`person-room`, `container-color`, `pet-food`, `guard-trainer`, `friend-city`, `key-room`, `team-prize`, `tool-shelf`), achieving `100.0%` (`16/16`) zero-shot accuracy and `100.0%` (`8/8`) pair accuracy across both `chat` and `plain` formats alongside `100.0%` (`24/24`) on `data/evaluation/reading-v1.json`.
+
+### Changed
+
+- Incremented package and lockfile version to 0.0.10 (122 regression tests passing).
+
 ## [0.0.9] - 2026-10-29
 
 ### Added

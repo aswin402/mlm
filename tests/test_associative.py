@@ -58,6 +58,11 @@ def test_delta_memory_write_read_overwrite_and_noop():
     np.testing.assert_allclose(fractional[:, 1, :], -1.25 * value, atol=1e-6)
     # Overlapping addresses interfere; memory is not an exact symbolic dictionary.
     np.testing.assert_allclose(jnp.einsum("bk,bkv->bv", overlap, corrected), 0, atol=1e-6)
+    # Per-key 2D liquid time-constant decay scales each key slot independently.
+    per_key_alpha = jnp.array([[0.5, 0.25]])
+    decayed_m, _ = delta_step(fractional, k, jnp.zeros_like(value), k, jnp.zeros(1), per_key_alpha)
+    np.testing.assert_allclose(decayed_m[:, 0, :], 0.5 * fractional[:, 0, :], atol=1e-6)
+    np.testing.assert_allclose(decayed_m[:, 1, :], 0.25 * fractional[:, 1, :], atol=1e-6)
 
 
 def test_memory_zero_gate_causality_padding_chunking_and_gradients(tmp_path):

@@ -968,10 +968,16 @@ def test_surprise_gating_dog_wavelets_and_relational_hops():
         state.params, state.apply_fn, batch, carry, cfg
     )
     assert final_carry.shape == (2, 16, 8)
+    assert state.params["memory_decay_kernel"].shape == (2 * cfg.width, cfg.memory_keys)
+    assert state.params["memory_decay_bias"].shape == (cfg.memory_keys,)
     for param_name in (
         "surprise_mem_weight",
         "surprise_span_weight",
+        "memory_decay_kernel",
+        "memory_decay_bias",
         "rel_wavelet_kernel",
+        "rel_liv_gate_kernel",
+        "rel_liv_conv_kernel",
         "rel_q_kernel",
         "rel_k_kernel",
         "rel_v_kernel",
@@ -1037,6 +1043,42 @@ def test_surprise_gating_dog_wavelets_and_relational_hops():
             "category": "binding",
             "context": "Lena owns the kite. Nora owns the cup.",
             "question": "Who owns the kite?",
+            "choices": ["Nora", "Lena"],
+            "answer_index": 1,
+        },
+        {
+            "id": "person-room-0",
+            "pair": "person-room",
+            "category": "transitive-location",
+            "context": "Mia is in the kitchen. The key is with Mia.",
+            "question": "Where is the key?",
+            "choices": ["kitchen", "garden"],
+            "answer_index": 0,
+        },
+        {
+            "id": "person-room-1",
+            "pair": "person-room",
+            "category": "transitive-location",
+            "context": "Mia is in the garden. The key is with Mia.",
+            "question": "Where is the key?",
+            "choices": ["kitchen", "garden"],
+            "answer_index": 1,
+        },
+        {
+            "id": "pet-food-0",
+            "pair": "pet-food",
+            "category": "transitive-binding",
+            "context": "Nora owns Rex. Rex eats fish.",
+            "question": "Who owns the pet that eats fish?",
+            "choices": ["Nora", "Lena"],
+            "answer_index": 0,
+        },
+        {
+            "id": "pet-food-1",
+            "pair": "pet-food",
+            "category": "transitive-binding",
+            "context": "Lena owns Rex. Rex eats fish.",
+            "question": "Who owns the pet that eats fish?",
             "choices": ["Nora", "Lena"],
             "answer_index": 1,
         },

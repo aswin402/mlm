@@ -5,7 +5,7 @@ import jax.numpy as jnp
 
 def delta_step(memory, key, value, query, beta, alpha=None, rev_key=None, rev_value=None):
     """Read the old matrix and correct its key/value mapping for future tokens."""
-    decayed = memory if alpha is None else alpha[:, None, None] * memory
+    decayed = memory if alpha is None else jnp.reshape(alpha, (memory.shape[0], -1, 1)) * memory
     read = jnp.einsum("bk,bkv->bv", query, memory)
     prediction = jnp.einsum("bk,bkv->bv", key, decayed)
     error = value - prediction

@@ -1,0 +1,198 @@
+{
+  "version": 2,
+  "purpose": "Evaluation-only 2-hop transitive counterfactual reading probes; never used for training or checkpoint selection",
+  "questions": [
+    {
+      "id": "person-room-0",
+      "pair": "person-room",
+      "category": "transitive-location",
+      "context": "Mia is in the kitchen. The key is with Mia.",
+      "question": "Where is the key?",
+      "choices": [
+        "kitchen",
+        "garden"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "person-room-1",
+      "pair": "person-room",
+      "category": "transitive-location",
+      "context": "Mia is in the garden. The key is with Mia.",
+      "question": "Where is the key?",
+      "choices": [
+        "kitchen",
+        "garden"
+      ],
+      "answer_index": 1
+    },
+    {
+      "id": "container-color-0",
+      "pair": "container-color",
+      "category": "transitive-attribute",
+      "context": "The coin is in the box. The box is red.",
+      "question": "What color is the holder of the coin?",
+      "choices": [
+        "red",
+        "blue"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "container-color-1",
+      "pair": "container-color",
+      "category": "transitive-attribute",
+      "context": "The coin is in the box. The box is blue.",
+      "question": "What color is the holder of the coin?",
+      "choices": [
+        "red",
+        "blue"
+      ],
+      "answer_index": 1
+    },
+    {
+      "id": "pet-food-0",
+      "pair": "pet-food",
+      "category": "transitive-entity",
+      "context": "Tom has a pet cat. The cat likes fish.",
+      "question": "What food is for Tom's pet?",
+      "choices": [
+        "fish",
+        "meat"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "pet-food-1",
+      "pair": "pet-food",
+      "category": "transitive-entity",
+      "context": "Tom has a pet cat. The cat likes meat.",
+      "question": "What food is for Tom's pet?",
+      "choices": [
+        "fish",
+        "meat"
+      ],
+      "answer_index": 1
+    },
+    {
+      "id": "guard-trainer-0",
+      "pair": "guard-trainer",
+      "category": "transitive-binding",
+      "context": "Nora owns Rex. Rex guards the gate.",
+      "question": "Who owns the dog that guards the gate?",
+      "choices": [
+        "Nora",
+        "Lena"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "guard-trainer-1",
+      "pair": "guard-trainer",
+      "category": "transitive-binding",
+      "context": "Lena owns Rex. Rex guards the gate.",
+      "question": "Who owns the dog that guards the gate?",
+      "choices": [
+        "Nora",
+        "Lena"
+      ],
+      "answer_index": 1
+    },
+    {
+      "id": "friend-city-0",
+      "pair": "friend-city",
+      "category": "transitive-location",
+      "context": "Dan visited Leo. Leo stays in Rome.",
+      "question": "Where is the person Dan visited?",
+      "choices": [
+        "Rome",
+        "Paris"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "friend-city-1",
+      "pair": "friend-city",
+      "category": "transitive-location",
+      "context": "Dan visited Leo. Leo stays in Paris.",
+      "question": "Where is the person Dan visited?",
+      "choices": [
+        "Rome",
+        "Paris"
+      ],
+      "answer_index": 1
+    },
+    {
+      "id": "key-room-0",
+      "pair": "key-room",
+      "category": "transitive-distractor",
+      "context": "Ava has the key. Ava is in the hall. Ben has the cup. Ben is in the yard.",
+      "question": "Where is the one who has the key?",
+      "choices": [
+        "hall",
+        "yard"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "key-room-1",
+      "pair": "key-room",
+      "category": "transitive-distractor",
+      "context": "Ava has the key. Ava is in the yard. Ben has the cup. Ben is in the hall.",
+      "question": "Where is the one who has the key?",
+      "choices": [
+        "hall",
+        "yard"
+      ],
+      "answer_index": 1
+    },
+    {
+      "id": "team-prize-0",
+      "pair": "team-prize",
+      "category": "transitive-attribute",
+      "context": "Max plays for Red. Red won gold.",
+      "question": "What did Max's team win?",
+      "choices": [
+        "gold",
+        "silver"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "team-prize-1",
+      "pair": "team-prize",
+      "category": "transitive-attribute",
+      "context": "Max plays for Red. Red won silver.",
+      "question": "What did Max's team win?",
+      "choices": [
+        "gold",
+        "silver"
+      ],
+      "answer_index": 1
+    },
+    {
+      "id": "tool-shelf-0",
+      "pair": "tool-shelf",
+      "category": "transitive-location",
+      "context": "Lily needs the saw. The saw is on the bench.",
+      "question": "Where is what Lily needs?",
+      "choices": [
+        "bench",
+        "floor"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "tool-shelf-1",
+      "pair": "tool-shelf",
+      "category": "transitive-location",
+      "context": "Lily needs the saw. The saw is on the floor.",
+      "question": "Where is what Lily needs?",
+      "choices": [
+        "bench",
+        "floor"
+      ],
+      "answer_index": 1
+    }
+  ]
+}

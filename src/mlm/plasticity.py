@@ -63,6 +63,8 @@ MEMORY_PARAMETERS = {
     "surprise_mem_weight",
     "surprise_span_weight",
     "rel_wavelet_kernel",
+    "rel_liv_gate_kernel",
+    "rel_liv_conv_kernel",
     "rel_q_kernel",
     "rel_k_kernel",
     "rel_v_kernel",
