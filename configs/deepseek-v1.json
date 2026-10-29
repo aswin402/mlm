@@ -6,6 +6,8 @@
   "router_bias_gamma": 0.001,
   "shared_nodes": 1,
   "memory_decay": true,
+  "symmetric_memory": true,
+  "episodic_slots": 8,
   "mtp_weight": 0.1,
   "sinkhorn_edges": true,
   "edge_aggregation": "attention",

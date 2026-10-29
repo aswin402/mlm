@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [0.0.7] - 2026-10-29
+
+### Added
+
+- Bidirectional multi-horizon Laplace trace associative memory (`symmetric_memory=True` in `Config`, `rev_key` / `rev_value` dual Householder writes in `delta_step`, and 4-horizon log-spaced trace bank $\tau \in [2.0, 24.0]$ with 3D `einsum` cross-horizon projections `memory_span_kernel`, `memory_span_bias`, `memory_rev_key_kernel`, `memory_rev_value_kernel` in `GraphLM.__call__`).
+- DeepSeek-V2/V3 Multi-Head Latent Attention (MLA) content-addressed episodic slot buffer (`episodic_slots` in `Config`, `initial_state`, and `GraphLM.__call__` with `episodic_compress_kernel`, `episodic_write_kernel`, `episodic_write_bias`, `episodic_query_kernel`, `episodic_pos_bias`, `episodic_output_kernel`, `episodic_gain`), maintaining $S$ compressed latent slots inside the recurrent carry with content-addressed updates $\sigma(\ell) \odot \text{softmax}(\ell)$ and causal cross-attention readout.
+- Continuous straight-through minimum-magnitude gain floors (`mem_floor` and `ep_floor` in `GraphLM.__call__`), preserving exact zero-init warm-start forward equivalence at step 0 while maintaining non-vanishing gradient flow to upstream associative and episodic parameters across subsequent steps.
+- Multi-seed continual replication across `QA43/English44` and `QA44/English45` comparing `legacy_graph`, `mini_agi_v4`, and `deepseek_v1` (`configs/deepseek-v1.json`), where `deepseek_v1` reduced held-out QA validation loss by 57.5%–59.9% (`0.6837` / `0.7092` vs `1.7059` / `1.6687`) and held-out English validation loss by 4.0%–5.7% (`2.6078` / `2.6693` vs `2.7642` / `2.7802`).
+
+### Changed
+
+- Incremented package and lockfile version to 0.0.7 (121 regression tests passing).
+
 ## [0.0.6] - 2026-10-29
 
 ### Added

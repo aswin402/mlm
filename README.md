@@ -1,6 +1,6 @@
 # Mini Learning Model (MLM)
 
-Version **0.0.6** — an experimental byte-level language model built from small GRU networks connected by a directed graph, with DeepSeekMoE shared + specialist multi-timescale and top-$k$ sparse routing, DeepSeek-V3 auxiliary-loss-free load balancing and causal target-conditioned multi-token prediction (MTP), PonderNet-style adaptive round halting with geometric KL regularization, learned neighbor edge attention with mHC doubly-stochastic Sinkhorn mixing and functional edge rewiring, Gated DeltaNet write-coupled cross-node relational associative memory, activity-modulated local node plasticity, autonomous plateau-gated node growth and pruning, held-out-governed plasticity and power-law curriculum scheduling, DeepSeek-R1 critic-free Group Relative Policy Optimization (GRPO), online stream learning during chat, and hybrid Muon/AdamW optimization.
+Version **0.0.7** — an experimental byte-level language model built from small GRU networks connected by a directed graph, with DeepSeekMoE shared + specialist multi-timescale and top-$k$ sparse routing, DeepSeek-V3 auxiliary-loss-free load balancing and causal target-conditioned multi-token prediction (MTP), PonderNet-style adaptive round halting with geometric KL regularization, learned neighbor edge attention with mHC doubly-stochastic Sinkhorn mixing and functional edge rewiring, Gated DeltaNet write-coupled bidirectional multi-horizon Laplace trace associative memory (`symmetric_memory`), DeepSeek MLA content-addressed latent episodic slots (`episodic_slots`), activity-modulated local node plasticity, autonomous plateau-gated node growth and pruning, held-out-governed plasticity and power-law curriculum scheduling, DeepSeek-R1 critic-free Group Relative Policy Optimization (GRPO), online stream learning during chat, and hybrid Muon/AdamW optimization.
 
 The prototype trains and can memorize tiny binding tasks. Learning remains sensitive to English replay sampling, and reliable generalization and chat are not established. Hardware-sparse kernel execution and a Transformer-replacement claim remain future research.
 
@@ -29,14 +29,16 @@ There is no inference-time entity parser, regex answer generator or symbolic ans
 
 ## Current evidence
 
-In multi-seed continual evaluations under the unified `mlm continual` loop (`configs/mini-agi-v4.json`), `mini_agi_v4` improves both held-out QA validation loss and held-out English validation loss over `legacy_graph` across both `QA43/English44` and `QA44/English45` seed pairs:
+In multi-seed continual evaluations under the unified `mlm continual` loop (`configs/mini-agi-v4.json` and `configs/deepseek-v1.json`), both `mini_agi_v4` and `deepseek_v1` improve held-out QA validation loss and held-out English validation loss over `legacy_graph` across both `QA43/English44` and `QA44/English45` seed pairs:
 
 | Seed pair | Arm | Held-out QA Val Loss ↓ | Held-out English Val Loss ↓ |
 |---|---|---:|---:|
-| `QA43 / English44` | `legacy_graph` | `1.6567` | `2.7623` |
-| `QA43 / English44` | **`mini_agi_v4`** | **`1.3649` (-17.6%)** | **`2.6777` (-3.1%)** |
-| `QA44 / English45` | `legacy_graph` | `1.6809` | `2.7727` |
-| `QA44 / English45` | **`mini_agi_v4`** | **`1.3448` (-20.0%)** | **`2.6574` (-4.2%)** |
+| `QA43 / English44` | `legacy_graph` | `1.7059` | `2.7642` |
+| `QA43 / English44` | `mini_agi_v4` | `1.2522` (-26.6%) | `2.6768` (-3.2%) |
+| `QA43 / English44` | **`deepseek_v1`** | **`0.6837` (-59.9%)** | **`2.6078` (-5.7%)** |
+| `QA44 / English45` | `legacy_graph` | `1.6687` | `2.7802` |
+| `QA44 / English45` | `mini_agi_v4` | `1.2456` (-25.4%) | `2.6957` (-3.0%) |
+| `QA44 / English45` | **`deepseek_v1`** | **`0.7092` (-57.5%)** | **`2.6693` (-4.0%)** |
 
 Earlier [context-contrastive replication](docs/experiments/context-replication/report.md) on the legacy architecture did not repeat the selected pilot: weight 100 learned 16/16 training answers and 4/4 groups on QA43/English44, but remained at 8/16 and 0/4 on QA44/English45, matching its control.
 
@@ -64,7 +66,7 @@ uv run ruff format --check src tests
 uv run ty check src
 ```
 
-The full regression suite passes 120 tests across core graph dynamics, DeepSeekMoE shared + specialist multi-timescale and top-$k$ sparse routing, DeepSeek-V3 auxiliary-loss-free load balancing and causal MTP, adaptive round halting and geometric ponder KL regularization, detached cross-window router balance, learned edge attention with mHC Sinkhorn mixing and edge rewiring, Gated DeltaNet write-coupled cross-node relational memory, activity-modulated local plasticity, Muon orthogonalization, slice-preserving warm optimizer moments, saturation-triggered node growth and pruning, held-out-governed plasticity and power-law lane scheduling, DeepSeek-R1 critic-free GRPO, unified `mlm continual` training, spike-frequency adaptation decoding, online continual chat learning, and historical experiment audits. Separate QA/replay controls are available through `python -m mlm.plasticity_run --qa-seed ... --english-seed ...`; omitted values retain config.seed and config.seed+1. Config.seed still controls initialization and subset selection.
+The full regression suite passes 121 tests across core graph dynamics, DeepSeekMoE shared + specialist multi-timescale and top-$k$ sparse routing, DeepSeek-V3 auxiliary-loss-free load balancing and causal MTP, adaptive round halting and geometric ponder KL regularization, detached cross-window router balance, learned edge attention with mHC Sinkhorn mixing and edge rewiring, Gated DeltaNet write-coupled bidirectional multi-horizon Laplace trace memory and MLA episodic slots, activity-modulated local plasticity, Muon orthogonalization, slice-preserving warm optimizer moments, saturation-triggered node growth and pruning, held-out-governed plasticity and power-law lane scheduling, DeepSeek-R1 critic-free GRPO, unified `mlm continual` training, spike-frequency adaptation decoding, online continual chat learning, and historical experiment audits. Separate QA/replay controls are available through `python -m mlm.plasticity_run --qa-seed ... --english-seed ...`; omitted values retain config.seed and config.seed+1. Config.seed still controls initialization and subset selection.
 
 ## Documentation
 

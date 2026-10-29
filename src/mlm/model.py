@@ -16,6 +16,10 @@ def initial_state(config: Config, batch_size: int):
     nodes = 1 if config.architecture == "gru" else config.nodes
     if config.memory != "none":
         nodes += config.memory_keys
+        if config.symmetric_memory:
+            nodes += 4
+    if config.episodic_slots > 0:
+        nodes += config.episodic_slots
     return jnp.zeros((batch_size, nodes, config.width), dtype=jnp.float32)
 
 
@@ -116,6 +120,40 @@ class GraphLM(nn.Module):
                 "memory_decay_kernel", nn.initializers.zeros, (2 * d, 1)
             )
             memory_decay_bias = self.param("memory_decay_bias", nn.initializers.constant(3.0), ())
+        if c.memory != "none" and c.symmetric_memory:
+            n_tr = 4
+            memory_span_kernel = self.param(
+                "memory_span_kernel", normal(1 / math.sqrt(2 * d)), (2 * d, n_tr)
+            )
+            tr_rates = jnp.exp(-jnp.geomspace(1 / 2.0, 1 / 24.0, n_tr))
+            tr_log_odds = jnp.log((1.0 - tr_rates) / tr_rates)
+            memory_span_bias = self.param("memory_span_bias", lambda *_: tr_log_odds, (n_tr,))
+            memory_rev_key = self.param(
+                "memory_rev_key_kernel",
+                normal(1 / math.sqrt(n_tr * d)),
+                (n_tr, d, c.memory_keys),
+            )
+            memory_rev_value = self.param(
+                "memory_rev_value_kernel",
+                normal(1 / math.sqrt(n_tr * d)),
+                (n_tr, d, d),
+            )
+        if c.episodic_slots > 0:
+            ep_compress = self.param(
+                "episodic_compress_kernel", normal(1 / math.sqrt(2 * d)), (2 * d, d)
+            )
+            ep_write = self.param(
+                "episodic_write_kernel",
+                normal(1 / math.sqrt(2 * d)),
+                (2 * d, c.episodic_slots),
+            )
+            ep_write_bias = self.param("episodic_write_bias", nn.initializers.constant(-2.0), ())
+            ep_query = self.param("episodic_query_kernel", normal(1 / math.sqrt(2 * d)), (2 * d, d))
+            ep_pos_bias = self.param(
+                "episodic_pos_bias", nn.initializers.zeros, (c.episodic_slots,)
+            )
+            ep_output = self.param("episodic_output_kernel", normal(1 / math.sqrt(d)), (d, d))
+            ep_gain = self.param("episodic_gain", nn.initializers.zeros, ())
         if c.mtp_weight > 0:
             mtp_kernel = self.param("mtp_kernel", normal(1 / math.sqrt(2 * d)), (2 * d, d))
         if c.adaptive_halt:
@@ -160,10 +198,18 @@ class GraphLM(nn.Module):
         def token_step(packed, item):
             token, reset, active = item
             previous = packed
-            h = packed[:, :n, :] if c.memory != "none" else packed
+            reset_packed = jnp.where(reset[:, None, None], 0.0, packed)
+            h = reset_packed[:, :n, :]
+            offset = n
             if c.memory != "none":
-                memory = jnp.where(reset[:, None, None], 0.0, packed[:, n:, :])
-            h = jnp.where(reset[:, None, None], 0.0, h)
+                memory = reset_packed[:, offset : offset + c.memory_keys, :]
+                offset += c.memory_keys
+                if c.symmetric_memory:
+                    span_state = reset_packed[:, offset : offset + 4, :]
+                    offset += 4
+            if c.episodic_slots > 0:
+                episodic = reset_packed[:, offset : offset + c.episodic_slots, :]
+                offset += c.episodic_slots
             x = jnp.broadcast_to(embedding[token, None, :], h.shape)
             if c.node_update == "hierarchical":
                 context = jnp.concatenate([embedding[token], h.mean(axis=1)], axis=-1)
@@ -305,9 +351,10 @@ class GraphLM(nn.Module):
                 weights = jax.nn.softmax(energy, axis=1)
                 values = jnp.einsum("bni,nij->bnj", h, read_kernel)
                 z = jnp.einsum("bn,bnd->bd", weights, values) * math.sqrt(n)
+            z_base = z
             if c.memory != "none":
                 if c.memory == "delta":
-                    features = jnp.concatenate([embedding[token], jnp.tanh(z)], axis=-1)
+                    features = jnp.concatenate([embedding[token], jnp.tanh(z_base)], axis=-1)
                     key = jnp.tanh(features @ memory_key)
                     query = jnp.tanh(features @ memory_query)
                     value = jnp.tanh(features @ memory_value)
@@ -316,7 +363,7 @@ class GraphLM(nn.Module):
                     key = jnp.tanh(jnp.einsum("bnd,ndk->bk", h, memory_key))
                     query = jnp.tanh(jnp.einsum("bnd,ndk->bk", h, memory_query))
                     value = jnp.tanh(jnp.einsum("bnd,ndv->bv", h, memory_value))
-                    gate_features = jnp.concatenate([h.mean(axis=1), jnp.tanh(z)], axis=-1)
+                    gate_features = jnp.concatenate([h.mean(axis=1), jnp.tanh(z_base)], axis=-1)
                     beta = jax.nn.sigmoid(
                         math.sqrt(d) * (gate_features @ memory_write) + memory_bias
                     )[:, 0]
@@ -339,18 +386,87 @@ class GraphLM(nn.Module):
                     alpha = 1.0 - 0.1 * beta * (1.0 - decay_gate)
                 else:
                     alpha = None
-                memory, recalled = delta_step(memory, key, value, query, beta, alpha=alpha)
+                if c.symmetric_memory:
+                    s_feat = features if c.memory == "delta" else gate_features
+                    span_gate = jax.nn.sigmoid(
+                        math.sqrt(d) * (s_feat @ memory_span_kernel) + memory_span_bias
+                    )
+                    next_span = (1.0 - span_gate[:, :, None]) * span_state + span_gate[
+                        :, :, None
+                    ] * jnp.tanh(z_base)[:, None, :]
+                    prev_span_key = jnp.tanh(jnp.einsum("bhd,hdk->bk", span_state, memory_rev_key))
+                    key = key + 0.5 * prev_span_key
+                    key = key * jax.lax.rsqrt(jnp.square(key).sum(-1, keepdims=True) + 1e-6)
+                    rev_key = jnp.tanh(jnp.einsum("bhd,hdk->bk", next_span, memory_rev_key))
+                    rev_key = rev_key * jax.lax.rsqrt(
+                        jnp.square(rev_key).sum(-1, keepdims=True) + 1e-6
+                    )
+                    rev_value = jnp.tanh(jnp.einsum("bhd,hdv->bv", span_state, memory_rev_value))
+                    query = query + 0.5 * rev_key
+                    query = query * jax.lax.rsqrt(jnp.square(query).sum(-1, keepdims=True) + 1e-6)
+                    span_state = next_span
+                else:
+                    rev_key = None
+                    rev_value = None
+                memory, recalled = delta_step(
+                    memory,
+                    key,
+                    value,
+                    query,
+                    beta,
+                    alpha=alpha,
+                    rev_key=rev_key,
+                    rev_value=rev_value,
+                )
                 mem_scale = math.sqrt(d) if c.memory == "relational" else 1.0
                 mem_out = (recalled @ memory_output) * mem_scale
-                mem_gate = jax.lax.stop_gradient(jnp.where(memory_gain == 0, 1.0, 0.0))
+                mem_floor = jnp.where(
+                    jnp.abs(memory_gain) < 0.2,
+                    jnp.where(memory_gain >= 0, 0.2, -0.2) - memory_gain,
+                    0.0,
+                )
+                mem_gate = jax.lax.stop_gradient(jnp.where(memory_gain == 0, 1.0, mem_floor))
                 mem_tangent = mem_gate * mem_out
                 mem_diff = mem_tangent - jax.lax.stop_gradient(mem_tangent)
                 z = z + (memory_gain * mem_out + mem_diff)
+            if c.episodic_slots > 0:
+                ep_feat = jnp.concatenate([h.mean(axis=1), jnp.tanh(z_base)], axis=-1)
+                q_ep = ep_feat @ ep_query
+                if c.memory != "none" and c.symmetric_memory:
+                    q_ep = q_ep + span_state.mean(axis=1)
+                ep_scores = (
+                    jnp.einsum("bd,bsd->bs", q_ep, episodic) / math.sqrt(d) + ep_pos_bias[None, :]
+                )
+                ep_attn = jax.nn.softmax(ep_scores, axis=-1)
+                ep_recalled = jnp.einsum("bs,bsd->bd", ep_attn, episodic)
+                ep_out = (ep_recalled @ ep_output) * math.sqrt(d)
+                ep_floor = jnp.where(
+                    jnp.abs(ep_gain) < 0.2,
+                    jnp.where(ep_gain >= 0, 0.2, -0.2) - ep_gain,
+                    0.0,
+                )
+                ep_gate = jax.lax.stop_gradient(jnp.where(ep_gain == 0, 1.0, ep_floor))
+                ep_tangent = ep_gate * ep_out
+                ep_diff = ep_tangent - jax.lax.stop_gradient(ep_tangent)
+                z = z + (ep_gain * ep_out + ep_diff)
+                c_lat = jnp.tanh(ep_feat @ ep_compress)
+                w_logits = math.sqrt(d) * (ep_feat @ ep_write) + ep_write_bias
+                w_ep = jax.nn.sigmoid(w_logits) * jax.nn.softmax(w_logits, axis=-1)
+                episodic = (1.0 - w_ep[:, :, None]) * episodic + w_ep[:, :, None] * c_lat[
+                    :, None, :
+                ]
             mean = z.mean(axis=-1, keepdims=True)
             variance = jnp.square(z - mean).mean(axis=-1, keepdims=True)
             z = (z - mean) * jax.lax.rsqrt(variance + 1e-5)
             logits = (z * scale + norm_bias) @ vocab_kernel + vocab_bias
-            packed = jnp.concatenate([h, memory], axis=1) if c.memory != "none" else h
+            parts = [h]
+            if c.memory != "none":
+                parts.append(memory)
+                if c.symmetric_memory:
+                    parts.append(span_state)
+            if c.episodic_slots > 0:
+                parts.append(episodic)
+            packed = parts[0] if len(parts) == 1 else jnp.concatenate(parts, axis=1)
             h = jnp.where(active[:, None, None], packed, previous)
             routes = jnp.where(active[:, None], route_probs, 0.0)
             return h, (logits, routes, ponder_kl, z)

@@ -26,6 +26,8 @@ class Config(BaseModel):
     shared_nodes: int = Field(default=0, ge=0, le=64)
     router_bias_gamma: float = Field(default=0.0, ge=0, le=1, allow_inf_nan=False)
     memory_decay: bool = False
+    symmetric_memory: bool = False
+    episodic_slots: int = Field(default=0, ge=0, le=128)
     mtp_weight: float = Field(default=0.0, ge=0, le=1, allow_inf_nan=False)
     sinkhorn_edges: bool = False
     edges: tuple[tuple[int, ...], ...] | None = None
@@ -82,6 +84,10 @@ class Config(BaseModel):
                 raise ValueError("shared_nodes + top_k_nodes must not exceed nodes")
         if self.memory_decay and self.memory == "none":
             raise ValueError("memory_decay requires memory != 'none'")
+        if self.symmetric_memory and self.memory == "none":
+            raise ValueError("symmetric_memory requires memory != 'none'")
+        if self.episodic_slots > 0 and self.architecture == "gru":
+            raise ValueError("episodic_slots requires graph architecture")
         if self.sinkhorn_edges and (
             self.architecture == "gru" or self.edge_aggregation != "attention"
         ):

@@ -47,8 +47,19 @@ MEMORY_PARAMETERS = {
     "memory_write_bias",
     "memory_decay_kernel",
     "memory_decay_bias",
+    "memory_span_kernel",
+    "memory_span_bias",
+    "memory_rev_key_kernel",
+    "memory_rev_value_kernel",
     "memory_output_kernel",
     "memory_gain",
+    "episodic_compress_kernel",
+    "episodic_write_kernel",
+    "episodic_write_bias",
+    "episodic_query_kernel",
+    "episodic_pos_bias",
+    "episodic_output_kernel",
+    "episodic_gain",
 }
 
 

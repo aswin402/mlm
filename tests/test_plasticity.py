@@ -867,3 +867,69 @@ def test_deepseek_v3_causal_mtp_and_r1_grpo_step():
     _, final_m = grpo_objective(state.params, ref_params, state.apply_fn, g_batch, g_rewards, cfg)
     final_gap = float(final_m["seq_logp"][0] - jnp.mean(final_m["seq_logp"][1:]))
     assert final_gap > init_gap
+
+
+def test_symmetric_span_memory_and_mla_episodic_ring_buffer():
+    from mlm.associative import delta_step
+
+    # 1. Verify bidirectional delta_step binds both key->value and rev_key->rev_value
+    mem = jnp.zeros((1, 4, 4), dtype=jnp.float32)
+    k_fwd = jnp.asarray([[1.0, 0.0, 0.0, 0.0]])
+    v_fwd = jnp.asarray([[0.0, 1.0, 0.0, 0.0]])
+    k_rev = jnp.asarray([[0.0, 0.0, 1.0, 0.0]])
+    v_rev = jnp.asarray([[0.0, 0.0, 0.0, 1.0]])
+    beta = jnp.asarray([1.0])
+    mem_after, _ = delta_step(mem, k_fwd, v_fwd, k_fwd, beta, rev_key=k_rev, rev_value=v_rev)
+    _, recalled_fwd = delta_step(mem_after, k_fwd, v_fwd, k_fwd, jnp.asarray([0.0]))
+    _, recalled_rev = delta_step(mem_after, k_fwd, v_fwd, k_rev, jnp.asarray([0.0]))
+    assert np.allclose(np.asarray(recalled_fwd), np.asarray(v_fwd), atol=1e-5)
+    assert np.allclose(np.asarray(recalled_rev), np.asarray(v_rev), atol=1e-5)
+
+    # 2. Verify GraphLM with symmetric_memory=True and episodic_slots=4
+    cfg = Config(
+        nodes=4,
+        width=8,
+        degree=2,
+        rounds=2,
+        node_update="timescale",
+        memory="relational",
+        memory_keys=4,
+        memory_decay=True,
+        symmetric_memory=True,
+        episodic_slots=4,
+        batch_size=2,
+        length=6,
+    )
+    carry = initial_state(cfg, 2)
+    # 4 nodes + 4 memory_keys + 4 trace_horizons + 4 episodic_slots = 16 rows
+    assert carry.shape == (2, 16, 8)
+
+    state = create_state(cfg)
+    batch = {
+        "inputs": jnp.asarray(
+            [[65, 66, 67, 68, 69, 70], [71, 72, 73, 74, 75, 76]], dtype=jnp.int32
+        ),
+        "targets": jnp.asarray(
+            [[66, 67, 68, 69, 70, 71], [72, 73, 74, 75, 76, 77]], dtype=jnp.int32
+        ),
+        "mask": jnp.ones((2, 6), dtype=jnp.float32),
+        "resets": jnp.zeros((2, 6), dtype=bool).at[:, 0].set(True),
+    }
+    (_, (final_carry, _)), grads = jax.value_and_grad(routed_objective, has_aux=True)(
+        state.params, state.apply_fn, batch, carry, cfg
+    )
+    assert final_carry.shape == (2, 16, 8)
+    for param_name in (
+        "memory_span_kernel",
+        "memory_span_bias",
+        "memory_rev_key_kernel",
+        "memory_rev_value_kernel",
+        "episodic_compress_kernel",
+        "episodic_write_kernel",
+        "episodic_write_bias",
+        "episodic_query_kernel",
+        "episodic_pos_bias",
+        "episodic_output_kernel",
+        "episodic_gain",
+    ):
+        assert float(jnp.linalg.norm(grads[param_name])) > 0.0, f"Zero grad for {param_name}"
