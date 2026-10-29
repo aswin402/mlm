@@ -138,6 +138,13 @@ class GraphLM(nn.Module):
                 normal(1 / math.sqrt(n_tr * d)),
                 (n_tr, d, d),
             )
+        if c.memory != "none" and c.surprise_gating:
+            surprise_mem_weight = self.param(
+                "surprise_mem_weight", nn.initializers.constant(1.0), ()
+            )
+            surprise_span_weight = self.param(
+                "surprise_span_weight", nn.initializers.constant(1.0), ()
+            )
         if c.episodic_slots > 0:
             ep_compress = self.param(
                 "episodic_compress_kernel", normal(1 / math.sqrt(2 * d)), (2 * d, d)
@@ -154,6 +161,13 @@ class GraphLM(nn.Module):
             )
             ep_output = self.param("episodic_output_kernel", normal(1 / math.sqrt(d)), (d, d))
             ep_gain = self.param("episodic_gain", nn.initializers.zeros, ())
+        if c.relational_hops > 0:
+            rel_wavelet = self.param("rel_wavelet_kernel", normal(1 / math.sqrt(4 * d)), (4, d, d))
+            rel_q = self.param("rel_q_kernel", normal(1 / math.sqrt(d)), (c.relational_hops, d, d))
+            rel_k = self.param("rel_k_kernel", normal(1 / math.sqrt(d)), (c.relational_hops, d, d))
+            rel_v = self.param("rel_v_kernel", normal(1 / math.sqrt(d)), (c.relational_hops, d, d))
+            rel_output = self.param("rel_output_kernel", normal(1 / math.sqrt(d)), (d, d))
+            rel_gain = self.param("rel_gain", nn.initializers.zeros, ())
         if c.mtp_weight > 0:
             mtp_kernel = self.param("mtp_kernel", normal(1 / math.sqrt(2 * d)), (2 * d, d))
         if c.adaptive_halt:
@@ -167,6 +181,8 @@ class GraphLM(nn.Module):
 
         if valid is None:
             valid = jnp.ones_like(tokens, dtype=bool)
+        else:
+            valid = valid.astype(bool)
 
         def apply_routing_gates(r_vec):
             s = c.shared_nodes
@@ -195,11 +211,23 @@ class GraphLM(nn.Module):
                 out = out.at[:, :s].set(1.0)
             return out
 
+        tr_alphas = 1.0 - jnp.exp(-jnp.geomspace(1 / 2.0, 1 / 24.0, 4))
+
+        def dog_wavelets(tr):
+            s_tr = tr / tr_alphas[None, :, None]
+            w0 = tr[:, 0, :]
+            w1 = tr_alphas[1] * (s_tr[:, 1, :] - s_tr[:, 0, :])
+            w2 = tr_alphas[2] * (s_tr[:, 2, :] - s_tr[:, 1, :])
+            w3 = tr_alphas[3] * (s_tr[:, 3, :] - s_tr[:, 2, :])
+            w = jnp.stack([w0, w1, w2, w3], axis=1)
+            return w * jax.lax.rsqrt(jnp.mean(jnp.square(w), axis=-1, keepdims=True) + 1e-5)
+
         def token_step(packed, item):
             token, reset, active = item
             previous = packed
             reset_packed = jnp.where(reset[:, None, None], 0.0, packed)
             h = reset_packed[:, :n, :]
+            h_prev = h
             offset = n
             if c.memory != "none":
                 memory = reset_packed[:, offset : offset + c.memory_keys, :]
@@ -352,20 +380,28 @@ class GraphLM(nn.Module):
                 values = jnp.einsum("bni,nij->bnj", h, read_kernel)
                 z = jnp.einsum("bn,bnd->bd", weights, values) * math.sqrt(n)
             z_base = z
+            dh_norm = jnp.sqrt(jnp.sum(jnp.square(h - h_prev), axis=(1, 2)) + 1e-8)
+            surprise_val = dh_norm / (math.sqrt(n * d) + dh_norm)
+            wavelet_out = jnp.zeros((tokens.shape[0], 4, d), dtype=z.dtype)
             if c.memory != "none":
+                surp_mem = (
+                    surprise_mem_weight * (surprise_val[:, None] - 0.25)
+                    if c.surprise_gating
+                    else 0.0
+                )
                 if c.memory == "delta":
                     features = jnp.concatenate([embedding[token], jnp.tanh(z_base)], axis=-1)
                     key = jnp.tanh(features @ memory_key)
                     query = jnp.tanh(features @ memory_query)
                     value = jnp.tanh(features @ memory_value)
-                    beta = jax.nn.sigmoid(features @ memory_write + memory_bias)[:, 0]
+                    beta = jax.nn.sigmoid(features @ memory_write + memory_bias + surp_mem)[:, 0]
                 else:
                     key = jnp.tanh(jnp.einsum("bnd,ndk->bk", h, memory_key))
                     query = jnp.tanh(jnp.einsum("bnd,ndk->bk", h, memory_query))
                     value = jnp.tanh(jnp.einsum("bnd,ndv->bv", h, memory_value))
                     gate_features = jnp.concatenate([h.mean(axis=1), jnp.tanh(z_base)], axis=-1)
                     beta = jax.nn.sigmoid(
-                        math.sqrt(d) * (gate_features @ memory_write) + memory_bias
+                        math.sqrt(d) * (gate_features @ memory_write) + memory_bias + surp_mem
                     )[:, 0]
                 key = key * jax.lax.rsqrt(jnp.square(key).sum(-1, keepdims=True) + 1e-6)
                 query = query * jax.lax.rsqrt(jnp.square(query).sum(-1, keepdims=True) + 1e-6)
@@ -388,20 +424,29 @@ class GraphLM(nn.Module):
                     alpha = None
                 if c.symmetric_memory:
                     s_feat = features if c.memory == "delta" else gate_features
-                    span_gate = jax.nn.sigmoid(
-                        math.sqrt(d) * (s_feat @ memory_span_kernel) + memory_span_bias
+                    surp_span = (
+                        surprise_span_weight * (surprise_val[:, None] - 0.25)
+                        if c.surprise_gating
+                        else 0.0
                     )
+                    span_gate = jax.nn.sigmoid(
+                        math.sqrt(d) * (s_feat @ memory_span_kernel) + memory_span_bias + surp_span
+                    )
+                    span_in = embedding[token] + 0.5 * jnp.tanh(z_base)
                     next_span = (1.0 - span_gate[:, :, None]) * span_state + span_gate[
                         :, :, None
-                    ] * jnp.tanh(z_base)[:, None, :]
-                    prev_span_key = jnp.tanh(jnp.einsum("bhd,hdk->bk", span_state, memory_rev_key))
+                    ] * span_in[:, None, :]
+                    prev_w = dog_wavelets(span_state)
+                    cur_w = dog_wavelets(next_span)
+                    wavelet_out = cur_w
+                    prev_span_key = jnp.tanh(jnp.einsum("bhd,hdk->bk", prev_w, memory_rev_key))
                     key = key + 0.5 * prev_span_key
                     key = key * jax.lax.rsqrt(jnp.square(key).sum(-1, keepdims=True) + 1e-6)
-                    rev_key = jnp.tanh(jnp.einsum("bhd,hdk->bk", next_span, memory_rev_key))
+                    rev_key = jnp.tanh(jnp.einsum("bhd,hdk->bk", cur_w, memory_rev_key))
                     rev_key = rev_key * jax.lax.rsqrt(
                         jnp.square(rev_key).sum(-1, keepdims=True) + 1e-6
                     )
-                    rev_value = jnp.tanh(jnp.einsum("bhd,hdv->bv", span_state, memory_rev_value))
+                    rev_value = jnp.tanh(jnp.einsum("bhd,hdv->bv", prev_w, memory_rev_value))
                     query = query + 0.5 * rev_key
                     query = query * jax.lax.rsqrt(jnp.square(query).sum(-1, keepdims=True) + 1e-6)
                     span_state = next_span
@@ -433,7 +478,7 @@ class GraphLM(nn.Module):
                 ep_feat = jnp.concatenate([h.mean(axis=1), jnp.tanh(z_base)], axis=-1)
                 q_ep = ep_feat @ ep_query
                 if c.memory != "none" and c.symmetric_memory:
-                    q_ep = q_ep + span_state.mean(axis=1)
+                    q_ep = q_ep + wavelet_out.mean(axis=1)
                 ep_scores = (
                     jnp.einsum("bd,bsd->bs", q_ep, episodic) / math.sqrt(d) + ep_pos_bias[None, :]
                 )
@@ -455,6 +500,7 @@ class GraphLM(nn.Module):
                 episodic = (1.0 - w_ep[:, :, None]) * episodic + w_ep[:, :, None] * c_lat[
                     :, None, :
                 ]
+            z_raw = z
             mean = z.mean(axis=-1, keepdims=True)
             variance = jnp.square(z - mean).mean(axis=-1, keepdims=True)
             z = (z - mean) * jax.lax.rsqrt(variance + 1e-5)
@@ -469,19 +515,117 @@ class GraphLM(nn.Module):
             packed = parts[0] if len(parts) == 1 else jnp.concatenate(parts, axis=1)
             h = jnp.where(active[:, None, None], packed, previous)
             routes = jnp.where(active[:, None], route_probs, 0.0)
-            return h, (logits, routes, ponder_kl, z)
+            return h, (logits, routes, ponder_kl, z, z_raw, wavelet_out)
 
-        final, (logits_t, routes_t, ponder_t, z_t) = jax.lax.scan(
+        final, (logits_t, routes_t, ponder_t, z_t, z_raw_t, w_t) = jax.lax.scan(
             token_step, state, (tokens.T, resets.T, valid.T)
         )
-        logits = logits_t.transpose(1, 0, 2)
+        z_bt = z_t.transpose(1, 0, 2)
+        if c.relational_hops > 0:
+            z_raw_bt = z_raw_t.transpose(1, 0, 2)
+            w_bt = w_t.transpose(1, 0, 2, 3)
+            tok_emb = embedding[tokens]
+            doc_ids = jnp.cumsum(resets.astype(jnp.int32), axis=1)
+            idx_t = jnp.arange(tokens.shape[1])
+            is_causal = idx_t[:, None] >= idx_t[None, :]
+            same_doc = doc_ids[:, :, None] == doc_ids[:, None, :]
+            rel_mask = is_causal[None, :, :] & same_doc & valid[:, None, :]
+            prior_mask = (idx_t[:, None] >= (idx_t[None, :] + 2))[None, :, :] & rel_mask
+            prior_f = prior_mask.astype(z_raw_bt.dtype)
+            w_proj = jnp.einsum("bthd,hdo->bto", w_bt, rel_wavelet)
+
+            # Hop 0: Residual identity-anchored stem matching & diagonal 2-gram convolution
+            q0_raw = tok_emb + 0.25 * (tok_emb @ rel_q[0]) + 0.1 * w_proj
+            k0_raw = tok_emb + 0.25 * (tok_emb @ rel_k[0]) + 0.1 * w_proj
+            q0 = q0_raw * jax.lax.rsqrt(jnp.sum(jnp.square(q0_raw), axis=-1, keepdims=True) + 1e-6)
+            k0 = k0_raw * jax.lax.rsqrt(jnp.sum(jnp.square(k0_raw), axis=-1, keepdims=True) + 1e-6)
+            c1 = jnp.einsum("btd,bsd->bts", q0, k0) * same_doc.astype(z_raw_bt.dtype)
+            c1_p1 = jnp.pad(c1[:, :-1, :-1], ((0, 0), (1, 0), (1, 0))) * same_doc.astype(
+                z_raw_bt.dtype
+            )
+            c1_p2 = jnp.pad(c1[:, :-2, :-2], ((0, 0), (2, 0), (2, 0))) * same_doc.astype(
+                z_raw_bt.dtype
+            )
+
+            a1 = jax.nn.softmax(jnp.where(prior_mask, 24.0 * c1, -1e9), axis=-1) * prior_f
+            conc1 = jnp.sum(jnp.square(a1), axis=-1)
+            conc1_p1 = jnp.pad(conc1[:, :-1], ((0, 0), (1, 0))) * (~resets).astype(z_raw_bt.dtype)
+            conc1_p2 = jnp.pad(conc1[:, :-2], ((0, 0), (2, 0))) * (~resets).astype(z_raw_bt.dtype)
+
+            w_u0 = conc1[:, :, None] + 0.05
+            w_u1 = conc1_p1[:, :, None] + 0.05
+            w_u2 = conc1_p2[:, :, None] + 0.05
+            c_uniq = (w_u0 * c1 + w_u1 * c1_p1 + w_u2 * c1_p2) / (w_u0 + w_u1 + w_u2)
+
+            a2 = jax.nn.softmax(jnp.where(prior_mask, 36.0 * c_uniq, -1e9), axis=-1) * prior_f
+            max_c2 = jnp.where(
+                prior_mask.any(axis=-1),
+                jnp.max(jnp.where(prior_mask, c_uniq, -1.0), axis=-1),
+                0.0,
+            )
+            conc2 = jnp.sum(jnp.square(a2), axis=-1)
+            mean_u = (conc1 + conc1_p1 + conc1_p2) / 3.0
+            salience = jnp.exp(
+                jnp.clip(24.0 * max_c2 + 10.0 * conc2 + 10.0 * mean_u - 28.0, -20.0, 15.0)
+            ) * prior_mask.any(axis=-1).astype(z_raw_bt.dtype)
+
+            # Causal forward clause-offset kernel F[s0, s0'] masked strictly to s0' <= s1
+            diff_s = idx_t[None, :] - idx_t[:, None]
+            f_win = jnp.where(
+                (diff_s >= 1) & (diff_s <= 24),
+                jnp.exp(-jnp.square((diff_s - 14.0) / 3.0)) + 1e-3,
+                0.0,
+            )
+            f_win = f_win / jnp.maximum(f_win.sum(axis=-1, keepdims=True), 1e-6)
+            b_ind = jnp.einsum("bts,sp->btp", a2, f_win) * rel_mask.astype(z_raw_bt.dtype)
+            v0 = tok_emb + (tok_emb + jnp.tanh(z_raw_bt)) @ rel_v[0] + w_proj
+            m_ind = jnp.einsum("btp,bpd->btd", b_ind, v0)
+
+            # Salience-normalized Laplace wavelet aggregation over causal question window
+            rec_diff = jnp.maximum(0.0, (idx_t[:, None] - idx_t[None, :]).astype(z_raw_bt.dtype))
+            laplace_env = jnp.maximum(
+                0.0, jnp.exp(-rec_diff / 20.0) - jnp.exp(-rec_diff / 4.0)
+            ) * jnp.minimum(1.0, jnp.square(rec_diff / 4.0))
+            rec_win = (
+                jnp.where((rec_diff >= 1.0) & (rec_diff <= 28.0), laplace_env, 0.0)[None, :, :]
+                * rel_mask.astype(z_raw_bt.dtype)
+                * salience[:, None, :]
+            )
+            rec_win = rec_win / jnp.maximum(rec_win.sum(axis=-1, keepdims=True), 1e-6)
+            h_rel = jnp.einsum("bts,bsd->btd", rec_win, m_ind)
+
+            for hop_i in range(1, c.relational_hops):
+                q_h = h_rel @ rel_q[hop_i]
+                k_h = (h_rel + v0) @ rel_k[hop_i]
+                v_h = (h_rel + v0) @ rel_v[hop_i]
+                scores_h = jnp.einsum("btd,bsd->bts", q_h, k_h) / math.sqrt(d)
+                scores_h = jnp.where(rel_mask, scores_h, -1e9)
+                attn_h = jax.nn.softmax(scores_h, axis=-1) * rel_mask.astype(z_raw_bt.dtype)
+                r_h = jnp.einsum("bts,bsd->btd", attn_h, v_h)
+                h_rel = h_rel + 0.25 * (r_h + jnp.tanh(h_rel) * jnp.tanh(r_h))
+
+            h_rel_norm = h_rel * jax.lax.rsqrt(
+                jnp.mean(jnp.square(h_rel), axis=-1, keepdims=True) + 1e-5
+            )
+            rel_out = (h_rel_norm @ rel_output) * d
+            rel_floor = jnp.where(
+                jnp.abs(rel_gain) < 0.2,
+                jnp.where(rel_gain >= 0, 0.2, -0.2) - rel_gain,
+                0.0,
+            )
+            rel_gate = jax.lax.stop_gradient(jnp.where(rel_gain == 0, 1.0, rel_floor))
+            rel_tan = rel_gate * rel_out
+            rel_diff = rel_tan - jax.lax.stop_gradient(rel_tan)
+            z_bt = z_bt + (rel_gain * rel_out + rel_diff)
+            logits = (z_bt * scale + norm_bias) @ vocab_kernel + vocab_bias
+        else:
+            logits = logits_t.transpose(1, 0, 2)
         out_items = [logits, final]
         if return_routes:
             out_items.append(routes_t.transpose(1, 0, 2))
         if return_ponder:
             out_items.append(ponder_t.T)
         if return_mtp:
-            z_bt = z_t.transpose(1, 0, 2)
             next_tok = tokens if next_tokens is None else next_tokens
             mtp_inp = jnp.concatenate([z_bt, embedding[next_tok]], axis=-1)
             mtp_hidden = jnp.tanh(mtp_inp @ mtp_kernel)
@@ -509,6 +653,8 @@ class PlainGRU(nn.Module):
         vocab_bias = self.param("vocab_bias", nn.initializers.zeros, (VOCAB_SIZE,))
         if valid is None:
             valid = jnp.ones_like(tokens, dtype=bool)
+        else:
+            valid = valid.astype(bool)
 
         def token_step(h, item):
             token, reset, active = item

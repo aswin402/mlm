@@ -933,3 +933,69 @@ def test_symmetric_span_memory_and_mla_episodic_ring_buffer():
         "episodic_gain",
     ):
         assert float(jnp.linalg.norm(grads[param_name])) > 0.0, f"Zero grad for {param_name}"
+
+
+def test_surprise_gating_dog_wavelets_and_relational_hops():
+    cfg = Config(
+        nodes=4,
+        width=8,
+        degree=2,
+        rounds=2,
+        node_update="timescale",
+        memory="relational",
+        memory_keys=4,
+        memory_decay=True,
+        symmetric_memory=True,
+        surprise_gating=True,
+        episodic_slots=4,
+        relational_hops=2,
+        batch_size=2,
+        length=6,
+    )
+    carry = initial_state(cfg, 2)
+    state = create_state(cfg)
+    batch = {
+        "inputs": jnp.asarray(
+            [[65, 66, 67, 68, 69, 70], [71, 72, 73, 74, 75, 76]], dtype=jnp.int32
+        ),
+        "targets": jnp.asarray(
+            [[66, 67, 68, 69, 70, 71], [72, 73, 74, 75, 76, 77]], dtype=jnp.int32
+        ),
+        "mask": jnp.ones((2, 6), dtype=jnp.float32),
+        "resets": jnp.zeros((2, 6), dtype=bool).at[:, 0].set(True),
+    }
+    (_, (final_carry, _)), grads = jax.value_and_grad(routed_objective, has_aux=True)(
+        state.params, state.apply_fn, batch, carry, cfg
+    )
+    assert final_carry.shape == (2, 16, 8)
+    for param_name in (
+        "surprise_mem_weight",
+        "surprise_span_weight",
+        "rel_wavelet_kernel",
+        "rel_q_kernel",
+        "rel_k_kernel",
+        "rel_v_kernel",
+        "rel_output_kernel",
+        "rel_gain",
+    ):
+        assert float(jnp.linalg.norm(grads[param_name])) > 0.0, f"Zero grad for {param_name}"
+
+    # Verify strict causal masking across document resets when relational_hops > 0
+    params_active = dict(state.params, rel_gain=jnp.asarray(0.5, dtype=jnp.float32))
+    inputs_a = jnp.asarray([[65, 66, 67, 68, 69, 70]], dtype=jnp.int32)
+    inputs_b = jnp.asarray([[65, 66, 67, 90, 91, 92]], dtype=jnp.int32)
+    resets_1 = jnp.asarray([[True, False, False, True, False, False]])
+    logits_a, _ = state.apply_fn(
+        {"params": params_active}, inputs_a, initial_state(cfg, 1), resets_1
+    )
+    logits_b, _ = state.apply_fn(
+        {"params": params_active}, inputs_b, initial_state(cfg, 1), resets_1
+    )
+    # First 3 tokens (before second reset at index 3) must be strictly identical
+    assert np.allclose(np.asarray(logits_a[:, :3]), np.asarray(logits_b[:, :3]), atol=1e-5)
+    # And tokens after a reset at index 3 must not depend on tokens before index 3
+    inputs_c = jnp.asarray([[80, 81, 82, 68, 69, 70]], dtype=jnp.int32)
+    logits_c, _ = state.apply_fn(
+        {"params": params_active}, inputs_c, initial_state(cfg, 1), resets_1
+    )
+    assert np.allclose(np.asarray(logits_a[:, 3:]), np.asarray(logits_c[:, 3:]), atol=1e-5)

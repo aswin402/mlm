@@ -60,6 +60,14 @@ MEMORY_PARAMETERS = {
     "episodic_pos_bias",
     "episodic_output_kernel",
     "episodic_gain",
+    "surprise_mem_weight",
+    "surprise_span_weight",
+    "rel_wavelet_kernel",
+    "rel_q_kernel",
+    "rel_k_kernel",
+    "rel_v_kernel",
+    "rel_output_kernel",
+    "rel_gain",
 }
 
 
@@ -874,6 +882,8 @@ def grpo_objective(
         r_std_g = jnp.sqrt(jnp.mean(jnp.square(r_raw - r_mean_g), axis=-1, keepdims=True) + 1e-8)
         advantages = jax.lax.stop_gradient(((r_raw - r_mean_g) / (r_std_g + 1e-4)).reshape(-1))
         pos_weights = jnp.where(r_raw > r_mean_g, 1.0, 0.0).reshape(-1)
+        seq_g = seq_logp.reshape(r_raw.shape)
+        centered_logp = (seq_g - jnp.mean(seq_g, axis=-1, keepdims=True)).reshape(-1)
         r = r_raw.reshape(-1)
         r_mean = jnp.mean(r)
     else:
@@ -882,11 +892,13 @@ def grpo_objective(
         r_std = jnp.sqrt(jnp.mean(jnp.square(r - r_mean)) + 1e-8)
         advantages = jax.lax.stop_gradient((r - r_mean) / (r_std + 1e-4))
         pos_weights = jnp.where(r > r_mean, 1.0, 0.0)
+        centered_logp = seq_logp - jnp.mean(seq_logp)
 
     log_ratio = jnp.clip(seq_logp - ref_seq_logp, -10.0, 10.0)
     ratio = jnp.exp(log_ratio)
     clipped_ratio = jnp.clip(ratio, 1.0 - clip_eps, 1.0 + clip_eps)
     pg_loss = -jnp.mean(jnp.minimum(ratio * advantages, clipped_ratio * advantages))
+    pref_loss = jnp.mean(jax.nn.softplus(-4.0 * advantages * centered_logp))
 
     # DeepSeek-R1 unbiased non-negative KL estimator: exp(ref - cur) - (ref - cur) - 1
     diff_ref_cur = jnp.clip(ref_seq_logp - seq_logp, -10.0, 10.0)
@@ -895,7 +907,7 @@ def grpo_objective(
     pos_denom = jnp.maximum(pos_weights.sum(), 1.0)
     sft_loss = jnp.sum((-seq_logp) * pos_weights) / pos_denom
 
-    total = pg_loss + kl_beta * kl_div + sft_alpha * sft_loss
+    total = pg_loss + 0.5 * pref_loss + kl_beta * kl_div + sft_alpha * sft_loss
     metrics = {
         "loss": total,
         "pg_loss": pg_loss,

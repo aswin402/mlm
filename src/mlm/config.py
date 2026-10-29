@@ -27,7 +27,9 @@ class Config(BaseModel):
     router_bias_gamma: float = Field(default=0.0, ge=0, le=1, allow_inf_nan=False)
     memory_decay: bool = False
     symmetric_memory: bool = False
+    surprise_gating: bool = False
     episodic_slots: int = Field(default=0, ge=0, le=128)
+    relational_hops: int = Field(default=0, ge=0, le=4)
     mtp_weight: float = Field(default=0.0, ge=0, le=1, allow_inf_nan=False)
     sinkhorn_edges: bool = False
     edges: tuple[tuple[int, ...], ...] | None = None
@@ -88,6 +90,10 @@ class Config(BaseModel):
             raise ValueError("symmetric_memory requires memory != 'none'")
         if self.episodic_slots > 0 and self.architecture == "gru":
             raise ValueError("episodic_slots requires graph architecture")
+        if self.surprise_gating and self.memory == "none":
+            raise ValueError("surprise_gating requires memory != 'none'")
+        if self.relational_hops > 0 and self.architecture == "gru":
+            raise ValueError("relational_hops requires graph architecture")
         if self.sinkhorn_edges and (
             self.architecture == "gru" or self.edge_aggregation != "attention"
         ):
