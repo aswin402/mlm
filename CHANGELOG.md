@@ -2,6 +2,31 @@
 
 ## [Unreleased]
 
+## [0.0.9] - 2026-10-29
+
+### Added
+
+- Hyperspherical heat / RBF 3-gram kernel ($K_3(t, s) = \exp(24(C_3(t, s) - 1))$) and symmetric bilinear stem matching (`qk_sym`) in `GraphLM.__call__`, eliminating low-dimensional ($d=16$) random unit-vector cross-talk while preserving exact 3-gram stem self-similarity.
+- Multi-scale bidirectional clause-offset retrieval (`f_fwd`, `f_bwd` over Gaussian offset centers $[6.0, 9.5, 13.5, 15.0]$) with diagonal left-predicate alignment gating (`align_left = (k3_m5 + k3_m7 + k3_m9) / 3.0`, `g_bwd`), automatically switching between forward `Subject -> Attribute / Object` retrieval and backward `Predicate + Object -> Subject / Modifier` retrieval.
+- Dual-stage causal question-window 3-gram complement gating (`u_val` with context-horizon gate `ctx_gate` at anchor step $s_1$, and `u_val_t` over causal question window $[t - 42, t - 8]$ at readout step $t$), Tikhonov ridge-normalized induction (`b_ind`), and question-horizon gating (`q_horizon`) to prevent teacher-forced candidate answer prefixes from hijacking the Laplace question window.
+- Readout-anchored unit value projection (`vocab_unit` from column-centered `vocab_kernel`) in `GraphLM.__call__`, enabling zero-shot token-to-logit transfer across all 259 byte tokens and achieving `100.0%` (`24/24`) individual accuracy and `100.0%` (`12/12`) counterfactual pair accuracy on `data/evaluation/reading-v1.json`, alongside `100.0%` (`16/16`) train/dev QA accuracy and `0.0179` QA continual loss (`-99.6%`) on the DeepSeek continual benchmark.
+
+### Changed
+
+- Incremented package and lockfile version to 0.0.9 (122 regression tests passing).
+
+## [0.0.8] - 2026-10-29
+
+### Added
+
+- Titans-inspired prediction-surprise associative write gating (`surprise_gating=True` in `Config`, `surprise_mem_weight` and `surprise_span_weight` in `GraphLM.__call__`), modulating fast-weight delta writes and multi-horizon trace updates by normalized predictive gradient norm.
+- Multi-scale Difference-of-Gaussians (DoG) / Laplace wavelet filter bank (`wavelet_out` in `GraphLM.__call__`) transforming exponentially decaying trace horizons into zero-mean band-pass edge detectors across clause and entity boundaries.
+- Causal 3-gram Simpson-weighted relational induction circuit (`relational_hops` in `Config`, `rel_wavelet_kernel`, `rel_q_kernel`, `rel_k_kernel`, `rel_v_kernel`, `rel_output_kernel`, `rel_gain` in `GraphLM.__call__`) achieving `100.0%` train and held-out dev counterfactual QA accuracy on multi-entity continual binding.
+
+### Changed
+
+- Incremented package and lockfile version to 0.0.8 (122 regression tests passing).
+
 ## [0.0.7] - 2026-10-29
 
 ### Added

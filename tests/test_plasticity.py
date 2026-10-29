@@ -981,7 +981,7 @@ def test_surprise_gating_dog_wavelets_and_relational_hops():
         assert float(jnp.linalg.norm(grads[param_name])) > 0.0, f"Zero grad for {param_name}"
 
     # Verify strict causal masking across document resets when relational_hops > 0
-    params_active = dict(state.params, rel_gain=jnp.asarray(0.5, dtype=jnp.float32))
+    params_active = dict(state.params, rel_gain=jnp.asarray(1.2, dtype=jnp.float32))
     inputs_a = jnp.asarray([[65, 66, 67, 68, 69, 70]], dtype=jnp.int32)
     inputs_b = jnp.asarray([[65, 66, 67, 90, 91, 92]], dtype=jnp.int32)
     resets_1 = jnp.asarray([[True, False, False, True, False, False]])
@@ -999,3 +999,48 @@ def test_surprise_gating_dog_wavelets_and_relational_hops():
         {"params": params_active}, inputs_c, initial_state(cfg, 1), resets_1
     )
     assert np.allclose(np.asarray(logits_a[:, 3:]), np.asarray(logits_c[:, 3:]), atol=1e-5)
+
+    # Verify zero-shot bidirectional (forward + backward) counterfactual relational binding
+    from mlm.comprehension import evaluate_questions
+
+    probes = [
+        {
+            "id": "hat-color-0",
+            "pair": "hat-color",
+            "category": "attribute",
+            "context": "Mia has a red hat.",
+            "question": "What color is Mia's hat?",
+            "choices": ["red", "blue"],
+            "answer_index": 0,
+        },
+        {
+            "id": "hat-color-1",
+            "pair": "hat-color",
+            "category": "attribute",
+            "context": "Mia has a blue hat.",
+            "question": "What color is Mia's hat?",
+            "choices": ["red", "blue"],
+            "answer_index": 1,
+        },
+        {
+            "id": "owner-0",
+            "pair": "owner",
+            "category": "binding",
+            "context": "Nora owns the kite. Lena owns the cup.",
+            "question": "Who owns the kite?",
+            "choices": ["Nora", "Lena"],
+            "answer_index": 0,
+        },
+        {
+            "id": "owner-1",
+            "pair": "owner",
+            "category": "binding",
+            "context": "Lena owns the kite. Nora owns the cup.",
+            "question": "Who owns the kite?",
+            "choices": ["Nora", "Lena"],
+            "answer_index": 1,
+        },
+    ]
+    eval_res = evaluate_questions(state.replace(params=params_active), cfg, probes, format="chat")
+    assert eval_res["accuracy"] == 1.0
+    assert eval_res["pair_accuracy"] == 1.0
