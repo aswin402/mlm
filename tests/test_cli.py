@@ -177,3 +177,114 @@ def test_resume_after_checkpoint_interrupt_and_partial_log(tmp_path, monkeypatch
     assert int(restored.step) == 2
     for line in (run / "metrics.jsonl").read_text().splitlines():
         assert json.loads(line)["step"] <= 2
+
+
+def test_chat_tui_and_thinking_telemetry(tmp_path, capsys):
+    import io
+
+    from mlm.config import Config
+    from mlm.generate import format_chat_prompt, generate_with_trace
+    from mlm.training import create_state
+    from mlm.tui import chat_main, run_chat_tui
+
+    cfg = Config(
+        node_update="timescale",
+        nodes=4,
+        shared_nodes=1,
+        top_k_nodes=2,
+        width=16,
+        degree=2,
+        rounds=1,
+        memory="relational",
+        memory_keys=4,
+        memory_decay=True,
+        symmetric_memory=True,
+        episodic_slots=4,
+        relational_hops=3,
+    )
+    state = create_state(cfg)
+
+    prompt = format_chat_prompt(
+        "Where is the key?",
+        context="Mia is in the attic. Dan is with Mia. The key is with Dan.",
+    )
+    reply, trace = generate_with_trace(state, cfg, prompt, max_bytes=16)
+    assert reply == "attic"
+    assert trace["relational_active"] is True
+    assert trace["query_anchor"] == "key"
+    assert len(trace["hops"]) == 3
+    assert trace["hops"][0]["target_word"] == "Dan"
+    assert trace["hops"][1]["target_word"] == "Mia"
+    assert trace["hops"][2]["target_word"] == "attic"
+    assert trace["onset_word"] == "attic"
+    assert trace["speculative_accepted"] >= 4
+    assert trace["index_share_density"] > 0.0
+
+    # Autonomous command-free TUI session with natural multi-turn facts & multi-hop QA
+    in_buf = io.StringIO(
+        "Mia is in the attic. Dan is with Mia. The key is with Dan.\n"
+        "Where is the key?\n"
+        "Where is Dan?\n"
+        "Where is Mia?\n"
+        "Tom was in the yard.\n"
+        "Tom is in the hall.\n"
+        "Where is Tom?\n"
+        "quit\n"
+    )
+    out_buf = io.StringIO()
+    saved_ckpt = tmp_path / "tui_saved.mlm"
+    new_state, new_cfg = run_chat_tui(
+        state,
+        cfg,
+        ckpt_label="test-init",
+        max_bytes=16,
+        learn=False,
+        show_thinking=True,
+        save_path=saved_ckpt,
+        input_stream=in_buf,
+        output_stream=out_buf,
+        color=False,
+    )
+    output = out_buf.getvalue()
+    assert "MLM Interactive Neural Console" in output
+    assert "Autonomous Chat: Type facts or questions naturally" in output
+    assert "Model Thinking & Telemetry (<think>)" in output
+    assert "Hop 1 [Clause C2]: anchor 'key'" in output
+    assert "Hop 2 [Clause C1]: bridge 'Dan'" in output
+    assert "Hop 3 [Clause C0]: bridge 'Mia'" in output
+    assert "spec_accepted=" in output
+    assert "idx_share=" in output
+    assert "MLM ❯ attic" in output
+    assert "MLM ❯ hall" in output
+    assert "SAO Episodic Bank:" in output
+    assert new_cfg.nodes == 4
+    assert saved_ckpt.exists()
+
+    # Verify SAO episodic state-overwrite compaction evicts superseded same-subject location facts
+    from mlm.generate import LiveLearner
+
+    learner = LiveLearner(state, cfg, max_episodic_facts=3)
+    learner.remember_facts("Tom is in the yard.")
+    learner.remember_facts("Mia is in the attic.")
+    learner.remember_facts("Dan is in the lab.")
+    compacted = learner.remember_facts("Tom is in the hall.")
+    assert compacted >= 1
+    assert len(learner.episodic_facts) <= 3
+    assert "Tom is in the hall." in learner.episodic_facts
+    assert "Tom is in the yard." not in learner.episodic_facts
+
+    # Single-turn CLI `mlm chat` and `mlm-chat` with --show-thinking
+    chat_main(
+        [
+            str(saved_ckpt),
+            "--context",
+            "Bob's pet is cat. cat's toy is orb.",
+            "--message",
+            "What toy belongs to Bob?",
+            "--show-thinking",
+        ]
+    )
+    captured = capsys.readouterr().out
+    assert "Model Thinking & Telemetry (<think>)" in captured
+    assert "orb" in captured
+    assert "prompt eval:" in captured

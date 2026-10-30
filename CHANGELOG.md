@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+## [0.0.12] - 2026-10-31
+
+### Added
+
+- **Kimi Delta Attention (KDA) Channel-Wise Decay + ShortConv Value Smoothing (`arXiv:2510.26692` / GLM-5.3-Flash):** Factored per-key + per-channel retention matrix $\boldsymbol{\Alpha}_{b,k,d} = \alpha_{b,k} \cdot \alpha^{\text{chan}}_{b,d}$ (`channel_alpha` in `delta_step`, `mlm.associative`) and fast Laplace short-convolution smoothing (`0.15 * jnp.tanh(span_state[:, 0, :])`) on associative memory writes in `GraphLM.__call__` (`mlm.model`).
+- **4-Stream `mHC` Doubly-Stochastic Readout Highway (`arXiv:2512.24880` / GLM-5.3-Flash):** Birkhoff polytope Sinkhorn-Knopp mixing (`sinkhorn_stream_mix` in `mlm.graph`) across the 4 parallel recurrent readout streams (`[z_base, mem_contrib, wavelet_stream, ep_contrib]`) in `GraphLM.__call__`, preserving exact zero-init warm-start equivalence at step 0 (`mhc_active` gate).
+- **`IndexShare` Cross-Hop Sparse Entity Indexer (`arXiv:2603.12201` / GLM-5.2 & GLM-5.3-Flash):** Shared non-function 3-gram word-ending entity mask (`shared_entity_index = is_3letter_end * not_func_word * ctx_t`) computed once and reused across Hops `1..H`, with active density exported in telemetry (`index_share_density`).
+- **GLM-5.3-Flash Speculative Multi-Byte Span Drafting & Single-Pass Verification:** When the relational word-onset consolidator identifies a multi-byte context word (`onset_word` with `onset_mass >= 0.35`), `generate_with_trace` (`mlm.generate`) drafts the remaining word bytes and verifies the entire span + `<EOS>` in a single parallel `step_seq_fast` forward call with 100% lossless greedy equivalence (`speculative_accepted` in `trace`).
+- **Causal Temporal State-Overwrite & Multi-Attribute Clause Specificity:** Per-clause query specificity (`spec_k`), causal temporal recency (`clause_priority = exp(3.5 * spec_k + 1.8 * k_cl)`, `bridge_recency`), and backward-adjacent modifier retrieval (`f_adj_bwd`, `before_period_t`, `not_func_word`, `prep4_before_final`) in `GraphLM.__call__`, plus the 16-probe (8 counterfactual pairs) temporal and multi-attribute benchmark `data/evaluation/reading-v4-temporal.json`, achieving `100.0%` (`16/16`) accuracy and `100.0%` (`8/8`) pair accuracy across both `plain` and `chat` formats (`144/144` total open-ended generation probes across `v1`–`v4`).
+- **Command-Free Interactive Neural Console (`mlm-chat`) & Autonomous `SAO` Episodic Compaction:** Added `mlm chat` / `mlm-chat` (`mlm.tui`) with live `<think>` reasoning telemetry, automatic multi-turn episodic working memory (`remember_facts`, `resolve_context`, `_record_episodic_qa`), `SAO` state-overwrite compaction (`compact_episodic_facts` in `LiveLearner`), and background sleep consolidation (`LiveLearner.consolidate`: stream flush + DeepSeek-R1 critic-free GRPO reinforcement + functional edge rewiring).
+
+### Changed
+
+- Incremented package and lockfile version to 0.0.12 (123 regression tests passing).
+
 ## [0.0.11] - 2026-10-30
 
 ### Added

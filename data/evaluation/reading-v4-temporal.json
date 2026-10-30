@@ -1,0 +1,198 @@
+{
+  "version": 4,
+  "purpose": "Evaluation-only temporal state-update, multi-attribute same-subject disambiguation, and 2-hop/3-hop state-override counterfactual probes; never used for training or checkpoint selection",
+  "questions": [
+    {
+      "id": "temporal-room-0",
+      "pair": "temporal-room",
+      "category": "temporal-location",
+      "context": "Mia was in the yard. Mia is in the hall.",
+      "question": "Where is Mia?",
+      "choices": [
+        "hall",
+        "yard"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "temporal-room-1",
+      "pair": "temporal-room",
+      "category": "temporal-location",
+      "context": "Mia was in the hall. Mia is in the yard.",
+      "question": "Where is Mia?",
+      "choices": [
+        "hall",
+        "yard"
+      ],
+      "answer_index": 1
+    },
+    {
+      "id": "temporal-color-0",
+      "pair": "temporal-color",
+      "category": "temporal-attribute",
+      "context": "The box was blue. The box is red.",
+      "question": "What color is the box?",
+      "choices": [
+        "red",
+        "blue"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "temporal-color-1",
+      "pair": "temporal-color",
+      "category": "temporal-attribute",
+      "context": "The box was red. The box is blue.",
+      "question": "What color is the box?",
+      "choices": [
+        "red",
+        "blue"
+      ],
+      "answer_index": 1
+    },
+    {
+      "id": "temporal-pet-0",
+      "pair": "temporal-pet",
+      "category": "temporal-entity",
+      "context": "Tom had a pet dog. Tom has a pet cat.",
+      "question": "What pet does Tom have?",
+      "choices": [
+        "cat",
+        "dog"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "temporal-pet-1",
+      "pair": "temporal-pet",
+      "category": "temporal-entity",
+      "context": "Tom had a pet cat. Tom has a pet dog.",
+      "question": "What pet does Tom have?",
+      "choices": [
+        "cat",
+        "dog"
+      ],
+      "answer_index": 1
+    },
+    {
+      "id": "multi-attr-c0-0",
+      "pair": "multi-attr-c0",
+      "category": "multi-attribute",
+      "context": "Mia has a red hat. Mia has a blue bag.",
+      "question": "What color is Mia's hat?",
+      "choices": [
+        "red",
+        "blue"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "multi-attr-c0-1",
+      "pair": "multi-attr-c0",
+      "category": "multi-attribute",
+      "context": "Mia has a blue hat. Mia has a red bag.",
+      "question": "What color is Mia's hat?",
+      "choices": [
+        "red",
+        "blue"
+      ],
+      "answer_index": 1
+    },
+    {
+      "id": "multi-attr-c1-0",
+      "pair": "multi-attr-c1",
+      "category": "multi-attribute",
+      "context": "Mia has a blue bag. Mia has a red hat.",
+      "question": "What color is Mia's hat?",
+      "choices": [
+        "red",
+        "blue"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "multi-attr-c1-1",
+      "pair": "multi-attr-c1",
+      "category": "multi-attribute",
+      "context": "Mia has a red bag. Mia has a blue hat.",
+      "question": "What color is Mia's hat?",
+      "choices": [
+        "red",
+        "blue"
+      ],
+      "answer_index": 1
+    },
+    {
+      "id": "2hop-temp-fwd-0",
+      "pair": "2hop-temp-fwd",
+      "category": "2hop-temporal",
+      "context": "The key is with Mia. Mia was in the yard. Mia is in the hall.",
+      "question": "Where is the key?",
+      "choices": [
+        "hall",
+        "yard"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "2hop-temp-fwd-1",
+      "pair": "2hop-temp-fwd",
+      "category": "2hop-temporal",
+      "context": "The key is with Mia. Mia was in the hall. Mia is in the yard.",
+      "question": "Where is the key?",
+      "choices": [
+        "hall",
+        "yard"
+      ],
+      "answer_index": 1
+    },
+    {
+      "id": "2hop-temp-bwd-0",
+      "pair": "2hop-temp-bwd",
+      "category": "2hop-temporal",
+      "context": "Mia was in the yard. Mia is in the hall. The key is with Mia.",
+      "question": "Where is the key?",
+      "choices": [
+        "hall",
+        "yard"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "2hop-temp-bwd-1",
+      "pair": "2hop-temp-bwd",
+      "category": "2hop-temporal",
+      "context": "Mia was in the hall. Mia is in the yard. The key is with Mia.",
+      "question": "Where is the key?",
+      "choices": [
+        "hall",
+        "yard"
+      ],
+      "answer_index": 1
+    },
+    {
+      "id": "3hop-dist-0",
+      "pair": "3hop-dist",
+      "category": "3hop-distractor",
+      "context": "Mia is in the attic. Dan is with Mia. The key is with Dan. Leo is in the cellar.",
+      "question": "Where is the key?",
+      "choices": [
+        "attic",
+        "cellar"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "3hop-dist-1",
+      "pair": "3hop-dist",
+      "category": "3hop-distractor",
+      "context": "Mia is in the cellar. Dan is with Mia. The key is with Dan. Leo is in the attic.",
+      "question": "Where is the key?",
+      "choices": [
+        "attic",
+        "cellar"
+      ],
+      "answer_index": 1
+    }
+  ]
+}

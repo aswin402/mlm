@@ -9,7 +9,7 @@ from flax import linen as nn
 from mlm.associative import delta_step
 from mlm.config import Config
 from mlm.data import EOS, VOCAB_SIZE
-from mlm.graph import aggregate, sinkhorn_edge_weights, topology
+from mlm.graph import aggregate, sinkhorn_edge_weights, sinkhorn_stream_mix, topology
 
 
 def initial_state(config: Config, batch_size: int):
@@ -39,6 +39,7 @@ class GraphLM(nn.Module):
         return_mtp: bool = False,
         next_tokens=None,
         router_bias=None,
+        return_telemetry: bool = False,
     ):
         c = self.config
         d, n = c.width, c.nodes
@@ -426,8 +427,11 @@ class GraphLM(nn.Module):
                         math.sqrt(d) * (d_feat @ memory_decay_kernel + d_diff) + memory_decay_bias
                     )
                     alpha = jnp.exp(-0.15 * beta[:, None] * (1.0 - decay_gate))
+                    chan_gate = jax.nn.sigmoid(math.sqrt(d) * jnp.tanh(z_base) + h.mean(axis=1))
+                    channel_alpha = jnp.exp(-0.08 * beta[:, None] * (1.0 - chan_gate))
                 else:
                     alpha = None
+                    channel_alpha = None
                 if c.symmetric_memory:
                     s_feat = features if c.memory == "delta" else gate_features
                     surp_span = (
@@ -448,6 +452,7 @@ class GraphLM(nn.Module):
                     prev_span_key = jnp.tanh(jnp.einsum("bhd,hdk->bk", prev_w, memory_rev_key))
                     key = key + 0.5 * prev_span_key
                     key = key * jax.lax.rsqrt(jnp.square(key).sum(-1, keepdims=True) + 1e-6)
+                    value = value + 0.15 * jnp.tanh(span_state[:, 0, :])
                     rev_key = jnp.tanh(jnp.einsum("bhd,hdk->bk", cur_w, memory_rev_key))
                     rev_key = rev_key * jax.lax.rsqrt(
                         jnp.square(rev_key).sum(-1, keepdims=True) + 1e-6
@@ -468,6 +473,7 @@ class GraphLM(nn.Module):
                     alpha=alpha,
                     rev_key=rev_key,
                     rev_value=rev_value,
+                    channel_alpha=channel_alpha,
                 )
                 mem_scale = math.sqrt(d) if c.memory == "relational" else 1.0
                 mem_out = (recalled @ memory_output) * mem_scale
@@ -479,7 +485,10 @@ class GraphLM(nn.Module):
                 mem_gate = jax.lax.stop_gradient(jnp.where(memory_gain == 0, 1.0, mem_floor))
                 mem_tangent = mem_gate * mem_out
                 mem_diff = mem_tangent - jax.lax.stop_gradient(mem_tangent)
-                z = z + (memory_gain * mem_out + mem_diff)
+                mem_contrib = memory_gain * mem_out + mem_diff
+                z = z + mem_contrib
+            else:
+                mem_contrib = jnp.zeros_like(z)
             if c.episodic_slots > 0:
                 ep_feat = jnp.concatenate([h.mean(axis=1), jnp.tanh(z_base)], axis=-1)
                 q_ep = ep_feat @ ep_query
@@ -499,13 +508,30 @@ class GraphLM(nn.Module):
                 ep_gate = jax.lax.stop_gradient(jnp.where(ep_gain == 0, 1.0, ep_floor))
                 ep_tangent = ep_gate * ep_out
                 ep_diff = ep_tangent - jax.lax.stop_gradient(ep_tangent)
-                z = z + (ep_gain * ep_out + ep_diff)
+                ep_contrib = ep_gain * ep_out + ep_diff
+                z = z + ep_contrib
                 c_lat = jnp.tanh(ep_feat @ ep_compress)
                 w_logits = math.sqrt(d) * (ep_feat @ ep_write) + ep_write_bias
                 w_ep = jax.nn.sigmoid(w_logits) * jax.nn.softmax(w_logits, axis=-1)
                 episodic = (1.0 - w_ep[:, :, None]) * episodic + w_ep[:, :, None] * c_lat[
                     :, None, :
                 ]
+            else:
+                ep_contrib = jnp.zeros_like(z)
+            if (
+                c.sinkhorn_edges
+                and c.memory != "none"
+                and c.symmetric_memory
+                and c.episodic_slots > 0
+            ):
+                streams_4 = jnp.stack(
+                    [z_base, mem_contrib, 0.1 * wavelet_out.mean(axis=1), ep_contrib], axis=1
+                )
+                mixed_4, _ = sinkhorn_stream_mix(streams_4, iters=4)
+                mhc_active = jax.lax.stop_gradient(
+                    jnp.where((memory_gain == 0) & (ep_gain == 0), 0.0, 1.0)
+                )
+                z = z + 0.1 * mhc_active * (mixed_4.sum(axis=1) - streams_4.sum(axis=1))
             z_raw = z
             mean = z.mean(axis=-1, keepdims=True)
             variance = jnp.square(z - mean).mean(axis=-1, keepdims=True)
@@ -657,7 +683,7 @@ class GraphLM(nn.Module):
             in_chat_q = jnp.exp(-10.0 * jnp.square(cum_nl - 1.0)) * (1.0 - is_nl_9)
             in_chat_body = (in_chat_ctx + in_chat_q)[:, None, :]
 
-            same_tok = jnp.where(c1 > 0.92, 1.0, 0.0) * pair_f
+            same_tok = jnp.where(c1 > 0.985, 1.0, 0.0) * pair_f
             is_consec_dup = jnp.max(
                 jnp.where(
                     pair_valid & (idx_t[:, None] == idx_t[None, :] + 1)[None, :, :],
@@ -693,9 +719,7 @@ class GraphLM(nn.Module):
             max_freq_t = jnp.max(space_score_t * not_reset_f[:, None, :], axis=-1, keepdims=True)
             rel_freq_t = space_score_t / jnp.maximum(max_freq_t, 1e-6)
             is_space_t = (
-                jax.nn.sigmoid(100.0 * (space_score_t - 0.85 * max_freq_t))
-                * not_reset_f[:, None, :]
-                * rel_f
+                jax.nn.sigmoid(500.0 * (rel_freq_t - 0.96)) * not_reset_f[:, None, :] * rel_f
             )
             not_space_t = (1.0 - is_space_t) * not_reset_f[:, None, :] * rel_f
 
@@ -740,6 +764,7 @@ class GraphLM(nn.Module):
             ctx_end = g_chat * p_chat_idx + (1.0 - g_chat) * p_plain_idx
             q_start = g_chat * (p_chat_idx + 1.0) + (1.0 - g_chat) * (p_plain_idx + 11.0)
             q_end = g_chat * (q_chat_idx - 14.0) + (1.0 - g_chat) * (q_plain_idx - 8.0)
+            q_full_end = g_chat * (q_chat_idx - 14.0) + (1.0 - g_chat) * (q_plain_idx - 5.0)
 
             ctx_exact = (
                 jax.nn.sigmoid(10.0 * (p1_idx - (ctx_start - 0.5)))
@@ -750,6 +775,12 @@ class GraphLM(nn.Module):
             q_exact = (
                 jax.nn.sigmoid(10.0 * (p1_idx - (q_start - 0.5)))
                 * jax.nn.sigmoid(10.0 * ((q_end - 0.5) - p1_idx))
+                * not_reset_f[:, None, :]
+                * rel_f
+            )
+            q_full_exact = (
+                jax.nn.sigmoid(10.0 * (p1_idx - (q_start - 0.5)))
+                * jax.nn.sigmoid(10.0 * ((q_full_end - 0.5) - p1_idx))
                 * not_reset_f[:, None, :]
                 * rel_f
             )
@@ -788,10 +819,6 @@ class GraphLM(nn.Module):
                 0.0,
             )
             conc2 = jnp.sum(jnp.square(a2), axis=-1)
-            mean_u = (conc1 + conc1_p1 + conc1_p2) / 3.0
-            salience = jnp.exp(
-                jnp.clip(36.0 * max_c2 + 12.0 * conc2 + 6.0 * mean_u - 42.0, -20.0, 15.0)
-            ) * prior_mask.any(axis=-1).astype(z_raw_bt.dtype)
 
             # Hyperspherical Heat / RBF 3-gram kernel for question-complement & bidirectional gating
             k3_rbf = jnp.exp(24.0 * (c3 - 1.0)) * pair_f
@@ -863,14 +890,66 @@ class GraphLM(nn.Module):
             f_bwd = jnp.where((diff_s <= -1.0) & (diff_s >= -24.0), f_bwd_raw + 1e-3, 0.0)
             f_fwd = f_fwd / jnp.maximum(f_fwd.sum(axis=-1, keepdims=True), 1e-6)
             f_bwd = f_bwd / jnp.maximum(f_bwd.sum(axis=-1, keepdims=True), 1e-6)
+            f_adj_bwd = jnp.where(
+                (diff_s <= -2.0) & (diff_s >= -7.0),
+                jnp.exp(-jnp.square((diff_s + 4.0) / 1.8)),
+                0.0,
+            )
+            f_adj_bwd = f_adj_bwd / jnp.maximum(f_adj_bwd.sum(axis=-1, keepdims=True), 1e-6)
 
-            p_fwd = jnp.einsum("bts,sp->btp", a2, f_fwd)
+            before_period_t = jnp.zeros_like(is_period_t)
+            ns_run = jnp.ones_like(not_space_t)
+            for k_bp in range(1, 7):
+                p_shift = jnp.pad(is_period_t, ((0, 0), (0, 0), (0, k_bp)))[
+                    :, :, k_bp : t_len + k_bp
+                ]
+                before_period_t = before_period_t + ns_run * p_shift
+                ns_shift = jnp.pad(not_space_t, ((0, 0), (0, 0), (0, k_bp)))[
+                    :, :, k_bp : t_len + k_bp
+                ]
+                ns_run = ns_run * ns_shift
+            before_period_t = jnp.clip(before_period_t, 0.0, 1.0) * ctx_exact
+
+            p_fwd = jnp.einsum("bts,sp->btp", a2 * (1.0 - before_period_t), f_fwd) + jnp.einsum(
+                "bts,sp->btp", a2 * before_period_t, f_adj_bwd
+            )
             p_bwd = jnp.einsum("bts,sp->btp", a2, f_bwd)
             v0 = v0_u + 1e-4 * jnp.tanh(
                 tok_emb + (tok_emb + jnp.tanh(z_raw_bt)) @ rel_v[0] + 0.1 * w_proj + 0.5 * liv_stem
             )
 
             # Salience-normalized Laplace wavelet aggregation anchored at q_end + 8.0
+            ns_q1 = jnp.pad(not_space_t, ((0, 0), (0, 0), (1, 0)))[:, :, :t_len]
+            ns_q2 = jnp.pad(not_space_t, ((0, 0), (0, 0), (2, 0)))[:, :, :t_len]
+            is_q_3gram = not_space_t * ns_q1 * ns_q2
+            not_wh_word = jax.nn.sigmoid(5.0 * (p1_idx - (q_start + 4.5)))
+            a2_ctx_mass = jnp.einsum("bqs,bts->btq", a2, ctx_exact)
+            a2_ctx_sq = jnp.einsum("bqs,bts->btq", jnp.square(a2), ctx_exact)
+            conc2_ctx = jnp.where(
+                a2_ctx_mass > 0.1,
+                a2_ctx_sq / jnp.maximum(jnp.square(a2_ctx_mass), 1e-6),
+                conc2[:, None, :],
+            )
+            a1_ctx_mass = jnp.einsum("bqs,bts->btq", a1, ctx_exact)
+            a1_ctx_sq = jnp.einsum("bqs,bts->btq", jnp.square(a1), ctx_exact)
+            conc1_ctx = jnp.where(
+                a1_ctx_mass > 0.1,
+                a1_ctx_sq / jnp.maximum(jnp.square(a1_ctx_mass), 1e-6),
+                conc1[:, None, :],
+            )
+            conc1_ctx_p1 = jnp.pad(conc1_ctx, ((0, 0), (0, 0), (1, 0)))[:, :, :t_len]
+            conc1_ctx_p2 = jnp.pad(conc1_ctx, ((0, 0), (0, 0), (2, 0)))[:, :, :t_len]
+            mean_u_ctx = (conc1_ctx + conc1_ctx_p1 + conc1_ctx_p2) / 3.0
+            salience_t = (
+                jnp.exp(
+                    jnp.clip(
+                        36.0 * max_c2[:, None, :] + 12.0 * conc2_ctx + 6.0 * mean_u_ctx - 42.0,
+                        -20.0,
+                        15.0,
+                    )
+                )
+                * prior_mask.any(axis=-1).astype(z_raw_bt.dtype)[:, None, :]
+            )
             t_ref = q_end + 8.0
             rec_diff = jnp.maximum(0.0, t_ref - p1_idx)
             q_horizon = jax.nn.sigmoid(3.0 * (rec_diff - 9.5)) + 1e-4
@@ -882,19 +961,47 @@ class GraphLM(nn.Module):
             rec_win = (
                 jnp.where((rec_diff >= 1.0) & (rec_diff <= 36.0), laplace_env, 0.0)
                 * q_exact
-                * salience[:, None, :]
+                * is_q_3gram
+                * not_wh_word
+                * salience_t
             )
             rec_win = rec_win / jnp.maximum(rec_win.sum(axis=-1, keepdims=True), 1e-6)
 
             s1_mean = jnp.sum(rec_win * p1_idx, axis=-1, keepdims=True)
             q_win_t = (
-                q_exact
+                q_full_exact
+                * is_q_3gram
+                * not_wh_word
                 * jax.nn.sigmoid(2.0 * (p1_idx - (s1_mean - 25.0)))
                 * jax.nn.sigmoid(2.0 * ((s1_mean + 8.0) - p1_idx))
                 * rel_f
             )
             k3_sharp_ns = jnp.where(non_self3, jnp.exp(48.0 * (c3 - 1.0)) * pair_f, 0.0)
-            q_hits_t = jnp.einsum("btq,bqp->btp", q_win_t, k3_sharp_ns) * is_3letter_end * rel_f
+            sp_m3_q = jnp.pad(is_space_t, ((0, 0), (0, 0), (3, 0)))[:, :, :t_len]
+            sp_p1_q = jnp.pad(is_space_t, ((0, 0), (0, 0), (0, 1)))[:, :, 1 : t_len + 1]
+            is_q_word3_end = is_q_3gram * sp_m3_q * sp_p1_q
+            is_clause_init_end = (
+                is_3letter_end
+                * (1.0 - jnp.pad(not_delim_t, ((0, 0), (0, 0), (0, 1)))[:, :, 1 : t_len + 1])
+                * jnp.clip(
+                    jnp.exp(-10.0 * jnp.square(p1_idx - (ctx_start + 2.0)))
+                    + jnp.pad(is_period_t, ((0, 0), (0, 0), (4, 0)))[:, :, :t_len],
+                    0.0,
+                    1.0,
+                )
+            )
+            k2_ci_ns = jnp.where(
+                non_self3, jnp.exp(48.0 * (0.5 * (c1 + c1_p1) - 1.0)) * pair_f, 0.0
+            )
+            q_hits_ci = (
+                jnp.einsum("btq,bqp->btp", q_win_t * is_q_word3_end, k2_ci_ns)
+                * is_clause_init_end
+                * rel_f
+            )
+            q_hits_t = (
+                jnp.einsum("btq,bqp->btp", q_win_t, k3_sharp_ns) * is_3letter_end * rel_f
+                + q_hits_ci
+            )
             q_t1 = jnp.pad(q_hits_t, ((0, 0), (0, 0), (0, 1)))[
                 :, :, 1 : t_len + 1
             ] * mask_p1.astype(z_raw_bt.dtype)
@@ -910,18 +1017,87 @@ class GraphLM(nn.Module):
             b_raw_plain = b_base * (u_val + 1e-3) * rel_f
             b_raw_chat = b_base * (u_val_chat + 1e-3) * rel_f
 
-            attn_from_b = jnp.zeros_like(ctx_exact)
-            for k_cl in range(4):
+            prev_delim_t = (
+                1.0 - jnp.pad(not_delim_t, ((0, 0), (0, 0), (1, 0)))[:, :, :t_len]
+            ) * rel_f
+            ns_1_t = jnp.pad(not_delim_t, ((0, 0), (0, 0), (0, 1)))[:, :, 1 : t_len + 1]
+            ns_2_t = jnp.pad(not_delim_t, ((0, 0), (0, 0), (0, 2)))[:, :, 2 : t_len + 2]
+            is_word3 = prev_delim_t * not_delim_t * ns_1_t * ns_2_t
+
+            # Suppress determiners/prepositions preceding an unsuppressed clause-final noun
+            unsupp_final_onset = is_word3 * before_period_t * u_val_t
+            det_before_final_0 = (
+                jnp.pad(unsupp_final_onset, ((0, 0), (0, 0), (0, 4)))[:, :, 4 : t_len + 4]
+                * is_word3
+                * (1.0 - jnp.pad(not_delim_t, ((0, 0), (0, 0), (0, 3)))[:, :, 3 : t_len + 3])
+            )
+            det_before_final = (
+                det_before_final_0
+                + jnp.pad(det_before_final_0, ((0, 0), (0, 0), (1, 0)))[:, :, :t_len]
+                + jnp.pad(det_before_final_0, ((0, 0), (0, 0), (2, 0)))[:, :, :t_len]
+            )
+            prep4_before_final_0 = (
+                jnp.pad(unsupp_final_onset, ((0, 0), (0, 0), (0, 5)))[:, :, 5 : t_len + 5]
+                * is_word3
+                * jnp.pad(not_delim_t, ((0, 0), (0, 0), (0, 3)))[:, :, 3 : t_len + 3]
+                * (1.0 - jnp.pad(not_delim_t, ((0, 0), (0, 0), (0, 4)))[:, :, 4 : t_len + 4])
+            )
+            prep4_before_final = (
+                prep4_before_final_0
+                + jnp.pad(prep4_before_final_0, ((0, 0), (0, 0), (1, 0)))[:, :, :t_len]
+                + jnp.pad(prep4_before_final_0, ((0, 0), (0, 0), (2, 0)))[:, :, :t_len]
+                + jnp.pad(prep4_before_final_0, ((0, 0), (0, 0), (3, 0)))[:, :, :t_len]
+            )
+            sp_p1_t = jnp.pad(is_space_t, ((0, 0), (0, 0), (0, 1)))[:, :, 1 : t_len + 1]
+            nd_p2_t = jnp.pad(not_delim_t, ((0, 0), (0, 0), (0, 2)))[:, :, 2 : t_len + 2]
+            sp_p3_t = jnp.pad(is_space_t, ((0, 0), (0, 0), (0, 3)))[:, :, 3 : t_len + 3]
+            before_art_end = is_3letter_end * sp_p1_t * nd_p2_t * sp_p3_t
+            before_art_a = (
+                before_art_end
+                + jnp.pad(before_art_end, ((0, 0), (0, 0), (0, 1)))[:, :, 1 : t_len + 1]
+                + jnp.pad(before_art_end, ((0, 0), (0, 0), (0, 2)))[:, :, 2 : t_len + 2]
+            )
+            not_func_word = 1.0 - jnp.clip(
+                det_before_final + prep4_before_final + before_art_a, 0.0, 1.0
+            )
+            fwd_target_pref = 1.0 - 0.85 * (1.0 - g_bwd) * (1.0 - not_func_word)
+
+            # Causal state-overwrite (temporal recency) & multi-attribute clause specificity
+            q_spec_mask = q_full_exact * is_q_3gram * not_wh_word
+            clause_priority = jnp.zeros_like(ctx_exact)
+            for k_cl in range(6):
                 c_k = jnp.exp(-10.0 * jnp.square(clause_id_t - float(k_cl))) * ctx_exact
-                q_in_k = jnp.einsum("bqs,bts->btq", a2, c_k) * rel_f
+                q_match_k = jnp.max(
+                    k3_sharp_ns[:, None, :, :] * (c_k * is_3letter_end)[:, :, None, :],
+                    axis=-1,
+                )
+                spec_k = jnp.sum(q_spec_mask * q_match_k, axis=-1, keepdims=True)
+                prio_k = jnp.exp(jnp.clip(3.5 * spec_k + 1.8 * float(k_cl), -20.0, 25.0))
+                clause_priority = clause_priority + c_k * prio_k
+
+            subj_pref = clause_priority
+            q_ctx_mass = jnp.einsum("bqs,bts->btq", a2, ctx_exact)
+            q_subj_denom = jnp.maximum(jnp.einsum("bqs,bts->btq", a2, subj_pref), 1e-6)
+            attn_from_b = jnp.zeros_like(ctx_exact)
+            for k_cl in range(6):
+                c_k = jnp.exp(-10.0 * jnp.square(clause_id_t - float(k_cl))) * ctx_exact
+                q_in_k = (
+                    q_ctx_mass
+                    * (jnp.einsum("bqs,bts->btq", a2, c_k * subj_pref) / q_subj_denom)
+                    * rel_f
+                )
                 denom_plain_k = jnp.einsum("bqp,btp->btq", b_raw_plain, c_k) + 0.05
                 denom_chat_k = jnp.einsum("bqp,btp->btq", b_raw_chat, c_k) + 0.05
                 w_plain_k = (rec_win * q_in_k) / denom_plain_k
                 w_chat_k = (rec_win * q_in_k) / denom_chat_k
                 attn_k = (
-                    g_chat * jnp.einsum("btq,bqp->btp", w_chat_k, b_raw_chat)
-                    + (1.0 - g_chat) * jnp.einsum("btq,bqp->btp", w_plain_k, b_raw_plain)
-                ) * c_k
+                    (
+                        g_chat * jnp.einsum("btq,bqp->btp", w_chat_k, b_raw_chat)
+                        + (1.0 - g_chat) * jnp.einsum("btq,bqp->btp", w_plain_k, b_raw_plain)
+                    )
+                    * c_k
+                    * fwd_target_pref
+                )
                 attn_from_b = attn_from_b + attn_k
 
             attn_rel_raw = attn_from_b * (u_val_t + 1e-3) * ctx_exact * rel_f
@@ -958,12 +1134,28 @@ class GraphLM(nn.Module):
             f_h2_fwd = f_h2_fwd / jnp.maximum(f_h2_fwd.sum(axis=-1, keepdims=True), 1e-6)
             f_h2_bwd = f_h2_bwd / jnp.maximum(f_h2_bwd.sum(axis=-1, keepdims=True), 1e-6)
 
+            def _hop_word_onset(a_rel):
+                ac = a_rel * ctx_t
+                a1 = jnp.pad(ac, ((0, 0), (0, 0), (0, 1)))[:, :, 1 : t_len + 1]
+                a2_w = jnp.pad(ac, ((0, 0), (0, 0), (0, 2)))[:, :, 2 : t_len + 2]
+                wm = ((ac + a1 * ns_1_t + a2_w * ns_1_t * ns_2_t) / 3.0) * is_word3 * rel_f
+                return wm / jnp.maximum(wm.sum(axis=-1, keepdims=True), 1e-8)
+
             visited = jnp.zeros_like(attn_rel)
+            hop_attns_list = [_hop_word_onset(attn_rel)]
+            hop_bridges_list = []
+            hop_gates_list = []
+            bridge_recency = jnp.exp(2.5 * clause_id_t * (1.0 - before_period_t))
+            # GLM-5.3-Flash IndexShare: shared sparse entity index across Hops 1..H
+            shared_entity_index = is_3letter_end * not_func_word * ctx_t
+            index_share_density = jnp.sum(
+                is_3letter_end * not_func_word * ctx_exact, axis=-1
+            ) / jnp.maximum(jnp.sum(ctx_exact, axis=-1), 1.0)
             for _hop_i in range(1, c.relational_hops):
                 ac_0 = attn_rel * ctx_t
                 ac_p1 = jnp.pad(ac_0, ((0, 0), (0, 0), (1, 0)))[:, :, :t_len]
                 ac_p2 = jnp.pad(ac_0, ((0, 0), (0, 0), (2, 0)))[:, :, :t_len]
-                ac_sum = (ac_0 + ac_p1 + ac_p2) * is_3letter_end * ctx_t
+                ac_sum = (ac_0 + ac_p1 + ac_p2) * shared_entity_index
                 ac_peak = jnp.power(
                     ac_sum / jnp.maximum(ac_sum.max(axis=-1, keepdims=True), 1e-8), 8
                 )
@@ -972,23 +1164,23 @@ class GraphLM(nn.Module):
                 )
                 in_cur_clause = jnp.exp(-10.0 * jnp.square(clause_id_t - c_cur_id))
                 attn_ctx = ac_sum * in_cur_clause
-                is_diff_clause = (1.0 - in_cur_clause) * is_3letter_end
+                is_diff_clause = (1.0 - in_cur_clause) * shared_entity_index
                 not_vis_prev = jnp.exp(-20.0 * visited)
-                bridge_fwd = (
+                bridge_fwd_raw = (
                     jnp.einsum("btp,bps->bts", attn_ctx, k3_bridge * s2_gt_p1)
-                    * ctx_t
                     * is_diff_clause
                     * not_vis_prev
                 )
-                bridge_bwd = (
+                bridge_bwd_raw = (
                     jnp.einsum("btp,bps->bts", attn_ctx, k3_bridge * s2_lt_p1)
-                    * ctx_t
                     * is_diff_clause
                     * not_vis_prev
                 )
-                bridge_s2 = bridge_fwd + bridge_bwd
+                bridge_s2 = bridge_fwd_raw + bridge_bwd_raw
                 bridge_mass = bridge_s2.sum(axis=-1, keepdims=True)
                 hop2_gate = jnp.square(bridge_mass) / (jnp.square(bridge_mass) + 1e-4)
+                bridge_fwd = bridge_fwd_raw * bridge_recency
+                bridge_bwd = bridge_bwd_raw * bridge_recency
                 b_s1 = jnp.pad(bridge_s2, ((0, 0), (0, 0), (0, 1)))[:, :, 1 : t_len + 1]
                 b_s2 = jnp.pad(bridge_s2, ((0, 0), (0, 0), (0, 2)))[:, :, 2 : t_len + 2]
                 b_m1 = jnp.pad(bridge_s2, ((0, 0), (0, 0), (1, 0)))[:, :, :t_len]
@@ -1008,9 +1200,15 @@ class GraphLM(nn.Module):
                     * ctx_t
                     * not_bridge
                     * in_fwd_clause
+                    * fwd_target_pref
                 )
+                hop2_b_fwd = (
+                    jnp.einsum("bts,sp->btp", bridge_bwd * (1.0 - before_period_t), f_h2_fwd)
+                    * fwd_target_pref
+                )
+                hop2_b_bwd = jnp.einsum("bts,sp->btp", bridge_bwd * before_period_t, f_h2_bwd)
                 hop2_b = (
-                    jnp.einsum("bts,sp->btp", bridge_bwd, 0.20 * f_h2_fwd + 0.80 * f_h2_bwd)
+                    (0.20 * hop2_b_fwd + 0.80 * hop2_b_bwd + 0.20 * hop2_b_fwd)
                     * ctx_t
                     * not_bridge
                     * in_bwd_clause
@@ -1018,15 +1216,11 @@ class GraphLM(nn.Module):
                 hop2_raw = hop2_f + hop2_b
                 hop2_attn = hop2_raw / jnp.maximum(hop2_raw.sum(axis=-1, keepdims=True), 1e-6)
                 attn_rel = (1.0 - hop2_gate) * attn_rel + hop2_gate * hop2_attn
+                hop_attns_list.append(_hop_word_onset(attn_rel))
+                hop_bridges_list.append(bridge_s2)
+                hop_gates_list.append(hop2_gate[:, :, 0])
 
             # Word-onset consolidation and multi-byte interior continuation
-            prev_delim_t = (
-                1.0 - jnp.pad(not_delim_t, ((0, 0), (0, 0), (1, 0)))[:, :, :t_len]
-            ) * rel_f
-            ns_1_t = jnp.pad(not_delim_t, ((0, 0), (0, 0), (0, 1)))[:, :, 1 : t_len + 1]
-            ns_2_t = jnp.pad(not_delim_t, ((0, 0), (0, 0), (0, 2)))[:, :, 2 : t_len + 2]
-            is_word3 = prev_delim_t * not_delim_t * ns_1_t * ns_2_t
-
             attn_c = attn_rel * ctx_t
             a_1 = jnp.pad(attn_c, ((0, 0), (0, 0), (0, 1)))[:, :, 1 : t_len + 1]
             a_2 = jnp.pad(attn_c, ((0, 0), (0, 0), (0, 2)))[:, :, 2 : t_len + 2]
@@ -1038,10 +1232,7 @@ class GraphLM(nn.Module):
             )
             onset_attn = onset_sharp / jnp.maximum(onset_sharp.sum(axis=-1, keepdims=True), 1e-8)
 
-            is_strict_delim_t = (
-                jnp.clip(jax.nn.sigmoid(60.0 * (rel_freq_t - 0.92)) + is_period_t, 0.0, 1.0)
-                * ctx_exact
-            )
+            is_strict_delim_t = jnp.clip(is_space_t + is_period_t, 0.0, 1.0) * ctx_exact
             not_strict_delim_t = (1.0 - is_strict_delim_t) * ctx_exact * rel_f
             match_1 = jnp.exp(36.0 * (c1 - 1.0)) * prior_f
             match_2 = jnp.exp(36.0 * (0.5 * (c1 + c1_p1) - 1.0)) * prior_f
@@ -1097,6 +1288,46 @@ class GraphLM(nn.Module):
             mtp_hidden = jnp.tanh(mtp_inp @ mtp_kernel)
             mtp_logits = (mtp_hidden * scale + norm_bias) @ vocab_kernel + vocab_bias
             out_items.append(mtp_logits)
+        if return_telemetry:
+            w_bt_tel = w_t.transpose(1, 0, 2, 3)
+            telemetry = {
+                "routes": routes_t.transpose(1, 0, 2),
+                "ponder_kl": ponder_t.T,
+                "wavelet_norm": jnp.sqrt(jnp.sum(jnp.square(w_bt_tel), axis=(2, 3)) + 1e-8),
+            }
+            if c.relational_hops > 0:
+                telemetry.update(
+                    {
+                        "g_question": g_question[:, :, 0],
+                        "g_chat": g_chat[:, :, 0],
+                        "g_bwd": g_bwd[:, :, 0],
+                        "clause_id": clause_id_t,
+                        "ctx_mask": ctx_exact,
+                        "rec_win": rec_win,
+                        "q_hits": (
+                            jnp.einsum("btq,bqp->btp", q_win_t * (1.0 + rec_win), k3_sharp_ns)
+                            * is_3letter_end
+                            * not_func_word
+                            * rel_f
+                        ),
+                        "hop_attns": jnp.stack(hop_attns_list, axis=2),
+                        "hop_bridges": (
+                            jnp.stack(hop_bridges_list, axis=2)
+                            if hop_bridges_list
+                            else jnp.zeros((tokens.shape[0], t_len, 0, t_len), dtype=z_bt.dtype)
+                        ),
+                        "hop_gates": (
+                            jnp.stack(hop_gates_list, axis=2)
+                            if hop_gates_list
+                            else jnp.zeros((tokens.shape[0], t_len, 0), dtype=z_bt.dtype)
+                        ),
+                        "onset_attn": onset_attn,
+                        "cont_gate": cont_gate[:, :, 0],
+                        "eos_mass": eos_mass[:, :, 0],
+                        "index_share_density": index_share_density,
+                    }
+                )
+            out_items.append(telemetry)
         return tuple(out_items)
 
 
@@ -1106,7 +1337,15 @@ class PlainGRU(nn.Module):
     config: Config
 
     @nn.compact
-    def __call__(self, tokens, state, resets, messages: bool = True, valid=None):
+    def __call__(
+        self,
+        tokens,
+        state,
+        resets,
+        messages: bool = True,
+        valid=None,
+        return_telemetry: bool = False,
+    ):
         d = self.config.width
         normal = nn.initializers.normal
         embedding = self.param("embedding", normal(0.1), (VOCAB_SIZE, d))
@@ -1140,7 +1379,19 @@ class PlainGRU(nn.Module):
             return h, logits
 
         final, logits = jax.lax.scan(token_step, state[:, 0, :], (tokens.T, resets.T, valid.T))
-        return logits.transpose(1, 0, 2), final[:, None, :]
+        out = (logits.transpose(1, 0, 2), final[:, None, :])
+        if return_telemetry:
+            out = (
+                *out,
+                {
+                    "routes": jnp.ones((tokens.shape[0], tokens.shape[1], 1), dtype=jnp.float32),
+                    "ponder_kl": jnp.zeros((tokens.shape[0], tokens.shape[1]), dtype=jnp.float32),
+                    "wavelet_norm": jnp.zeros(
+                        (tokens.shape[0], tokens.shape[1]), dtype=jnp.float32
+                    ),
+                },
+            )
+        return out
 
 
 def make_model(config):

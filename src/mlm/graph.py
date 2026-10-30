@@ -40,6 +40,30 @@ def sinkhorn_edge_weights(weights, edges, n_nodes: int, iters: int = 3):
     return 0.5 * weights + 0.5 * w
 
 
+def sinkhorn_stream_mix(streams, iters: int = 4):
+    """GLM-5.3-Flash 4-stream mHC Birkhoff doubly-stochastic hyper-connection mixer.
+
+    Given `streams` of shape [B, S, D], computes state-conditioned pairwise cosine energy
+    biased toward the identity matrix, projects onto the SxS Birkhoff polytope via Sinkhorn-Knopp
+    iterations, and returns `(mixed_streams, mix_matrix)`.
+    """
+    import jax
+
+    if isinstance(streams, (list, tuple)):
+        streams = jnp.stack(streams, axis=1)
+    s_cnt = streams.shape[1]
+    norms = jax.lax.rsqrt(jnp.sum(jnp.square(streams), axis=-1, keepdims=True) + 1e-6)
+    unit_s = streams * norms
+    sim = jnp.einsum("bsd,btd->bst", unit_s, unit_s)
+    logits = 2.5 * jnp.eye(s_cnt, dtype=streams.dtype)[None, :, :] + 0.35 * sim
+    w = jax.nn.softmax(logits, axis=-1)
+    for _ in range(iters):
+        w = w / jnp.maximum(w.sum(axis=-2, keepdims=True), 1e-6)
+        w = w / jnp.maximum(w.sum(axis=-1, keepdims=True), 1e-6)
+    mixed = jnp.einsum("bst,btd->bsd", w, streams)
+    return mixed, w
+
+
 def model_topology(config):
     if config.architecture == "gru":
         return None

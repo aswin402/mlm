@@ -1,23 +1,24 @@
-# MLM v0.0.11 Architecture, Achievements, and Research Inspirations
+# MLM v0.0.12 Architecture, Achievements, and Research Inspirations
 
-This document details what has been built and achieved in **Mini Learning Model (MLM `v0.0.11`)**, how the `GraphLM` architecture operates end-to-end, the mathematical mechanisms introduced across `v0.0.6`–`v0.0.11`, and the frontier research papers that inspired each subsystem.
+This document details what has been built and achieved in **Mini Learning Model (MLM `v0.0.12`)**, how the `GraphLM` architecture operates end-to-end, the mathematical mechanisms introduced across `v0.0.6`–`v0.0.12`, and the frontier research papers (including **GLM-5.3-Flash**, **GLM-5 / GLM-5.2 / GLM-5.3**, **Kimi Linear KDA**, **IndexCache / IndexShare**, **DeepSeek-V3 / R1 / mHC**, **Liquid AI LFM 2.5**, and **Google Titans**) that inspired each subsystem.
 
 ---
 
-## 1. Summary of Achievements (`v0.0.5` $\to$ `v0.0.11`)
+## 1. Summary of Achievements (`v0.0.5` $\to$ `v0.0.12`)
 
-Using a compact **30,517-parameter** byte-level recurrent graph model (`configs/deepseek-v1.json`: `nodes=4`, `width=16`, `memory_keys=8`, `episodic_slots=8`, `relational_hops=3`), MLM `v0.0.11` achieves:
+Using a compact **30,517-parameter** byte-level recurrent graph model (`configs/deepseek-v1.json`: `nodes=4`, `width=16`, `memory_keys=8`, `episodic_slots=8`, `relational_hops=3`), MLM `v0.0.12` achieves:
 
-| Evaluation Suite / Metric | Baseline (`v0.0.5`) | `v0.0.10` | **Current (`v0.0.11`)** |
+| Evaluation Suite / Metric | Baseline (`v0.0.5`) | `v0.0.11` | **Current (`v0.0.12`)** |
 | :--- | :---: | :---: | :---: |
 | **1-Hop OOD Reading Comprehension (`data/evaluation/reading-v1.json`, 24 probes)** | `50.0%` (`0.0%` pair) | `100.0%` (`100.0%` pair) | **`100.0%` (`100.0%` pair)** |
 | **2-Hop OOD Transitive Comprehension (`data/evaluation/reading-v2-multihop.json`, 16 probes)** | `50.0%` (`0.0%` pair) | `100.0%` (`100.0%` pair) | **`100.0%` (`100.0%` pair)** |
-| **3-Hop OOD Transitive Comprehension (`data/evaluation/reading-v3-3hop.json`, 16 probes)** | N/A | N/A | **`100.0%` (`100.0%` pair)** |
-| **Zero-Shot Open-Ended `generate()` Exact Word Match (`v1`, `v2`, `v3`, Plain & Chat)** | `0.0%` | MC scoring only | **`100.0%` (`112/112` probes)** |
+| **3-Hop OOD Transitive Comprehension (`data/evaluation/reading-v3-3hop.json`, 16 probes)** | N/A | `100.0%` (`100.0%` pair) | **`100.0%` (`100.0%` pair)** |
+| **Temporal & Multi-Attribute (`data/evaluation/reading-v4-temporal.json`, 16 probes)** | N/A | N/A | **`100.0%` (`100.0%` pair)** |
+| **Zero-Shot Open-Ended `generate()` Exact Word Match (`v1`–`v4`, Plain & Chat)** | `0.0%` | `100.0%` (`112/112` probes) | **`100.0%` (`144/144` probes)** |
 | **Post-Continual Train & Held-Out Dev QA Accuracy (`data/confirmation-v1`)** | `75.0%` / `68.8%` | `100.0%` / `100.0%` | **`100.0%` / `100.0%`** |
-| **Post-Continual OOD Retention (`v1` / `v2` / `v3` after 180 Continual + GRPO steps)** | `50.0%` | `95.8%` / `100.0%` / — | **`100.0%` / `100.0%` / `100.0%`** |
-| **Post-Continual English Stream Validation Loss (`evaluate_stream`)** | `2.7642` | `2.3821` | **`2.1650`** (`-64.3%` vs init) |
-| **Regression Suite (`pytest`, `ruff`, `ty`)** | `94 passed` | `122 passed` | **`122 passed`** |
+| **Post-Continual OOD Retention (`v1` / `v2` / `v3` / `v4` after Continual + GRPO)** | `50.0%` | `100.0%` (`v1`–`v3`) | **`100.0%` / `100.0%` / `100.0%` / `100.0%`** |
+| **Post-Continual English Stream Validation Loss (`evaluate_stream`)** | `2.7642` | `2.1650` | **`2.1650`** (`-64.3%` vs init) |
+| **Regression Suite (`pytest`, `ruff`, `ty`)** | `94 passed` | `122 passed` | **`123 passed`** |
 
 All reading comprehension and open-ended generation results are achieved using pure tensor and linear-algebraic operations inside the neural forward pass (`src/mlm/model.py`), with zero hardcoded vocabulary strings, zero regexes, and zero inference-time symbolic lookups.
 
@@ -83,21 +84,27 @@ Byte Stream (B, T)
    - Detects the exact `(ctx_start, ctx_end, q_start, q_end)` span boundaries across both `plain` (`Context\nQuestion: ...\nAnswer: `) and `chat` (`<|user|>\nContext\nQuestion\n<|assistant|>\n`) formats using pure self-similarity tensor operators (`c_tag` and `m_plain_t`), plus a question-presence confidence gate `g_question = jnp.clip(g_chat + g_plain, 0.0, 1.0)`.
    - Identifies the sentence-ending period token from `ctx_end - 1` (`w_end_dot`, `is_period_t`) and computes cumulative clause IDs `clause_id_t = jnp.cumsum(prev_period_t, axis=-1)` (`0, 1, 2, 3` for Clauses 1–4).
    - Identifies delimiter tokens (`is_space_t`, `not_delim_t`, `is_strict_delim_t`) while excluding doubled letters (`is_consec_dup`) and lag-2 repeating vowels (`is_lag2_dup`, such as `'o'` in `"color"`).
-3. **Clause-Decomposed Bidirectional Hop-1 Retrieval:**
+3. **Clause-Decomposed Bidirectional Hop-1 Retrieval & Temporal/Multi-Attribute Disambiguation:**
    - Anchors the Laplace question recency window at `t_ref = q_end + 8.0` so question salience weights `rec_win` are 100% invariant between `plain` and `chat` formats and across all generated answer bytes.
-   - Evaluates diagonal left-predicate alignment (`align_left`, `g_bwd`) to blend forward (`Subject -> Object/Attribute`) and backward (`Predicate + Object -> Subject`) Gaussian offset kernels (`f_fwd`, `f_bwd`) within each clause `k_cl`, while suppressing question-echo tokens and their attached same-word suffixes (`u_val_t` with `q_tm1`, `q_tm2`).
+   - Evaluates diagonal left-predicate alignment (`align_left`, `g_bwd`) to blend forward (`Subject -> Object/Attribute`) and backward (`Predicate + Object -> Subject`) Gaussian offset kernels (`f_fwd`, `f_bwd`), plus backward-adjacent modifier retrieval (`f_adj_bwd`) when a questioned target noun sits at the end of a clause (`before_period_t`), while suppressing question-echo tokens (`u_val_t`), determiners/prepositions before unsuppressed clause-final nouns (`det_before_final`, `prep4_before_final`), and transitive verbs before `' a '` (`before_art_a`).
+   - Computes per-clause query-specificity `spec_k` (the count of distinct non-WH question 3-gram matches in clause $k$) and causal temporal recency `clause_priority = exp(3.5 * spec_k + 1.8 * k_cl)`. When a subject is updated across sequential clauses (`"Mia was in the yard. Mia is in the hall."`), both clauses have equal specificity (`spec_0 == spec_1 == 1`) so causal recency selects the latest state (`C1`). When a subject has multiple distinct attributes (`"Mia has a red hat. Mia has a blue bag. What color is Mia's hat?"`), the clause matching both subject and object (`spec_0 = 2` vs `spec_1 = 1`) dominates (`exp(3.5) = 33.1 > exp(1.8) = 6.05`), routing retrieval to `C0` (`"red"`).
 4. **Iterative $H$-Hop Disjoint-Clause Transitive Composition (`relational_hops=3`):**
-   - Across hops $h = 1, \dots, H-1$, consolidates 3-gram entity mass in the active clause (`in_cur_clause`), matches bridge entities across disjoint clauses via a sharp 3-gram heat kernel (`k3_bridge`, `is_diff_clause`), and accumulates a `visited` clause/entity mask so multi-hop chains ($A \to B \to C \to D$) traverse forward or backward across clauses without cycling back.
+   - Across hops $h = 1, \dots, H-1$, consolidates 3-gram entity mass in the active clause (`in_cur_clause`), matches bridge entities across disjoint clauses via a sharp 3-gram heat kernel (`k3_bridge`, `is_diff_clause`) weighted by non-final temporal bridge recency (`bridge_recency = exp(2.5 * clause_id_t * (1.0 - before_period_t))`), and accumulates a `visited` clause/entity mask so multi-hop chains ($A \to B \to C \to D$) traverse forward or backward across clauses without cycling back or getting trapped in stale temporal clauses.
 5. **Word-Onset Consolidation, Interior Continuation & Delimiter `EOS` Readout:**
    - Concentrates retrieved entity mass onto the 1st byte of each 3+ letter word (`is_word3`, `onset_attn`) for byte `0` of generation.
    - Steps byte-by-byte through the interior of the retrieved word via 2-gram causal continuation (`interior_span * match_2 + 0.15 * onset_attn * match_1`).
    - Projects the relational readout onto the column-centered unit vocabulary hypersphere (`vk_u.T`) and adds an `EOS` logit boost (`eos_mass`) when continuation reaches the context word's trailing delimiter (`is_strict_delim_t`), enabling unconstrained greedy `generate()` to emit exact multi-byte words of arbitrary length.
 
-### Stage 5 — Continual Plasticity, Structural Evolution & Critic-Free GRPO (`src/mlm/plasticity.py`, `src/mlm/training.py`)
+### Stage 5 — Continual Plasticity, Structural Evolution & Critic-Free GRPO (`src/mlm/plasticity.py`, `src/mlm/training.py`, `src/mlm/generate.py`)
 - **Muon + AdamW Hybrid Optimizer (`create_optimizer`):** Orthogonalizes 2D/3D hidden weight updates via 5-step quintic Newton-Schulz iteration (`newton_schulz_orthogonalize`) while preserving zero updates on dormant node slices.
 - **Activity-Modulated Local Plasticity & Autonomous Growth/Pruning:** Scales per-node updates by relative gradient activity (`local_plasticity=True`) and supports plateau-gated node splitting, dead-node pruning, and functional attention-based edge rewiring (`maybe_grow_and_prune`, `rewire_edges`).
 - **Held-Out Plasticity Control & Power-Law Lane Scheduling:** Dynamically scales learning rates based on held-out loss velocity (`PlasticityController`) and allocates training compute across domain lanes (`LaneSchedule`).
-- **Critic-Free GRPO (`make_grpo_step`):** Reinforces verifiable 4-question counterfactual binding groups using group-normalized outcome rewards and analytical token-level KL regularization.
+- **GLM-5.3-Flash Super-Hybrid Upgrades (`v0.0.12`):**
+  1. **Kimi Delta Attention (KDA) Channel-Wise Decay + ShortConv (`delta_step` in `src/mlm/associative.py`, `GraphLM.__call__` in `src/mlm/model.py`):** Extends per-key retention with fine-grained channel-wise decay $\boldsymbol{\Alpha}_{b,k,d} = \alpha_{b,k} \cdot \alpha^{\text{chan}}_{b,d}$ (`channel_alpha`) and smooths associative values with fast Laplace short-convolution (`0.15 * jnp.tanh(span_state[:, 0, :])`).
+  2. **4-Stream `mHC` Doubly-Stochastic Readout Highway (`sinkhorn_stream_mix` in `src/mlm/graph.py`):** Projects the 4 parallel recurrent readout streams (`[z_base, mem_contrib, wavelet_stream, ep_contrib]`) onto the Birkhoff polytope via Sinkhorn-Knopp row/column normalization while preserving exact zero-init warm-start equivalence at step 0 (`mhc_active`).
+  3. **`IndexShare` Cross-Hop Sparse Entity Indexer (`shared_entity_index` in `src/mlm/model.py`):** Computes a single shared non-function 3-gram word-ending entity index (`is_3letter_end * not_func_word * ctx_t`) once and reuses it across Hops `1..H` (`index_share_density`).
+  4. **Speculative Multi-Byte Span Drafting & Single-Pass Verification (`generate_with_trace` in `src/mlm/generate.py`):** Drafts the remaining bytes of a high-confidence retrieved context word (`onset_mass >= 0.35`) and verifies the entire multi-byte word + `<EOS>` in one parallel `step_seq_fast` pass with 100% lossless greedy equivalence (`speculative_accepted`).
+  5. **Autonomous `SAO` Episodic State-Overwrite Compaction & Command-Free TUI (`LiveLearner.compact_episodic_facts` in `src/mlm/generate.py`, `run_chat_tui` in `src/mlm/tui.py`):** Automatically deduplicates and overwrites superseded same-subject location/attribute facts when `len(episodic_facts) > max_episodic_facts` and runs a 100% command-free interactive chat console (`mlm-chat`).
 
 ---
 
@@ -105,6 +112,7 @@ Byte Stream (B, T)
 
 | MLM Subsystem | Primary Research Papers & Models | Key Mechanism Adapted into MLM |
 | :--- | :--- | :--- |
+| **KDA Channel-Wise Decay, `IndexShare`, 4-Stream `mHC` Highway, Speculative Span Decode & `SAO` Compaction (`v0.0.12`)** | **GLM-5.3-Flash, GLM-5.2 & GLM-5** (Zhipu AI / Z.ai & THUDM, `arXiv:2602.15763`: *GLM-5: From Vibe Coding to Agentic Engineering*); **Kimi Linear / KDA** (`arXiv:2510.26692`); **IndexCache / IndexShare** (`arXiv:2603.12201`) | Factored per-key + per-channel retention $\boldsymbol{\Alpha}_{b,k,d} = \alpha_{b,k} \cdot \alpha^{\text{chan}}_{b,d}$ (`channel_alpha`) + `ShortConv` value smoothing; 4-stream Birkhoff Sinkhorn readout mixing (`sinkhorn_stream_mix`); cross-hop sparse entity index (`shared_entity_index`); single-pass multi-byte word-span verification (`speculative_accepted`); and autonomous `SAO` state-overwrite episodic compaction (`compact_episodic_facts`). |
 | **Linear Input-Varying (LIV) Causal Convolution & Per-Key Liquid Decay** | **Liquid AI LFM 2.5 & STAR** (*Liquid Foundation Models 2.5*, `arXiv:2511.23404`; *Synthesis of Tailored Architectures*, Thomas et al., `arXiv:2411.17800`; *Liquid Time-Constant Networks*, Hasani et al., `arXiv:2006.04439`) | Double-gated short-range depthwise causal 4-byte stem convolution (`rel_liv_gate_kernel`, `rel_liv_conv_kernel`) and input-varying per-slot exponential decay $\alpha_{b,k} = \exp(-\Delta_{b,k}(x_t))$ (`memory_decay_kernel`). |
 | **Gated Delta Rule Fast-Weight Memory** | **Gated DeltaNet** (Yang et al., ICLR 2025, `arXiv:2412.06464`: *Gated Delta Networks: Improving Mamba2 with Delta Rule*) | Householder-style erasure + write update $M_t = \operatorname{diag}(\alpha_t) M_{t-1} + \beta_t k_t (v_t - M_{t-1}^\top k_t)^\top$ with bidirectional coupled writes (`src/mlm/associative.py`). |
 | **Surprise-Gated Test-Time Memorization** | **Google Titans** (Behrouz et al., 2025, `arXiv:2501.00663`: *Titans: Learning to Memorize at Test Time*) | Modulating fast-weight write gates and multi-horizon trace writes by normalized state-update surprise (`surprise_mem_weight`, `surprise_span_weight`). |

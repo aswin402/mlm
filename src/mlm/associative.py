@@ -3,9 +3,29 @@
 import jax.numpy as jnp
 
 
-def delta_step(memory, key, value, query, beta, alpha=None, rev_key=None, rev_value=None):
-    """Read the old matrix and correct its key/value mapping for future tokens."""
-    decayed = memory if alpha is None else jnp.reshape(alpha, (memory.shape[0], -1, 1)) * memory
+def delta_step(
+    memory,
+    key,
+    value,
+    query,
+    beta,
+    alpha=None,
+    rev_key=None,
+    rev_value=None,
+    channel_alpha=None,
+):
+    """Read the old matrix and correct its key/value mapping for future tokens (KDA / DeltaNet)."""
+    decayed = (
+        memory
+        if alpha is None
+        else (
+            alpha * memory
+            if alpha.ndim == 3
+            else jnp.reshape(alpha, (memory.shape[0], -1, 1)) * memory
+        )
+    )
+    if channel_alpha is not None:
+        decayed = decayed * jnp.reshape(channel_alpha, (memory.shape[0], 1, -1))
     read = jnp.einsum("bk,bkv->bv", query, memory)
     prediction = jnp.einsum("bk,bkv->bv", key, decayed)
     error = value - prediction

@@ -244,13 +244,22 @@ def main(argv=None):
     evaluation.add_argument("--data", type=Path, required=True)
     evaluation.add_argument("--no-messages", action="store_true", help="Graph ablation")
     evaluation.add_argument("--full-documents", action="store_true")
-    chat = commands.add_parser("chat", help="Experimental role-formatted single-turn generation")
-    chat.add_argument("checkpoint", type=Path)
-    chat.add_argument("--message", required=True)
+    chat = commands.add_parser(
+        "chat",
+        help="Interactive real-time chat TUI (or single-turn generation with --message)",
+    )
+    chat.add_argument("checkpoint", nargs="?", type=Path, default=None)
+    chat.add_argument("--config", type=Path, default=None)
+    chat.add_argument("--message", type=str, default=None)
+    chat.add_argument("--context", type=str, default="")
     chat.add_argument("--max-bytes", type=int, default=160)
     chat.add_argument("--adapt-strength", type=float, default=0.0)
     chat.add_argument("--adapt-decay", type=float, default=0.88)
     chat.add_argument("--learn", action="store_true", help="Online stream update on exchange")
+    chat.add_argument("--no-learn", action="store_true", help="Disable online stream update in TUI")
+    chat.add_argument("--chunk", type=int, default=16)
+    chat.add_argument("--show-thinking", action="store_true", help="Show <think> telemetry panel")
+    chat.add_argument("--no-think", action="store_true", help="Hide <think> telemetry panel in TUI")
     chat.add_argument("--save-out", type=Path, help="Optional path to save updated checkpoint")
     continual = commands.add_parser(
         "continual",
@@ -287,33 +296,77 @@ def main(argv=None):
         summary = run_continual(args)
         print(json.dumps(summary, indent=2), flush=True)
     elif args.command == "chat":
-        state, config, meta = load_checkpoint(args.checkpoint)
+        from mlm.tui import (
+            format_perf_footer,
+            format_thinking_panel,
+            load_or_init_chat_state,
+            run_chat_tui,
+        )
+
+        if args.checkpoint is not None and args.checkpoint.exists():
+            state, config, meta = load_checkpoint(args.checkpoint)
+            label = str(args.checkpoint)
+        else:
+            state, config, label = load_or_init_chat_state(args.checkpoint, args.config)
+            meta = {"messages": True}
         messages = meta.get("messages", True)
-        if args.learn:
-            learner = LiveLearner(
-                state, config, chunk=max(2, min(16, config.length)), messages=messages
-            )
-            reply, _ = learner.chat_turn(
-                args.message,
+        eff_chunk = max(2, min(args.chunk, config.length))
+
+        if args.message is None:
+            run_chat_tui(
+                state,
+                config,
+                ckpt_label=label,
                 max_bytes=args.max_bytes,
                 adapt_strength=args.adapt_strength,
                 adapt_decay=args.adapt_decay,
-                learn=True,
+                learn=bool(args.learn) and not bool(args.no_learn),
+                chunk=eff_chunk,
+                show_thinking=not args.no_think,
+                initial_context=args.context,
+                save_path=args.save_out,
             )
-            if args.save_out:
-                save_checkpoint(args.save_out, learner.state, config, meta)
         else:
-            prompt = f"<|user|>\n{args.message}\n<|assistant|>\n"
-            reply = generate(
-                state,
-                config,
-                prompt,
-                args.max_bytes,
-                messages=messages,
-                adapt_strength=args.adapt_strength,
-                adapt_decay=args.adapt_decay,
-            )
-        print(reply.strip())
+            clean_msg = args.message.replace("\\n", "\n")
+            learner = LiveLearner(state, config, chunk=eff_chunk, messages=messages)
+            if args.show_thinking:
+                reply, trace, steps = learner.chat_turn_with_trace(
+                    clean_msg,
+                    max_bytes=args.max_bytes,
+                    adapt_strength=args.adapt_strength,
+                    adapt_decay=args.adapt_decay,
+                    learn=bool(args.learn),
+                    context=args.context,
+                )
+                print(format_thinking_panel(trace, config, color=False))
+                print(reply.strip())
+                print(format_perf_footer(trace, learner, steps, color=False))
+            elif args.learn:
+                reply, _ = learner.chat_turn(
+                    clean_msg,
+                    max_bytes=args.max_bytes,
+                    adapt_strength=args.adapt_strength,
+                    adapt_decay=args.adapt_decay,
+                    learn=True,
+                    context=args.context,
+                )
+                print(reply.strip())
+            else:
+                from mlm.generate import format_chat_prompt
+
+                prompt = format_chat_prompt(clean_msg, context=args.context)
+                reply = generate(
+                    state,
+                    config,
+                    prompt,
+                    args.max_bytes,
+                    messages=messages,
+                    adapt_strength=args.adapt_strength,
+                    adapt_decay=args.adapt_decay,
+                )
+                print(reply.strip())
+            if args.save_out:
+                save_checkpoint(args.save_out, learner.state, learner.config, meta)
     elif args.command == "generate":
         state, config, meta = load_checkpoint(args.checkpoint)
         print(

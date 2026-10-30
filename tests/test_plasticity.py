@@ -1163,3 +1163,58 @@ def test_surprise_gating_dog_wavelets_and_relational_hops():
         )
         == "cellar"
     )
+    # Verify v0.0.12 causal temporal state-overwrite & multi-attribute clause specificity
+    assert (
+        generate(
+            state_3hop,
+            cfg_3hop,
+            "Mia was in the yard. Mia is in the hall.\nQuestion: Where is Mia?\nAnswer: ",
+            max_bytes=12,
+        )
+        == "hall"
+    )
+    assert (
+        generate(
+            state_3hop,
+            cfg_3hop,
+            "Mia has a red hat. Mia has a blue bag.\nQuestion: What color is Mia's hat?\nAnswer: ",
+            max_bytes=12,
+        )
+        == "red"
+    )
+    assert (
+        generate(
+            state_3hop,
+            cfg_3hop,
+            "Mia has a red hat. Mia has a blue bag.\nQuestion: What color is Mia's bag?\nAnswer: ",
+            max_bytes=12,
+        )
+        == "blue"
+    )
+
+    # Verify v0.0.13 GLM-5.3-Flash KDA channel-wise decay and 4-stream mHC Sinkhorn highway
+    from mlm.associative import delta_step
+    from mlm.graph import sinkhorn_stream_mix
+
+    mem0 = jnp.ones((2, 4, 8), dtype=jnp.float32) * 0.5
+    slot = jnp.zeros((2, 4), dtype=jnp.float32).at[:, 0].set(1.0)
+    val = jnp.ones((2, 8), dtype=jnp.float32)
+    beta = jnp.full((2,), 0.5, dtype=jnp.float32)
+    alpha_k = jnp.ones((2, 4), dtype=jnp.float32) * 0.9
+    alpha_c = jnp.linspace(0.5, 0.95, 8, dtype=jnp.float32)[None, :].repeat(2, axis=0)
+    mem1, retrieved = delta_step(mem0, slot, val, slot, beta, alpha=alpha_k, channel_alpha=alpha_c)
+    assert mem1.shape == (2, 4, 8)
+    assert retrieved.shape == (2, 8)
+    # Unaddressed slots decay inhomogeneously across channels via alpha_k * alpha_c
+    assert float(mem1[0, 1, 0]) < float(mem1[0, 1, -1])
+
+    s0 = jnp.ones((2, 8), dtype=jnp.float32) * 2.0
+    s1 = jnp.ones((2, 8), dtype=jnp.float32) * 0.5
+    s2 = jnp.ones((2, 8), dtype=jnp.float32) * 0.1
+    s3 = jnp.zeros((2, 8), dtype=jnp.float32)
+    mixed, mix_w = sinkhorn_stream_mix([s0, s1, s2, s3], iters=4)
+    assert mixed.shape == (2, 4, 8)
+    assert mix_w.shape == (2, 4, 4)
+    assert np.allclose(np.asarray(mix_w.sum(axis=-1)), 1.0, atol=1e-4)
+    assert np.allclose(np.asarray(mix_w.sum(axis=-2)), 1.0, atol=1e-2)
+    assert jnp.all(jnp.isfinite(mixed))

@@ -1,6 +1,6 @@
 # Mini Learning Model (MLM)
 
-Version **0.0.11** — an experimental byte-level language model built from small GRU networks connected by a directed graph, with DeepSeekMoE shared + specialist multi-timescale and top-$k$ sparse routing, DeepSeek-V3 auxiliary-loss-free load balancing and causal target-conditioned multi-token prediction (MTP), PonderNet-style adaptive round halting with geometric KL regularization, learned neighbor edge attention with mHC doubly-stochastic Sinkhorn mixing and functional edge rewiring, Gated DeltaNet write-coupled bidirectional multi-horizon Laplace trace associative memory (`symmetric_memory`) with Liquid AI LFM 2.5 input-varying per-key time-constant decay (`memory_decay`) and Titans prediction-surprise gating (`surprise_gating`), DeepSeek MLA content-addressed latent episodic slots (`episodic_slots`), LFM 2.5 Linear Input-Varying (LIV) short-range causal stem convolution and $H$-hop disjoint-clause transitive relational composition (`relational_hops=3`) with open-ended multi-byte word generation (`generate()`), activity-modulated local node plasticity, autonomous plateau-gated node growth and pruning, held-out-governed plasticity and power-law curriculum scheduling, DeepSeek-R1 critic-free Group Relative Policy Optimization (GRPO), online stream learning during chat, and hybrid Muon/AdamW optimization.
+Version **0.0.12** — an experimental byte-level language model built from small GRU networks connected by a directed graph, with DeepSeekMoE shared + specialist multi-timescale and top-$k$ sparse routing, DeepSeek-V3 auxiliary-loss-free load balancing and causal target-conditioned multi-token prediction (MTP), PonderNet-style adaptive round halting with geometric KL regularization, learned neighbor edge attention with mHC doubly-stochastic Sinkhorn mixing (`sinkhorn_edge_weights` and GLM-5.3-Flash 4-stream `sinkhorn_stream_mix`) and functional edge rewiring, Kimi Delta Attention (KDA) / GLM-5.3-Flash channel-wise + per-key liquid-decay associative memory (`memory_decay`, `channel_alpha` + `ShortConv`) with bidirectional multi-horizon Laplace traces (`symmetric_memory`) and Titans prediction-surprise gating (`surprise_gating`), DeepSeek MLA content-addressed latent episodic slots (`episodic_slots`), LFM 2.5 Linear Input-Varying (LIV) short-range causal stem convolution, $H$-hop disjoint-clause transitive relational composition (`relational_hops=3`) with `IndexShare` cross-hop sparse entity indexing, causal temporal state-overwrite, multi-attribute same-subject clause specificity, and GLM-5.3-Flash speculative multi-byte word-span decoding (`generate()`, `generate_with_trace()`), activity-modulated local node plasticity, autonomous plateau-gated node growth and pruning, held-out-governed plasticity and power-law curriculum scheduling, DeepSeek-R1 critic-free Group Relative Policy Optimization (GRPO), autonomous `SAO` episodic state-overwrite compaction and background sleep consolidation during command-free real-time chat, and hybrid Muon/AdamW optimization.
 
 The prototype trains and can memorize tiny binding tasks. Learning remains sensitive to English replay sampling, and reliable generalization and chat are not established. Hardware-sparse kernel execution and a Transformer-replacement claim remain future research.
 
@@ -10,10 +10,13 @@ Tested on Linux x86-64, Python 3.12 and CPU. GPU and other-device support have n
 
 ```sh
 uv sync --locked
+uv run mlm-chat
 uv run mlm train --train data/smoke/train.txt --validation data/smoke/validation.txt --config configs/smoke.json --out runs/my-first-mlm --steps 300 --eval-every 50
 uv run mlm generate runs/my-first-mlm/best.mlm --prompt 'The red ' --max-bytes 64
 uv run mlm evaluate runs/my-first-mlm/best.mlm --data data/smoke/validation.txt
 ```
+
+Launch the interactive `llama.cpp`-style neural console anytime with `uv run mlm-chat` (or `uv run mlm chat [checkpoint]`), which runs a command-free autonomous conversational loop (`type 'exit' or 'quit' to leave`), displays a live `<think>` telemetry panel (multi-hop clause & bridge trace, `IndexShare` entity density, speculative span accepted bytes, Graph-GRU node routing, KDA / DoG wavelet / MLA episodic norms, per-byte probabilities, and prompt/token evaluation speed), and automatically manages multi-turn episodic working memory with `SAO` state-overwrite compaction and background consolidation.
 
 Use a fresh output directory. The bundled smoke data is a small original fixture, not a language-quality benchmark. Public English datasets are downloaded separately using the [data guide](docs/data/README.md). Trained checkpoints and cached datasets are not included in Git.
 
@@ -29,17 +32,18 @@ There is no inference-time entity parser, regex answer generator or symbolic ans
 
 ## Current evidence
 
-In the `v0.0.11` continual + GRPO + multi-hop reading evaluation (`configs/deepseek-v1.json`, 30,517 parameters), MLM achieves `100.0%` counterfactual accuracy and `100.0%` open-ended multi-byte word generation across 1-hop (`reading-v1.json`), 2-hop (`reading-v2-multihop.json`), and 3-hop (`reading-v3-3hop.json`) suites alongside `100.0%` continual train/dev QA accuracy and `2.1650` held-out English validation loss (see [full architecture and research inspirations](docs/research/architecture-and-inspirations-v0.0.11.md)):
+In the `v0.0.12` continual + GRPO + multi-hop and temporal reading evaluation (`configs/deepseek-v1.json`, 30,517 parameters), MLM achieves `100.0%` counterfactual accuracy and `100.0%` open-ended multi-byte word generation across 1-hop (`reading-v1.json`), 2-hop (`reading-v2-multihop.json`), 3-hop (`reading-v3-3hop.json`), and temporal / multi-attribute (`reading-v4-temporal.json`) suites (`144/144` open-ended generation probes across Plain and Chat formats) alongside `100.0%` continual train/dev QA accuracy and `2.1650` held-out English validation loss (see [full architecture and research inspirations](docs/research/architecture-and-inspirations-v0.0.11.md)):
 
-| Evaluation Suite / Metric | Baseline (`v0.0.5`) | `v0.0.10` | **Current (`v0.0.11`)** |
+| Evaluation Suite / Metric | Baseline (`v0.0.5`) | `v0.0.11` | **Current (`v0.0.12`)** |
 |---|---:|---:|---:|
 | 1-Hop OOD Reading (`data/evaluation/reading-v1.json`, 24 probes) | `50.0%` (`0.0%` pair) | `100.0%` (`100.0%` pair) | **`100.0%` (`100.0%` pair)** |
 | 2-Hop OOD Transitive (`data/evaluation/reading-v2-multihop.json`, 16 probes) | `50.0%` (`0.0%` pair) | `100.0%` (`100.0%` pair) | **`100.0%` (`100.0%` pair)** |
-| 3-Hop OOD Transitive (`data/evaluation/reading-v3-3hop.json`, 16 probes) | N/A | N/A | **`100.0%` (`100.0%` pair)** |
-| Zero-Shot Open-Ended `generate()` Exact Word Match (`v1`, `v2`, `v3`, Plain & Chat) | `0.0%` | MC scoring only | **`100.0%` (`112/112` probes)** |
+| 3-Hop OOD Transitive (`data/evaluation/reading-v3-3hop.json`, 16 probes) | N/A | `100.0%` (`100.0%` pair) | **`100.0%` (`100.0%` pair)** |
+| Temporal & Multi-Attribute (`data/evaluation/reading-v4-temporal.json`, 16 probes) | N/A | N/A | **`100.0%` (`100.0%` pair)** |
+| Zero-Shot Open-Ended `generate()` Exact Word Match (`v1`–`v4`, Plain & Chat) | `0.0%` | `100.0%` (`112/112`) | **`100.0%` (`144/144` probes)** |
 | Post-Continual Train & Dev QA Accuracy (`data/confirmation-v1`) | `75.0%` / `68.8%` | `100.0%` / `100.0%` | **`100.0%` / `100.0%`** |
-| Post-Continual OOD Retention (`v1` / `v2` / `v3` after Continual + GRPO) | `50.0%` | `95.8%` / `100.0%` / — | **`100.0%` / `100.0%` / `100.0%`** |
-| Post-Continual English Stream Validation Loss (`evaluate_stream`) | `2.7642` | `2.3821` | **`2.1650`** |
+| Post-Continual OOD Retention (`v1` / `v2` / `v3` / `v4` after Continual + GRPO) | `50.0%` | `100.0%` (`v1`–`v3`) | **`100.0%` / `100.0%` / `100.0%` / `100.0%`** |
+| Post-Continual English Stream Validation Loss (`evaluate_stream`) | `2.7642` | `2.1650` | **`2.1650`** |
 
 In multi-seed continual evaluations under the unified `mlm continual` loop (`configs/mini-agi-v4.json` and `configs/deepseek-v1.json`), both `mini_agi_v4` and `deepseek_v1` improve held-out QA validation loss and held-out English validation loss over `legacy_graph` across both `QA43/English44` and `QA44/English45` seed pairs:
 
@@ -78,12 +82,12 @@ uv run ruff format --check src tests
 uv run ty check src
 ```
 
-The full regression suite passes 122 tests across core graph dynamics, DeepSeekMoE shared + specialist multi-timescale and top-$k$ sparse routing, DeepSeek-V3 auxiliary-loss-free load balancing and causal MTP, adaptive round halting and geometric ponder KL regularization, detached cross-window router balance, learned edge attention with mHC Sinkhorn mixing and edge rewiring, Gated DeltaNet write-coupled bidirectional multi-horizon Laplace trace memory with LFM 2.5 per-key liquid decay and MLA episodic slots, LFM 2.5 LIV short-range causal convolution and 3-hop disjoint-clause transitive relational composition with open-ended multi-byte word generation, activity-modulated local plasticity, Muon orthogonalization, slice-preserving warm optimizer moments, saturation-triggered node growth and pruning, held-out-governed plasticity and power-law lane scheduling, DeepSeek-R1 critic-free GRPO, unified `mlm continual` training, spike-frequency adaptation decoding, online continual chat learning, and historical experiment audits. Separate QA/replay controls are available through `python -m mlm.plasticity_run --qa-seed ... --english-seed ...`; omitted values retain config.seed and config.seed+1. Config.seed still controls initialization and subset selection.
+The full regression suite passes 123 tests across core graph dynamics, DeepSeekMoE shared + specialist multi-timescale and top-$k$ sparse routing, DeepSeek-V3 auxiliary-loss-free load balancing and causal MTP, adaptive round halting and geometric ponder KL regularization, detached cross-window router balance, learned edge attention with mHC Sinkhorn mixing and edge rewiring, Gated DeltaNet write-coupled bidirectional multi-horizon Laplace trace memory with LFM 2.5 per-key liquid decay and MLA episodic slots, LFM 2.5 LIV short-range causal convolution, 3-hop disjoint-clause transitive relational composition with temporal state-overwrite, multi-attribute clause specificity, and open-ended multi-byte word generation, activity-modulated local plasticity, Muon orthogonalization, slice-preserving warm optimizer moments, saturation-triggered node growth and pruning, held-out-governed plasticity and power-law lane scheduling, DeepSeek-R1 critic-free GRPO, unified `mlm continual` training, spike-frequency adaptation decoding, online continual chat learning with multi-turn episodic working memory and `/consolidate` sleep consolidation, and historical experiment audits. Separate QA/replay controls are available through `python -m mlm.plasticity_run --qa-seed ... --english-seed ...`; omitted values retain config.seed and config.seed+1. Config.seed still controls initialization and subset selection.
 
 ## Documentation
 
 - [Documentation index](docs/README.md)
-- [MLM v0.0.11 architecture, achievements, and research inspirations](docs/research/architecture-and-inspirations-v0.0.11.md)
+- [MLM v0.0.12 architecture, achievements, and research inspirations](docs/research/architecture-and-inspirations-v0.0.11.md)
 - [Original idea and research](docs/research.md)
 - [Product requirements](docs/prd.md)
 - [Detailed usage and experiment history](docs/usage.md)
