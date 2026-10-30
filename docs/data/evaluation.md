@@ -1,6 +1,11 @@
-# Reading probes v1
+# Reading comprehension evaluation probes (`v1`, `v2-multihop`, `v3-3hop`)
 
-Original evaluation-only diagnostic: 12 pairs / 24 questions. Each pair keeps the question and candidate answers fixed while changing a context fact and the correct answer. The expected-answer key only grades frozen-model likelihood rankings. It is never passed to the network or used for training, checkpoint selection, or inference response rules. No regex or response-keyword classifier is used.
+Original evaluation-only diagnostics:
+- **`data/evaluation/reading-v1.json` (1-hop):** 12 counterfactual pairs / 24 questions testing single-hop attribute, location, and ownership binding across forward and backward query orders.
+- **`data/evaluation/reading-v2-multihop.json` (2-hop):** 8 counterfactual pairs / 16 questions (`person-room`, `container-color`, `pet-food`, `guard-trainer`, `friend-city`, `key-room`, `team-prize`, `tool-shelf`) testing 2-clause transitive relational composition ($A \to B \to C$).
+- **`data/evaluation/reading-v3-3hop.json` (3-hop):** 8 counterfactual pairs / 16 questions (`chain-room`, `chain-color`, `chain-food`, `chain-city`, `chain-owner`, `chain-prize`, `chain-tool`, `chain-drink`) testing 3-clause transitive relational composition ($A \to B \to C \to D$).
+
+Each pair keeps the question and candidate answers fixed while changing a context fact and the correct answer. The expected-answer key only grades frozen-model likelihood rankings or open-ended greedy `generate()` outputs. It is never passed to the network or used for training, checkpoint selection, or inference response rules. No regex or response-keyword classifier is used.
 
 Report individual accuracy, both-members-correct pair accuracy, and prediction-change fraction. A fixed answer preference gets 50% item accuracy and zero pair accuracy on this balanced set. Two-choice guessing has 50% expected item accuracy. This tiny authored set is not a standardized general-understanding benchmark. Mean answer-byte likelihood can still favor particular strings; paired results help expose that bias but do not eliminate all confounds.
 

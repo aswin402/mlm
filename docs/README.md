@@ -4,6 +4,7 @@ Start with the [release overview](../README.md) and [changelog](../CHANGELOG.md)
 
 ## Project
 
+- [MLM v0.0.11 architecture, achievements, and research inspirations](research/architecture-and-inspirations-v0.0.11.md)
 - [Original idea, research and measured progress](research.md)
 - [DeepSeek papers and proposed MLM adaptations](research/deepseek-inspirations.md)
 - [Updated DeepSeek and recurrent-memory reassessment](research/deepseek-reassessment-2026-10-28.md)
@@ -11,7 +12,7 @@ Start with the [release overview](../README.md) and [changelog](../CHANGELOG.md)
 - [Detailed usage and historical experiment log](usage.md)
 - [Data sources, preparation and split rules](data/README.md)
 - [Smoke fixture](data/smoke.md)
-- [Reading evaluation fixture](data/evaluation.md)
+- [Reading evaluation fixtures (`v1`, `v2-multihop`, `v3-3hop`)](data/evaluation.md)
 
 ## Current research
 
