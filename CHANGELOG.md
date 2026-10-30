@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [0.0.13] - 2026-10-31
+
+### Added
+
+- **True Indexed Sparse Top-$K$ Node Execution (`act_idx` Gather) & Gradient Rematerialization (`@jax.checkpoint`):** When `nodes >= 8` and `0 < top_k_nodes < nodes - shared_nodes`, `graph_round` in `GraphLM.__call__` (`mlm.model`) gathers only the `shared_nodes + top_k_nodes` active nodes via `jnp.take_along_axis` before running the heavy `x_kernel` and `h_kernel` matrix multiplications and scatters updates back into the graph state, while wrapping `token_step` in `jax.checkpoint` when `nodes * width >= 512` and capping XLA/OpenMP CPU threads (`OMP_NUM_THREADS=6`) in `mlm.config` for lag-free laptop training of 10M+ parameter models.
+- **Warm Optimizer Moment Transfer Across Node Growth (`grow_train_state`):** Added `grow_train_state` in `mlm.plasticity` to preserve warm Muon/AdamW moments (`opt_state`) and step counters across shared parameters and parent nodes during recombinative node growth (`recombine_grow_nodes`) while automatically evicting stale XLA caches (`jax.clear_caches()`).
+- **Symmetric Per-Channel 8-Bit (`b8` / `int8`) Checkpoint Quantization:** Added `quantize_params_b8`, `dequantize_params_b8`, and `quantize="b8"` support in `save_checkpoint` / `load_checkpoint` (`mlm.checkpoint`), compressing the `10,301,833`-parameter (`10.30M`) developmental checkpoint from `156.70 MiB` (`fp32`) down to `8.64 MiB` (`b8` `int8` — `18.1x` smaller) with lossless `100.0%` multi-hop reading accuracy.
+- **Curated Real-World Hugging Face Dataset Pipeline & `10.30M` Developmental Benchmark (`mlm.curated_data`, `mlm.benchmark_10m`, `configs/mlm-10m-growth.json`):** Added `prepare_curated_english` (`mlm.curated_data`) curating 6 real-world Hugging Face datasets (`wikimedia/wikipedia`, `HuggingFaceTB/cosmopedia-100k`, `HuggingFaceTB/smoltalk`, `databricks/databricks-dolly-15k`, `allenai/sciq`, and `rajpurkar/squad`) and `run_10m_experiment` (`mlm.benchmark_10m`) growing `GraphLM` from `3.81M` (`4` nodes) $\to$ `5.97M` (`8` nodes) $\to$ `10.30M` (`16` nodes) and benchmarking `mlm_10m_b8` head-to-head against `dense_gru` and `legacy_graph`.
+
+### Changed
+
+- Incremented package and lockfile version to 0.0.13 (124 regression tests passing).
+
 ## [0.0.12] - 2026-10-31
 
 ### Added

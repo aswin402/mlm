@@ -1,8 +1,16 @@
 """Validated, immutable experiment settings."""
 
+import os
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+# Prevent XLA/OpenMP from saturating all logical CPU threads and freezing laptop UI
+os.environ.setdefault("OMP_NUM_THREADS", "6")
+os.environ.setdefault(
+    "XLA_FLAGS",
+    "--xla_cpu_multi_thread_eigen=true intra_op_parallelism_threads=6",
+)
 
 
 class Config(BaseModel):

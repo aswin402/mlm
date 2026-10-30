@@ -30,7 +30,8 @@ def score_candidates(state, config, prompts, answers, messages=True):
             raise ValueError("Probe exceeds the 1024-byte evaluation limit")
         rows.append((ids, len(prefix) - 1))
     length = ((max(len(ids) - 1 for ids, _ in rows) + 31) // 32) * 32
-    batch_size = min(8, len(rows))
+    max_bs = 2 if (config.width * config.nodes >= 512 or length >= 256) else 8
+    batch_size = min(max_bs, len(rows))
     outputs = []
 
     @jax.jit

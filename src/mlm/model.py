@@ -301,14 +301,51 @@ class GraphLM(nn.Module):
                 else:
                     msg = aggregate(old @ msg_kernel, edges)
                 inp = jnp.concatenate([x, msg], axis=-1)
-                gx = jnp.einsum("bni,nij->bnj", inp, x_kernel) + bias
-                gh = jnp.einsum("bni,nij->bnj", old, h_kernel)
-                xz, xr, xn = jnp.split(gx, 3, axis=-1)
-                hz, hr, hn = jnp.split(gh, 3, axis=-1)
-                z = jax.nn.sigmoid(xz + hz)
-                r = jax.nn.sigmoid(xr + hr)
-                candidate = jnp.tanh(xn + r * hn)
-                updated = (1 - z) * candidate + z * old
+                if (
+                    n >= 8
+                    and 0 < c.top_k_nodes < n - c.shared_nodes
+                    and c.node_update in {"timescale", "hierarchical"}
+                ):
+                    s = c.shared_nodes
+                    b_sz = tokens.shape[0]
+                    b_idx = jnp.arange(b_sz)[:, None]
+                    score_pool = (
+                        base_timescale[:, s:] if c.node_update == "timescale" else rates[:, s:]
+                    )
+                    if router_bias is not None:
+                        score_pool = score_pool + jax.lax.stop_gradient(router_bias[None, s:])
+                    _, top_rel = jax.lax.top_k(score_pool, c.top_k_nodes)
+                    spec_idx = top_rel + s
+                    if s > 0:
+                        shared_idx = jnp.broadcast_to(
+                            jnp.arange(s, dtype=spec_idx.dtype)[None, :], (b_sz, s)
+                        )
+                        act_idx = jnp.concatenate([shared_idx, spec_idx], axis=-1)
+                    else:
+                        act_idx = spec_idx
+                    inp_k = inp[b_idx, act_idx]
+                    old_k = old[b_idx, act_idx]
+                    xk_k = x_kernel[act_idx]
+                    hk_k = h_kernel[act_idx]
+                    b_k = bias[act_idx]
+                    gx_k = jnp.einsum("bki,bkij->bkj", inp_k, xk_k) + b_k
+                    gh_k = jnp.einsum("bki,bkij->bkj", old_k, hk_k)
+                    xz, xr, xn = jnp.split(gx_k, 3, axis=-1)
+                    hz, hr, hn = jnp.split(gh_k, 3, axis=-1)
+                    z = jax.nn.sigmoid(xz + hz)
+                    r = jax.nn.sigmoid(xr + hr)
+                    candidate = jnp.tanh(xn + r * hn)
+                    upd_k = (1 - z) * candidate + z * old_k
+                    updated = old.at[b_idx, act_idx].set(upd_k)
+                else:
+                    gx = jnp.einsum("bni,nij->bnj", inp, x_kernel) + bias
+                    gh = jnp.einsum("bni,nij->bnj", old, h_kernel)
+                    xz, xr, xn = jnp.split(gx, 3, axis=-1)
+                    hz, hr, hn = jnp.split(gh, 3, axis=-1)
+                    z = jax.nn.sigmoid(xz + hz)
+                    r = jax.nn.sigmoid(xr + hr)
+                    candidate = jnp.tanh(xn + r * hn)
+                    updated = (1 - z) * candidate + z * old
                 if c.node_update == "dense":
                     return updated
                 if c.node_update == "timescale":
@@ -549,8 +586,9 @@ class GraphLM(nn.Module):
             routes = jnp.where(active[:, None], route_probs, 0.0)
             return h, (logits, routes, ponder_kl, z, z_raw, wavelet_out)
 
+        scan_step = jax.checkpoint(token_step) if (n * d >= 512) else token_step
         final, (logits_t, routes_t, ponder_t, z_t, z_raw_t, w_t) = jax.lax.scan(
-            token_step, state, (tokens.T, resets.T, valid.T)
+            scan_step, state, (tokens.T, resets.T, valid.T)
         )
         z_bt = z_t.transpose(1, 0, 2)
         if c.relational_hops > 0:

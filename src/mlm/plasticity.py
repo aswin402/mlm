@@ -344,7 +344,47 @@ def recombine_grow_nodes(
         new_params["router_child_kernel"] = jnp.concatenate([ck, extra_ck], axis=-1)
         new_params["router_child_bias"] = jnp.concatenate([cb, extra_cb], axis=-1)
 
+    if new_config.nodes * new_config.width >= 512:
+        jax.clear_caches()
     return new_config, new_params
+
+
+def grow_train_state(
+    config, state, add_nodes: int, birth_gate: float = 0.05, noise_std: float = 0.01
+):
+    """Grow a TrainState by `add_nodes` while preserving warm optimizer moments and step count."""
+    from mlm.training import create_state
+
+    new_config, grown_params = recombine_grow_nodes(
+        config, state.params, add_nodes=add_nodes, birth_gate=birth_gate, noise_std=noise_std
+    )
+    fresh_state = create_state(new_config)
+
+    def _merge_opt_leaf(old_leaf, new_leaf):
+        if not hasattr(old_leaf, "shape") or not hasattr(new_leaf, "shape"):
+            return new_leaf
+        if old_leaf.shape == new_leaf.shape:
+            return old_leaf
+        if (
+            old_leaf.ndim >= 1
+            and old_leaf.shape[0] < new_leaf.shape[0]
+            and old_leaf.shape[1:] == new_leaf.shape[1:]
+        ):
+            return jnp.concatenate([old_leaf, new_leaf[old_leaf.shape[0] :]], axis=0)
+        if (
+            old_leaf.ndim >= 1
+            and old_leaf.shape[-1] < new_leaf.shape[-1]
+            and old_leaf.shape[:-1] == new_leaf.shape[:-1]
+        ):
+            return jnp.concatenate([old_leaf, new_leaf[..., old_leaf.shape[-1] :]], axis=-1)
+        return new_leaf
+
+    warm_opt_state = jax.tree.map(_merge_opt_leaf, state.opt_state, fresh_state.opt_state)
+    return new_config, fresh_state.replace(
+        params=grown_params,
+        opt_state=warm_opt_state,
+        step=state.step,
+    )
 
 
 def node_saturation(route_usage, read_kernel, min_norm: float = 0.05) -> dict:

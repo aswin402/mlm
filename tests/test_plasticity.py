@@ -1218,3 +1218,60 @@ def test_surprise_gating_dog_wavelets_and_relational_hops():
     assert np.allclose(np.asarray(mix_w.sum(axis=-1)), 1.0, atol=1e-4)
     assert np.allclose(np.asarray(mix_w.sum(axis=-2)), 1.0, atol=1e-2)
     assert jnp.all(jnp.isfinite(mixed))
+
+
+def test_b8_checkpoint_compression_and_warm_moment_growth(tmp_path):
+    from mlm.plasticity import grow_train_state
+
+    cfg = Config(
+        architecture="graph",
+        nodes=4,
+        shared_nodes=1,
+        top_k_nodes=2,
+        node_update="timescale",
+        width=16,
+        degree=2,
+        rounds=1,
+        memory="relational",
+        memory_keys=4,
+        episodic_slots=4,
+        relational_hops=2,
+        optimizer="muon",
+        warmup_steps=2,
+    )
+    st = create_state(cfg)
+    grads = jax.tree.map(lambda p: jnp.full_like(p, 0.05), st.params)
+    st = st.apply_gradients(grads=grads)
+
+    # Grow 4 -> 8 nodes (triggers indexed sparse top-k gather when nodes >= 8)
+    cfg8, st8 = grow_train_state(cfg, st, add_nodes=4)
+    assert cfg8.nodes == 8
+    assert st8.params["input_kernel"].shape[0] == 8
+    # Verify warm shared moments were preserved across growth
+    emb_shape = st.params["embedding"].shape
+    old_leaves = [
+        x for x in jax.tree.leaves(st.opt_state) if getattr(x, "shape", ()) == emb_shape
+    ]
+    new_leaves = [
+        x for x in jax.tree.leaves(st8.opt_state) if getattr(x, "shape", ()) == emb_shape
+    ]
+    assert len(old_leaves) >= 2
+    for a, b in zip(old_leaves, new_leaves, strict=True):
+        np.testing.assert_allclose(np.asarray(a), np.asarray(b))
+        assert float(jnp.linalg.norm(b)) > 0.0
+
+    # Save & load both fp32 and b8 (int8) checkpoints
+    fp32_path = tmp_path / "model_fp32.mlm"
+    b8_path = tmp_path / "model_b8.mlm"
+    save_checkpoint(fp32_path, st8, cfg8, {"stage": 2}, quantize="none")
+    save_checkpoint(b8_path, st8, cfg8, {"stage": 2}, quantize="b8")
+    assert b8_path.stat().st_size < fp32_path.stat().st_size
+
+    loaded_b8, loaded_cfg, loaded_meta = load_checkpoint(b8_path)
+    assert loaded_cfg.nodes == 8
+    assert loaded_meta["stage"] == 2
+    for name, orig_arr in st8.params.items():
+        deq_arr = loaded_b8.params[name]
+        assert deq_arr.shape == orig_arr.shape
+        np.testing.assert_allclose(np.asarray(deq_arr), np.asarray(orig_arr), atol=2e-2, rtol=2e-2)
+
