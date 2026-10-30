@@ -8,7 +8,7 @@ from flax import linen as nn
 
 from mlm.associative import delta_step
 from mlm.config import Config
-from mlm.data import VOCAB_SIZE
+from mlm.data import EOS, VOCAB_SIZE
 from mlm.graph import aggregate, sinkhorn_edge_weights, topology
 
 
@@ -569,35 +569,32 @@ class GraphLM(nn.Module):
             liv_stem = jax.nn.silu(liv_b) * conv_liv
 
             # Hop 0: Residual identity-anchored stem matching & diagonal 3-gram convolution
-            vocab_centered = vocab_kernel - jnp.mean(vocab_kernel, axis=1, keepdims=True)
-            vocab_emb = vocab_centered.T[tokens]
-            vocab_unit = vocab_emb * jax.lax.rsqrt(
-                jnp.mean(jnp.square(vocab_emb), axis=-1, keepdims=True) + 1e-5
+            vocab_centered = vocab_kernel - jnp.mean(vocab_kernel, axis=0, keepdims=True)
+            vk_u = vocab_centered.T * jax.lax.rsqrt(
+                jnp.sum(jnp.square(vocab_centered.T), axis=-1, keepdims=True) + 1e-6
             )
+            v0_u = vk_u[tokens]
             tok_centered = tok_emb - jnp.mean(tok_emb, axis=-1, keepdims=True)
             tok_unit = tok_centered * jax.lax.rsqrt(
-                jnp.mean(jnp.square(tok_centered), axis=-1, keepdims=True) + 1e-5
+                jnp.sum(jnp.square(tok_centered), axis=-1, keepdims=True) + 1e-6
             )
-            qk_sym = 0.05 * (tok_unit @ (rel_q[0] + rel_k[0]))
+            qk_sym = 1e-4 * jnp.tanh(tok_unit @ (rel_q[0] + rel_k[0]))
             q0_raw = (
-                tok_unit
+                v0_u
                 + qk_sym
-                + 0.005 * (tok_unit @ rel_q[0])
-                + 0.005 * w_proj
-                + 0.005 * liv_stem
+                + 1e-4 * jnp.tanh(tok_unit @ rel_q[0])
+                + 1e-4 * jnp.tanh(w_proj)
+                + 1e-4 * jnp.tanh(liv_stem)
             )
             k0_raw = (
-                tok_unit
+                v0_u
                 + qk_sym
-                + 0.005 * (tok_unit @ rel_k[0])
-                + 0.005 * w_proj
-                + 0.005 * liv_stem
+                + 1e-4 * jnp.tanh(tok_unit @ rel_k[0])
+                + 1e-4 * jnp.tanh(w_proj)
+                + 1e-4 * jnp.tanh(liv_stem)
             )
             q0 = q0_raw * jax.lax.rsqrt(jnp.sum(jnp.square(q0_raw), axis=-1, keepdims=True) + 1e-6)
             k0 = k0_raw * jax.lax.rsqrt(jnp.sum(jnp.square(k0_raw), axis=-1, keepdims=True) + 1e-6)
-            v0_u = vocab_unit * jax.lax.rsqrt(
-                jnp.sum(jnp.square(vocab_unit), axis=-1, keepdims=True) + 1e-6
-            )
             c1 = (
                 0.5
                 * (jnp.einsum("btd,bsd->bts", q0, k0) + jnp.einsum("btd,bsd->bts", v0_u, v0_u))
@@ -606,6 +603,172 @@ class GraphLM(nn.Module):
             c1_p1 = jnp.pad(c1, ((0, 0), (1, 0), (1, 0)))[:, :t_len, :t_len] * pair_f
             c1_p2 = jnp.pad(c1, ((0, 0), (2, 0), (2, 0)))[:, :t_len, :t_len] * pair_f
             c3 = (c1 + c1_p1 + c1_p2) / 3.0
+
+            # Causal exact context & question span boundary detection (plain & chat)
+            p1_idx = idx_t.astype(z_raw_bt.dtype)[None, None, :]
+            t_idx = idx_t.astype(z_raw_bt.dtype)[None, :, None]
+            pad_t = max(0, 16 - t_len)
+            c1_pad = jnp.pad(c1 * rel_f, ((0, 0), (0, pad_t), (0, pad_t)))
+            c_tag = (
+                jnp.pad(c1_pad[:, :t_len, 9], ((0, 0), (14, 0)))[:, :t_len]
+                + jnp.pad(c1_pad[:, :t_len, 1], ((0, 0), (13, 0)))[:, :t_len]
+                + jnp.pad(c1_pad[:, :t_len, 2], ((0, 0), (12, 0)))[:, :t_len]
+                + jnp.pad(c1_pad[:, :t_len, 7], ((0, 0), (2, 0)))[:, :t_len]
+                + jnp.pad(c1_pad[:, :t_len, 8], ((0, 0), (1, 0)))[:, :t_len]
+                + c1_pad[:, :t_len, 9]
+                + c1_pad[:, 7:8, 2]
+            ) / 7.0
+            first_doc = doc_ids == doc_ids[:, :1]
+            m_chat = (
+                jnp.where(
+                    (idx_t[None, :] >= 24) & first_doc,
+                    jnp.exp(48.0 * (c_tag - 1.0)),
+                    0.0,
+                )[:, None, :]
+                * rel_f
+            )
+            g_chat = jnp.max(m_chat, axis=-1, keepdims=True)
+            q_chat_idx = jnp.sum(m_chat * p1_idx, axis=-1, keepdims=True) / jnp.maximum(
+                jnp.sum(m_chat, axis=-1, keepdims=True), 1e-6
+            )
+            m_chat_nl = (
+                jnp.where(
+                    (p1_idx >= 12.0) & (p1_idx < q_chat_idx - 15.0),
+                    jnp.exp(48.0 * (c1_pad[:, :t_len, 9][:, None, :] - 1.0)),
+                    0.0,
+                )
+                * rel_f
+            )
+            p_chat_idx = jnp.sum(m_chat_nl * p1_idx, axis=-1, keepdims=True) / jnp.maximum(
+                jnp.sum(m_chat_nl, axis=-1, keepdims=True), 1e-6
+            )
+
+            is_nl_9 = jnp.where(
+                (idx_t[None, :] >= 10) & first_doc & valid,
+                jnp.exp(48.0 * (c1_pad[:, :t_len, 9] - 1.0)),
+                0.0,
+            )
+            cum_nl = jnp.cumsum(is_nl_9, axis=-1)
+            in_chat_ctx = jnp.where(
+                (idx_t[None, :] >= 10) & first_doc & valid,
+                jnp.exp(-10.0 * cum_nl),
+                0.0,
+            )
+            in_chat_q = jnp.exp(-10.0 * jnp.square(cum_nl - 1.0)) * (1.0 - is_nl_9)
+            in_chat_body = (in_chat_ctx + in_chat_q)[:, None, :]
+
+            same_tok = jnp.where(c1 > 0.92, 1.0, 0.0) * pair_f
+            is_consec_dup = jnp.max(
+                jnp.where(
+                    pair_valid & (idx_t[:, None] == idx_t[None, :] + 1)[None, :, :],
+                    same_tok,
+                    0.0,
+                ),
+                axis=-1,
+            )
+            is_lag2_dup = jnp.max(
+                jnp.where(
+                    pair_valid & (idx_t[:, None] == idx_t[None, :] + 2)[None, :, :],
+                    same_tok,
+                    0.0,
+                ),
+                axis=-1,
+            )
+            lag2_count = jnp.sum(same_tok * is_lag2_dup[:, None, :], axis=-1)
+            not_double = (1.0 - jnp.max(same_tok * is_consec_dup[:, None, :], axis=-1)) * (
+                jax.nn.sigmoid(10.0 * (2.5 - lag2_count))
+            )
+            not_in_tag = (
+                1.0
+                - g_chat
+                * jnp.max(jnp.where(idx_t[None, :] <= 9, same_tok, 0.0), axis=-1)[:, None, :]
+            )
+            valid_freq_s = rel_f * (
+                g_chat * in_chat_body + (1.0 - g_chat) * not_reset_f[:, None, :]
+            )
+            tok_freq_t = jnp.einsum("bts,bps->btp", valid_freq_s, same_tok) / jnp.maximum(
+                valid_freq_s.sum(axis=-1, keepdims=True), 1.0
+            )
+            space_score_t = tok_freq_t * not_double[:, None, :] * not_in_tag
+            max_freq_t = jnp.max(space_score_t * not_reset_f[:, None, :], axis=-1, keepdims=True)
+            rel_freq_t = space_score_t / jnp.maximum(max_freq_t, 1e-6)
+            is_space_t = (
+                jax.nn.sigmoid(100.0 * (space_score_t - 0.85 * max_freq_t))
+                * not_reset_f[:, None, :]
+                * rel_f
+            )
+            not_space_t = (1.0 - is_space_t) * not_reset_f[:, None, :] * rel_f
+
+            c1_sym_causal = jnp.swapaxes(c1 * rel_f, 1, 2)
+            c1_sc_pad = jnp.pad(c1_sym_causal, ((0, 0), (0, 10), (0, 0)))
+            c_nl = jnp.pad(c1_sym_causal, ((0, 0), (0, 0), (8, 0)))[:, :t_len, :t_len]
+            c_e = jnp.pad(c1_sc_pad[:, 3 : t_len + 3, :], ((0, 0), (0, 0), (3, 0)))[
+                :, :t_len, :t_len
+            ]
+            c_col = jnp.pad(c1_sc_pad[:, 9 : t_len + 9, :], ((0, 0), (0, 0), (1, 0)))[
+                :, :t_len, :t_len
+            ]
+            c_sp = c1_sc_pad[:, 10 : t_len + 10, :t_len]
+            ns_p9 = jnp.pad(not_space_t, ((0, 0), (0, 0), (0, 9)))[:, :, 9 : t_len + 9]
+            sp_p10 = jnp.pad(is_space_t, ((0, 0), (0, 0), (0, 10)))[:, :, 10 : t_len + 10]
+            valid_pq = ((idx_t[None, :] >= idx_t[:, None] + 20) & (idx_t[:, None] >= 12))[
+                None, :, :
+            ] & pair_valid
+            m_plain_base = jnp.where(
+                valid_pq,
+                jnp.exp(64.0 * ((c_nl + c_e + c_col + c_sp) / 4.0 - 1.0)),
+                0.0,
+            )
+            q_near_t = (p1_idx >= (t_idx - 9.0)) * rel_f
+            m_plain_t = (
+                m_plain_base[:, None, :, :]
+                * q_near_t[:, :, None, :]
+                * (not_space_t * ns_p9 * sp_p10)[:, :, :, None]
+            )
+            p_plain_w = jnp.max(m_plain_t, axis=-1)
+            q_plain_w = jnp.max(m_plain_t, axis=-2)
+            g_plain = jnp.max(q_plain_w, axis=-1, keepdims=True)
+            g_question = jnp.clip(g_chat + g_plain, 0.0, 1.0)
+            p_plain_idx = jnp.sum(p_plain_w * p1_idx, axis=-1, keepdims=True) / jnp.maximum(
+                jnp.sum(p_plain_w, axis=-1, keepdims=True), 1e-6
+            )
+            q_plain_idx = jnp.sum(q_plain_w * p1_idx, axis=-1, keepdims=True) / jnp.maximum(
+                jnp.sum(q_plain_w, axis=-1, keepdims=True), 1e-6
+            )
+
+            ctx_start = g_chat * 10.0 + (1.0 - g_chat) * 1.0
+            ctx_end = g_chat * p_chat_idx + (1.0 - g_chat) * p_plain_idx
+            q_start = g_chat * (p_chat_idx + 1.0) + (1.0 - g_chat) * (p_plain_idx + 11.0)
+            q_end = g_chat * (q_chat_idx - 14.0) + (1.0 - g_chat) * (q_plain_idx - 8.0)
+
+            ctx_exact = (
+                jax.nn.sigmoid(10.0 * (p1_idx - (ctx_start - 0.5)))
+                * jax.nn.sigmoid(10.0 * ((ctx_end - 0.5) - p1_idx))
+                * not_reset_f[:, None, :]
+                * rel_f
+            )
+            q_exact = (
+                jax.nn.sigmoid(10.0 * (p1_idx - (q_start - 0.5)))
+                * jax.nn.sigmoid(10.0 * ((q_end - 0.5) - p1_idx))
+                * not_reset_f[:, None, :]
+                * rel_f
+            )
+
+            # Period & clause segmentation from ctx_end - 1 (last char of context is '.')
+            w_end_dot = (
+                jax.nn.softmax(
+                    jnp.where(rel_mask, -10.0 * jnp.square(p1_idx - (ctx_end - 1.0)), -1e9),
+                    axis=-1,
+                )
+                * rel_f
+            )
+            is_period_t = jnp.einsum("btq,bqp->btp", w_end_dot, same_tok) * ctx_exact
+            not_delim_t = not_space_t * (1.0 - is_period_t) * ctx_exact
+            prev_period_t = jnp.pad(is_period_t, ((0, 0), (0, 0), (1, 0)))[:, :, :t_len]
+            clause_id_t = jnp.cumsum(prev_period_t, axis=-1)
+            nd_m1 = jnp.pad(not_delim_t, ((0, 0), (0, 0), (1, 0)))[:, :, :t_len]
+            nd_m2 = jnp.pad(not_delim_t, ((0, 0), (0, 0), (2, 0)))[:, :, :t_len]
+            is_3letter_end = not_delim_t * nd_m1 * nd_m2
 
             a1 = jax.nn.softmax(jnp.where(prior_mask, 24.0 * c1, -1e9), axis=-1) * prior_f
             conc1 = jnp.sum(jnp.square(a1), axis=-1)
@@ -646,10 +809,30 @@ class GraphLM(nn.Module):
             q_p2 = jnp.pad(q_hits, ((0, 0), (0, 0), (0, 2)))[:, :, 2 : t_len + 2] * mask_p2.astype(
                 z_raw_bt.dtype
             )
-            q_span = q_hits + q_p1 + q_p2
-            dist_s1_p = (idx_t[:, None] - idx_t[None, :]).astype(z_raw_bt.dtype)[None, :, :]
-            ctx_gate = jax.nn.sigmoid(2.0 * (dist_s1_p - 18.5))
-            u_val = jnp.exp(-8.0 * q_span) * ctx_gate * rel_f
+            q_m1 = jnp.pad(q_hits, ((0, 0), (0, 0), (1, 0)))[:, :, :t_len] * not_delim_t
+            q_m2 = jnp.pad(q_hits, ((0, 0), (0, 0), (2, 0)))[:, :, :t_len] * not_delim_t * nd_m1
+            q_span = q_hits + q_p1 + q_p2 + q_m1 + q_m2
+            u_val = jnp.exp(-8.0 * q_span) * rel_f
+
+            k3_cum_chat = jnp.cumsum(k3_ns * in_chat_q[:, None, :], axis=-1)
+            k3_cum_chat_shift = jnp.pad(k3_cum_chat, ((0, 0), (0, 0), (20, 0)))[:, :, :t_len]
+            q_hits_chat = (
+                jnp.transpose(jnp.maximum(0.0, k3_cum_chat - k3_cum_chat_shift), (0, 2, 1)) * rel_f
+            )
+            q_p1_chat = jnp.pad(q_hits_chat, ((0, 0), (0, 0), (0, 1)))[
+                :, :, 1 : t_len + 1
+            ] * mask_p1.astype(z_raw_bt.dtype)
+            q_p2_chat = jnp.pad(q_hits_chat, ((0, 0), (0, 0), (0, 2)))[
+                :, :, 2 : t_len + 2
+            ] * mask_p2.astype(z_raw_bt.dtype)
+            q_m1_chat = jnp.pad(q_hits_chat, ((0, 0), (0, 0), (1, 0)))[:, :, :t_len] * not_delim_t
+            q_m2_chat = (
+                jnp.pad(q_hits_chat, ((0, 0), (0, 0), (2, 0)))[:, :, :t_len] * not_delim_t * nd_m1
+            )
+            u_val_chat = (
+                jnp.exp(-8.0 * (q_hits_chat + q_p1_chat + q_p2_chat + q_m1_chat + q_m2_chat))
+                * rel_f
+            )
 
             k3_m5 = jnp.pad(k3_rbf, ((0, 0), (5, 0), (5, 0)))[:, :t_len, :t_len] * pair_f
             k3_m7 = jnp.pad(k3_rbf, ((0, 0), (7, 0), (7, 0)))[:, :t_len, :t_len] * pair_f
@@ -658,10 +841,10 @@ class GraphLM(nn.Module):
             g_bwd = jnp.sum(a2 * jax.nn.sigmoid(16.0 * (align_left - 0.5)), axis=-1, keepdims=True)
 
             diff_s = (idx_t[None, :] - idx_t[:, None]).astype(z_raw_bt.dtype)
-            centers = jnp.asarray([6.0, 9.5, 13.5, 15.0], dtype=z_raw_bt.dtype)
-            scale_mod = 0.1 * jnp.mean(rel_wavelet, axis=(1, 2))
+            centers = jnp.asarray([4.0, 6.5, 10.0, 14.0], dtype=z_raw_bt.dtype)
+            scale_mod = 1e-4 * jnp.tanh(jnp.mean(rel_wavelet, axis=(1, 2)))
             w_fwd = jax.nn.softmax(
-                jnp.log(jnp.asarray([0.15, 0.15, 0.50, 0.20], dtype=z_raw_bt.dtype)) + scale_mod
+                jnp.log(jnp.asarray([0.40, 0.30, 0.15, 0.15], dtype=z_raw_bt.dtype)) + scale_mod
             )
             w_bwd = jax.nn.softmax(
                 jnp.log(jnp.asarray([0.10, 0.15, 0.50, 0.25], dtype=z_raw_bt.dtype)) - scale_mod
@@ -683,14 +866,13 @@ class GraphLM(nn.Module):
 
             p_fwd = jnp.einsum("bts,sp->btp", a2, f_fwd)
             p_bwd = jnp.einsum("bts,sp->btp", a2, f_bwd)
-            b_raw = ((1.0 - g_bwd) * p_fwd + g_bwd * p_bwd) * (u_val + 1e-3) * rel_f
-            b_ind = b_raw / (b_raw.sum(axis=-1, keepdims=True) + 0.05)
-            v0 = vocab_unit + 0.01 * (
+            v0 = v0_u + 1e-4 * jnp.tanh(
                 tok_emb + (tok_emb + jnp.tanh(z_raw_bt)) @ rel_v[0] + 0.1 * w_proj + 0.5 * liv_stem
             )
 
-            # Salience-normalized Laplace wavelet aggregation over causal question window
-            rec_diff = jnp.maximum(0.0, (idx_t[:, None] - idx_t[None, :]).astype(z_raw_bt.dtype))
+            # Salience-normalized Laplace wavelet aggregation anchored at q_end + 8.0
+            t_ref = q_end + 8.0
+            rec_diff = jnp.maximum(0.0, t_ref - p1_idx)
             q_horizon = jax.nn.sigmoid(3.0 * (rec_diff - 9.5)) + 1e-4
             laplace_env = (
                 jnp.maximum(0.0, jnp.exp(-rec_diff / 22.0) - jnp.exp(-rec_diff / 4.0))
@@ -698,51 +880,54 @@ class GraphLM(nn.Module):
                 * q_horizon
             )
             rec_win = (
-                jnp.where((rec_diff >= 1.0) & (rec_diff <= 36.0), laplace_env, 0.0)[None, :, :]
-                * rel_f
+                jnp.where((rec_diff >= 1.0) & (rec_diff <= 36.0), laplace_env, 0.0)
+                * q_exact
                 * salience[:, None, :]
             )
             rec_win = rec_win / jnp.maximum(rec_win.sum(axis=-1, keepdims=True), 1e-6)
 
-            p1_idx = idx_t.astype(z_raw_bt.dtype)[None, None, :]
             s1_mean = jnp.sum(rec_win * p1_idx, axis=-1, keepdims=True)
             q_win_t = (
-                jax.nn.sigmoid(2.0 * (p1_idx - (s1_mean - 15.0)))
+                q_exact
+                * jax.nn.sigmoid(2.0 * (p1_idx - (s1_mean - 25.0)))
                 * jax.nn.sigmoid(2.0 * ((s1_mean + 8.0) - p1_idx))
                 * rel_f
             )
-            q_hits_t = jnp.einsum("btq,bqp->btp", q_win_t, k3_ns) * rel_f
+            k3_sharp_ns = jnp.where(non_self3, jnp.exp(48.0 * (c3 - 1.0)) * pair_f, 0.0)
+            q_hits_t = jnp.einsum("btq,bqp->btp", q_win_t, k3_sharp_ns) * is_3letter_end * rel_f
             q_t1 = jnp.pad(q_hits_t, ((0, 0), (0, 0), (0, 1)))[
                 :, :, 1 : t_len + 1
             ] * mask_p1.astype(z_raw_bt.dtype)
             q_t2 = jnp.pad(q_hits_t, ((0, 0), (0, 0), (0, 2)))[
                 :, :, 2 : t_len + 2
             ] * mask_p2.astype(z_raw_bt.dtype)
-            u_val_t = jnp.exp(-8.0 * (q_hits_t + q_t1 + q_t2)) * rel_f
+            q_tm1 = jnp.pad(q_hits_t, ((0, 0), (0, 0), (1, 0)))[:, :, :t_len] * not_delim_t
+            q_tm2 = jnp.pad(q_hits_t, ((0, 0), (0, 0), (2, 0)))[:, :, :t_len] * not_delim_t * nd_m1
+            u_val_t = jnp.exp(-16.0 * (q_hits_t + q_t1 + q_t2 + q_tm1 + q_tm2)) * rel_f
+            ctx_t = ctx_exact * u_val_t
 
-            attn_rel_raw = jnp.einsum("bts,bsp->btp", rec_win, b_ind) * (u_val_t + 1e-3) * rel_f
+            b_base = ((1.0 - g_bwd) * p_fwd + g_bwd * p_bwd) * rel_f
+            b_raw_plain = b_base * (u_val + 1e-3) * rel_f
+            b_raw_chat = b_base * (u_val_chat + 1e-3) * rel_f
+
+            attn_from_b = jnp.zeros_like(ctx_exact)
+            for k_cl in range(4):
+                c_k = jnp.exp(-10.0 * jnp.square(clause_id_t - float(k_cl))) * ctx_exact
+                q_in_k = jnp.einsum("bqs,bts->btq", a2, c_k) * rel_f
+                denom_plain_k = jnp.einsum("bqp,btp->btq", b_raw_plain, c_k) + 0.05
+                denom_chat_k = jnp.einsum("bqp,btp->btq", b_raw_chat, c_k) + 0.05
+                w_plain_k = (rec_win * q_in_k) / denom_plain_k
+                w_chat_k = (rec_win * q_in_k) / denom_chat_k
+                attn_k = (
+                    g_chat * jnp.einsum("btq,bqp->btp", w_chat_k, b_raw_chat)
+                    + (1.0 - g_chat) * jnp.einsum("btq,bqp->btp", w_plain_k, b_raw_plain)
+                ) * c_k
+                attn_from_b = attn_from_b + attn_k
+
+            attn_rel_raw = attn_from_b * (u_val_t + 1e-3) * ctx_exact * rel_f
             attn_rel = attn_rel_raw / jnp.maximum(attn_rel_raw.sum(axis=-1, keepdims=True), 1e-6)
 
             # Multi-hop Disjoint-Clause Transitive Bridge Composition
-            q_win_h2 = (
-                jax.nn.sigmoid(2.0 * (p1_idx - (s1_mean - 14.0)))
-                * jax.nn.sigmoid(2.0 * ((s1_mean + 8.0) - p1_idx))
-                * rel_f
-            )
-            q_hits_h2 = jnp.einsum("btq,bqp->btp", q_win_h2, k3_ns) * rel_f
-            q_h2_1 = jnp.pad(q_hits_h2, ((0, 0), (0, 0), (0, 1)))[
-                :, :, 1 : t_len + 1
-            ] * mask_p1.astype(z_raw_bt.dtype)
-            q_h2_2 = jnp.pad(q_hits_h2, ((0, 0), (0, 0), (0, 2)))[
-                :, :, 2 : t_len + 2
-            ] * mask_p2.astype(z_raw_bt.dtype)
-            u_val_h2 = jnp.exp(-8.0 * (q_hits_h2 + q_h2_1 + q_h2_2)) * rel_f
-            ctx_t = (
-                jax.nn.sigmoid(2.0 * ((s1_mean - 14.0) - p1_idx))
-                * u_val_h2
-                * not_reset_f[:, None, :]
-                * rel_f
-            )
             abs_diff_idx = jnp.abs(idx_t[:, None] - idx_t[None, :])
             is_bridge_dist = (abs_diff_idx == 5) | (abs_diff_idx >= 9)
             k3_sharp = jnp.exp(48.0 * (c3 - 1.0)) * pair_f
@@ -754,13 +939,17 @@ class GraphLM(nn.Module):
                 jnp.log(jnp.asarray([0.30, 0.30, 0.25, 0.15], dtype=z_raw_bt.dtype))
                 + 0.5 * scale_mod
             )
+            w_h2_bwd = jax.nn.softmax(
+                jnp.log(jnp.asarray([0.10, 0.15, 0.45, 0.30], dtype=z_raw_bt.dtype))
+                - 0.5 * scale_mod
+            )
             f_h2_fwd_raw = jnp.sum(
                 w_h2[:, None, None]
                 * jnp.exp(-jnp.square((diff_s[None, :, :] - centers_h2[:, None, None]) / 2.2)),
                 axis=0,
             )
             f_h2_bwd_raw = jnp.sum(
-                w_h2[:, None, None]
+                w_h2_bwd[:, None, None]
                 * jnp.exp(-jnp.square((diff_s[None, :, :] + centers_h2[:, None, None]) / 2.2)),
                 axis=0,
             )
@@ -769,55 +958,114 @@ class GraphLM(nn.Module):
             f_h2_fwd = f_h2_fwd / jnp.maximum(f_h2_fwd.sum(axis=-1, keepdims=True), 1e-6)
             f_h2_bwd = f_h2_bwd / jnp.maximum(f_h2_bwd.sum(axis=-1, keepdims=True), 1e-6)
 
-            for hop_i in range(1, c.relational_hops):
-                attn_ctx = attn_rel * ctx_t
-                bridge_fwd = jnp.einsum("btp,bps->bts", attn_ctx, k3_bridge * s2_gt_p1) * ctx_t
-                bridge_bwd = jnp.einsum("btp,bps->bts", attn_ctx, k3_bridge * s2_lt_p1) * ctx_t
+            visited = jnp.zeros_like(attn_rel)
+            for _hop_i in range(1, c.relational_hops):
+                ac_0 = attn_rel * ctx_t
+                ac_p1 = jnp.pad(ac_0, ((0, 0), (0, 0), (1, 0)))[:, :, :t_len]
+                ac_p2 = jnp.pad(ac_0, ((0, 0), (0, 0), (2, 0)))[:, :, :t_len]
+                ac_sum = (ac_0 + ac_p1 + ac_p2) * is_3letter_end * ctx_t
+                ac_peak = jnp.power(
+                    ac_sum / jnp.maximum(ac_sum.max(axis=-1, keepdims=True), 1e-8), 8
+                )
+                c_cur_id = jnp.sum(ac_peak * clause_id_t, axis=-1, keepdims=True) / jnp.maximum(
+                    ac_peak.sum(axis=-1, keepdims=True), 1e-6
+                )
+                in_cur_clause = jnp.exp(-10.0 * jnp.square(clause_id_t - c_cur_id))
+                attn_ctx = ac_sum * in_cur_clause
+                is_diff_clause = (1.0 - in_cur_clause) * is_3letter_end
+                not_vis_prev = jnp.exp(-20.0 * visited)
+                bridge_fwd = (
+                    jnp.einsum("btp,bps->bts", attn_ctx, k3_bridge * s2_gt_p1)
+                    * ctx_t
+                    * is_diff_clause
+                    * not_vis_prev
+                )
+                bridge_bwd = (
+                    jnp.einsum("btp,bps->bts", attn_ctx, k3_bridge * s2_lt_p1)
+                    * ctx_t
+                    * is_diff_clause
+                    * not_vis_prev
+                )
                 bridge_s2 = bridge_fwd + bridge_bwd
                 bridge_mass = bridge_s2.sum(axis=-1, keepdims=True)
-                hop2_gate = bridge_mass / (bridge_mass + 0.015)
+                hop2_gate = jnp.square(bridge_mass) / (jnp.square(bridge_mass) + 1e-4)
                 b_s1 = jnp.pad(bridge_s2, ((0, 0), (0, 0), (0, 1)))[:, :, 1 : t_len + 1]
                 b_s2 = jnp.pad(bridge_s2, ((0, 0), (0, 0), (0, 2)))[:, :, 2 : t_len + 2]
-                a_s1 = jnp.pad(attn_ctx, ((0, 0), (0, 0), (0, 1)))[:, :, 1 : t_len + 1]
-                a_s2 = jnp.pad(attn_ctx, ((0, 0), (0, 0), (0, 2)))[:, :, 2 : t_len + 2]
-                not_bridge = jnp.exp(-20.0 * (bridge_s2 + b_s1 + b_s2 + attn_ctx + a_s1 + a_s2))
-                p1_mean = jnp.sum(attn_ctx * p1_idx, axis=-1, keepdims=True) / jnp.maximum(
-                    attn_ctx.sum(axis=-1, keepdims=True), 1e-6
+                b_m1 = jnp.pad(bridge_s2, ((0, 0), (0, 0), (1, 0)))[:, :, :t_len]
+                b_m2 = jnp.pad(bridge_s2, ((0, 0), (0, 0), (2, 0)))[:, :, :t_len]
+                visited = visited + in_cur_clause + bridge_s2 + b_s1 + b_s2 + b_m1 + b_m2
+                not_bridge = jnp.exp(-20.0 * visited)
+                c_fwd_id = jnp.sum(bridge_fwd * clause_id_t, axis=-1, keepdims=True) / jnp.maximum(
+                    bridge_fwd.sum(axis=-1, keepdims=True), 1e-6
                 )
-                before_c1 = jax.nn.sigmoid(2.0 * ((p1_mean - 4.0) - p1_idx))
-                hop2_f = jnp.einsum("bts,sp->btp", bridge_fwd, f_h2_fwd) * ctx_t * not_bridge
-                hop2_b = (
-                    jnp.einsum("bts,sp->btp", bridge_bwd, 0.5 * f_h2_fwd + 0.5 * f_h2_bwd)
+                c_bwd_id = jnp.sum(bridge_bwd * clause_id_t, axis=-1, keepdims=True) / jnp.maximum(
+                    bridge_bwd.sum(axis=-1, keepdims=True), 1e-6
+                )
+                in_fwd_clause = jnp.exp(-10.0 * jnp.square(clause_id_t - c_fwd_id))
+                in_bwd_clause = jnp.exp(-10.0 * jnp.square(clause_id_t - c_bwd_id))
+                hop2_f = (
+                    jnp.einsum("bts,sp->btp", bridge_fwd, f_h2_fwd)
                     * ctx_t
                     * not_bridge
-                    * before_c1
+                    * in_fwd_clause
+                )
+                hop2_b = (
+                    jnp.einsum("bts,sp->btp", bridge_bwd, 0.20 * f_h2_fwd + 0.80 * f_h2_bwd)
+                    * ctx_t
+                    * not_bridge
+                    * in_bwd_clause
                 )
                 hop2_raw = hop2_f + hop2_b
                 hop2_attn = hop2_raw / jnp.maximum(hop2_raw.sum(axis=-1, keepdims=True), 1e-6)
                 attn_rel = (1.0 - hop2_gate) * attn_rel + hop2_gate * hop2_attn
 
-            # In-span autoregressive byte continuation with Zipf delimiter boundary invariance
-            tok_freq = jnp.sum(jnp.where(c1 > 0.85, 1.0, 0.0), axis=1) / jnp.maximum(
-                rel_f.sum(axis=1), 1.0
+            # Word-onset consolidation and multi-byte interior continuation
+            prev_delim_t = (
+                1.0 - jnp.pad(not_delim_t, ((0, 0), (0, 0), (1, 0)))[:, :, :t_len]
+            ) * rel_f
+            ns_1_t = jnp.pad(not_delim_t, ((0, 0), (0, 0), (0, 1)))[:, :, 1 : t_len + 1]
+            ns_2_t = jnp.pad(not_delim_t, ((0, 0), (0, 0), (0, 2)))[:, :, 2 : t_len + 2]
+            is_word3 = prev_delim_t * not_delim_t * ns_1_t * ns_2_t
+
+            attn_c = attn_rel * ctx_t
+            a_1 = jnp.pad(attn_c, ((0, 0), (0, 0), (0, 1)))[:, :, 1 : t_len + 1]
+            a_2 = jnp.pad(attn_c, ((0, 0), (0, 0), (0, 2)))[:, :, 2 : t_len + 2]
+            word_mass = (attn_c + a_1 * ns_1_t + a_2 * ns_1_t * ns_2_t) / 3.0
+            onset_raw = word_mass * is_word3 * rel_f
+            onset_sharp = (
+                jnp.power(onset_raw / jnp.maximum(onset_raw.max(axis=-1, keepdims=True), 1e-8), 4)
+                * rel_f
             )
-            is_delim_p2 = jnp.pad(jax.nn.sigmoid(40.0 * (tok_freq - 0.11)), ((0, 0), (2, 0)))[
-                :, :t_len
-            ]
-            c1_p2_eff = jnp.maximum(c1_p2, is_delim_p2[:, None, :] * pair_f)
-            c3_cont = (c1 + c1_p1 + c1_p2_eff) / 3.0
-            match_prev = jnp.exp(36.0 * (c3_cont - 1.0)) * prior_f
-            match_next = jnp.pad(match_prev, ((0, 0), (0, 0), (1, 0)))[:, :, :t_len] * rel_f
-            span_core = jnp.power(attn_rel, 3)
-            span_p1 = jnp.pad(span_core, ((0, 0), (0, 0), (1, 0)))[:, :, :t_len]
-            span_p2 = jnp.pad(span_core, ((0, 0), (0, 0), (2, 0)))[:, :, :t_len]
-            span_env = span_core + 0.8 * span_p1 + 0.5 * span_p2
-            cont_raw = span_env * match_next
+            onset_attn = onset_sharp / jnp.maximum(onset_sharp.sum(axis=-1, keepdims=True), 1e-8)
+
+            is_strict_delim_t = (
+                jnp.clip(jax.nn.sigmoid(60.0 * (rel_freq_t - 0.92)) + is_period_t, 0.0, 1.0)
+                * ctx_exact
+            )
+            not_strict_delim_t = (1.0 - is_strict_delim_t) * ctx_exact * rel_f
+            match_1 = jnp.exp(36.0 * (c1 - 1.0)) * prior_f
+            match_2 = jnp.exp(36.0 * (0.5 * (c1 + c1_p1) - 1.0)) * prior_f
+            interior_span = jnp.zeros_like(onset_attn)
+            cum_span = not_strict_delim_t
+            for k_sh in range(1, 7):
+                ns_k = jnp.pad(not_strict_delim_t, ((0, 0), (0, 0), (k_sh, 0)))[:, :, :t_len]
+                cum_span = cum_span * ns_k
+                s_k = jnp.pad(onset_attn, ((0, 0), (0, 0), (k_sh, 0)))[:, :, :t_len] * cum_span
+                interior_span = interior_span + s_k
+
+            cont_prev = interior_span * match_2 + 0.15 * onset_attn * match_1
+            cont_raw = jnp.pad(cont_prev, ((0, 0), (0, 0), (1, 0)))[:, :, :t_len] * rel_f
             cont_mass = cont_raw.sum(axis=-1, keepdims=True)
             cont_gate = cont_mass / (cont_mass + 0.001)
             cont_attn = cont_raw / jnp.maximum(cont_mass, 1e-8)
-            attn_rel = (1.0 - cont_gate) * attn_rel + cont_gate * cont_attn
+            attn_final = (1.0 - cont_gate) * onset_attn + cont_gate * cont_attn
+            eos_mass = jnp.sum(cont_gate * cont_attn * is_strict_delim_t, axis=-1, keepdims=True)
 
-            h_rel = jnp.einsum("btp,bpd->btd", attn_rel, v0)
+            attn_comb = (
+                g_question * (attn_final * (1.0 - is_strict_delim_t))
+                + 1e-3 * (1.0 - g_question) * a2
+            )
+            h_rel = jnp.einsum("btp,bpd->btd", attn_comb, v0)
             for hop_i in range(1, c.relational_hops):
                 q_h = h_rel @ rel_q[hop_i]
                 k_h = (h_rel + v0) @ rel_k[hop_i]
@@ -826,22 +1074,16 @@ class GraphLM(nn.Module):
                 scores_h = jnp.where(rel_mask, scores_h, -1e9)
                 attn_h = jax.nn.softmax(scores_h, axis=-1) * rel_mask.astype(z_raw_bt.dtype)
                 r_h = jnp.einsum("bts,bsd->btd", attn_h, v_h)
-                h_rel = h_rel + 0.01 * (r_h + jnp.tanh(h_rel) * jnp.tanh(r_h))
+                h_rel = h_rel + 1e-4 * jnp.tanh(r_h + jnp.tanh(h_rel) * jnp.tanh(r_h))
 
-            h_rel_norm = h_rel * jax.lax.rsqrt(
-                jnp.mean(jnp.square(h_rel), axis=-1, keepdims=True) + 1e-5
+            rel_out = h_rel + 1e-4 * jnp.tanh(h_rel @ rel_output)
+            rel_scale = rel_gain + jax.lax.stop_gradient(jnp.maximum(1.0 - rel_gain, 0.0))
+            logits_base = (z_bt * scale + norm_bias) @ vocab_kernel + vocab_bias
+            logits_rel = (rel_scale * rel_out) @ vk_u.T
+            logits_rel = logits_rel.at[:, :, EOS].add(
+                2.0 * rel_scale * g_question[:, :, 0] * eos_mass[:, :, 0]
             )
-            rel_out = (h_rel_norm + 0.01 * (h_rel_norm @ rel_output)) * d
-            rel_floor = jnp.where(
-                jnp.abs(rel_gain) < 0.2,
-                jnp.where(rel_gain >= 0, 0.2, -0.2) - rel_gain,
-                0.0,
-            )
-            rel_gate = jax.lax.stop_gradient(jnp.where(rel_gain == 0, 1.0, rel_floor))
-            rel_tan = rel_gate * rel_out
-            rel_diff = rel_tan - jax.lax.stop_gradient(rel_tan)
-            z_bt = z_bt + (rel_gain * rel_out + rel_diff)
-            logits = (z_bt * scale + norm_bias) @ vocab_kernel + vocab_bias
+            logits = logits_base + 36.0 * logits_rel
         else:
             logits = logits_t.transpose(1, 0, 2)
         out_items = [logits, final]

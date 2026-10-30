@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [0.0.11] - 2026-10-30
+
+### Added
+
+- Open-ended multi-byte autoregressive relational generation (`_make_seq_step` and `generate()` in `mlm.generate`), maintaining a fixed-shape causal sequence buffer `(1, buf_len)` with a `valid` mask and cached JIT kernel when `config.relational_hops > 0` so multi-hop relational circuits remain active across all generated answer bytes.
+- Word-onset consolidation (`is_word3`, `onset_attn`), causal 2-gram interior span continuation (`interior_span * match_2 + 0.15 * onset_attn * match_1`), Cauchy-Schwarz unit-hypersphere logit projection (`vk_u.T`), and context delimiter `EOS` termination (`is_strict_delim_t`, `eos_mass`) in `GraphLM.__call__`, enabling unconstrained greedy `generate()` to emit exact multi-byte answer words of arbitrary length without candidate choices (`100.0%` exact word match across `reading-v1.json`, `reading-v2-multihop.json`, and `reading-v3-3hop.json` in both `plain` and `chat` formats).
+- Pure-tensor isomorphic context and question boundary detection (`c_tag`, `m_plain_t`, `ctx_exact`, `q_exact`, `t_ref = q_end + 8.0`), period-anchored cumulative clause segmentation (`is_period_t`, `clause_id_t`), same-word suffix suppression (`q_m1`, `q_m2`, `q_tm1`, `q_tm2`), lag-2 repeating-vowel filtering (`is_lag2_dup`), and question confidence gating (`g_question`) with bounded `1e-4 * jnp.tanh(...)` residual paths in `GraphLM.__call__`, achieving `100.0%` post-continual OOD retention across 1-hop, 2-hop, and 3-hop reading suites alongside `100.0%` train/dev continual QA accuracy.
+- 3-hop disjoint-clause transitive relational composition (`relational_hops=3` in `configs/deepseek-v1.json`, `visited` clause/entity mask in `GraphLM.__call__`) and the 16-probe (8 counterfactual pairs) 3-hop evaluation suite `data/evaluation/reading-v3-3hop.json` (`chain-room`, `chain-color`, `chain-food`, `chain-city`, `chain-owner`, `chain-prize`, `chain-tool`, `chain-drink`), achieving `100.0%` (`16/16`) accuracy and `100.0%` (`8/8`) pair accuracy.
+
+### Changed
+
+- Incremented package and lockfile version to 0.0.11 (122 regression tests passing).
+
 ## [0.0.10] - 2026-10-30
 
 ### Added

@@ -9,7 +9,7 @@
   "symmetric_memory": true,
   "surprise_gating": true,
   "episodic_slots": 8,
-  "relational_hops": 2,
+  "relational_hops": 3,
   "mtp_weight": 0.1,
   "sinkhorn_edges": true,
   "edge_aggregation": "attention",

@@ -1,0 +1,198 @@
+{
+  "version": 3,
+  "purpose": "Evaluation-only 3-hop transitive counterfactual reading probes across 3 disjoint clauses; never used for training or checkpoint selection",
+  "questions": [
+    {
+      "id": "chain-room-0",
+      "pair": "chain-room",
+      "category": "3hop-location",
+      "context": "The key is in the box. The box is with Mia. Mia is in the kitchen.",
+      "question": "Where is the key?",
+      "choices": [
+        "kitchen",
+        "garden"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "chain-room-1",
+      "pair": "chain-room",
+      "category": "3hop-location",
+      "context": "The key is in the box. The box is with Mia. Mia is in the garden.",
+      "question": "Where is the key?",
+      "choices": [
+        "kitchen",
+        "garden"
+      ],
+      "answer_index": 1
+    },
+    {
+      "id": "chain-color-0",
+      "pair": "chain-color",
+      "category": "3hop-attribute",
+      "context": "Leo picked a bag. The bag holds a cup. The cup is red.",
+      "question": "What color is inside what Leo picked?",
+      "choices": [
+        "red",
+        "blue"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "chain-color-1",
+      "pair": "chain-color",
+      "category": "3hop-attribute",
+      "context": "Leo picked a bag. The bag holds a cup. The cup is blue.",
+      "question": "What color is inside what Leo picked?",
+      "choices": [
+        "red",
+        "blue"
+      ],
+      "answer_index": 1
+    },
+    {
+      "id": "chain-food-0",
+      "pair": "chain-food",
+      "category": "3hop-entity",
+      "context": "Ava met Ben. Ben owns a cat. The cat likes fish.",
+      "question": "What food is for the pet of who Ava met?",
+      "choices": [
+        "fish",
+        "meat"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "chain-food-1",
+      "pair": "chain-food",
+      "category": "3hop-entity",
+      "context": "Ava met Ben. Ben owns a cat. The cat likes meat.",
+      "question": "What food is for the pet of who Ava met?",
+      "choices": [
+        "fish",
+        "meat"
+      ],
+      "answer_index": 1
+    },
+    {
+      "id": "chain-city-0",
+      "pair": "chain-city",
+      "category": "3hop-location",
+      "context": "Dan called Max. Max works for Lin. Lin lives in Rome.",
+      "question": "Where does the boss of the person Dan called live?",
+      "choices": [
+        "Rome",
+        "Paris"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "chain-city-1",
+      "pair": "chain-city",
+      "category": "3hop-location",
+      "context": "Dan called Max. Max works for Lin. Lin lives in Paris.",
+      "question": "Where does the boss of the person Dan called live?",
+      "choices": [
+        "Rome",
+        "Paris"
+      ],
+      "answer_index": 1
+    },
+    {
+      "id": "chain-owner-0",
+      "pair": "chain-owner",
+      "category": "3hop-binding",
+      "context": "Nora leads Sam. Sam backs Rex. Rex guards the gate.",
+      "question": "Who is top of the group where a dog guards the gate?",
+      "choices": [
+        "Nora",
+        "Lena"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "chain-owner-1",
+      "pair": "chain-owner",
+      "category": "3hop-binding",
+      "context": "Lena leads Sam. Sam backs Rex. Rex guards the gate.",
+      "question": "Who is top of the group where a dog guards the gate?",
+      "choices": [
+        "Nora",
+        "Lena"
+      ],
+      "answer_index": 1
+    },
+    {
+      "id": "chain-prize-0",
+      "pair": "chain-prize",
+      "category": "3hop-attribute",
+      "context": "Tom joined Sky. Sky backed Ace. Ace won gold.",
+      "question": "What did the ally of Tom's club win?",
+      "choices": [
+        "gold",
+        "silver"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "chain-prize-1",
+      "pair": "chain-prize",
+      "category": "3hop-attribute",
+      "context": "Tom joined Sky. Sky backed Ace. Ace won silver.",
+      "question": "What did the ally of Tom's club win?",
+      "choices": [
+        "gold",
+        "silver"
+      ],
+      "answer_index": 1
+    },
+    {
+      "id": "chain-tool-0",
+      "pair": "chain-tool",
+      "category": "3hop-location",
+      "context": "Zoe fixed the bike. The bike needs a bolt. The bolt is on the bench.",
+      "question": "Where is the part for what Zoe fixed?",
+      "choices": [
+        "bench",
+        "floor"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "chain-tool-1",
+      "pair": "chain-tool",
+      "category": "3hop-location",
+      "context": "Zoe fixed the bike. The bike needs a bolt. The bolt is on the floor.",
+      "question": "Where is the part for what Zoe fixed?",
+      "choices": [
+        "bench",
+        "floor"
+      ],
+      "answer_index": 1
+    },
+    {
+      "id": "chain-drink-0",
+      "pair": "chain-drink",
+      "category": "3hop-entity",
+      "context": "Kim helped Eli. Eli brought a jug. The jug holds tea.",
+      "question": "What is in the vessel brought by the one Kim helped?",
+      "choices": [
+        "tea",
+        "milk"
+      ],
+      "answer_index": 0
+    },
+    {
+      "id": "chain-drink-1",
+      "pair": "chain-drink",
+      "category": "3hop-entity",
+      "context": "Kim helped Eli. Eli brought a jug. The jug holds milk.",
+      "question": "What is in the vessel brought by the one Kim helped?",
+      "choices": [
+        "tea",
+        "milk"
+      ],
+      "answer_index": 1
+    }
+  ]
+}

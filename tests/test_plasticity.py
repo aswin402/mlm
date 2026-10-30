@@ -1086,3 +1086,80 @@ def test_surprise_gating_dog_wavelets_and_relational_hops():
     eval_res = evaluate_questions(state.replace(params=params_active), cfg, probes, format="chat")
     assert eval_res["accuracy"] == 1.0
     assert eval_res["pair_accuracy"] == 1.0
+    eval_plain = evaluate_questions(
+        state.replace(params=params_active), cfg, probes, format="plain"
+    )
+    assert eval_plain["accuracy"] == 1.0
+    assert eval_plain["pair_accuracy"] == 1.0
+
+    # Verify 3-hop transitive composition (A -> B -> C -> D) and open-ended multi-byte generate()
+    cfg_3hop = Config(
+        nodes=4,
+        width=8,
+        degree=2,
+        rounds=2,
+        node_update="timescale",
+        memory="relational",
+        memory_keys=4,
+        memory_decay=True,
+        symmetric_memory=True,
+        surprise_gating=True,
+        episodic_slots=4,
+        relational_hops=3,
+    )
+    state_3hop = create_state(cfg_3hop)
+    probes_3hop = [
+        *probes,
+        {
+            "id": "chain-room-0",
+            "pair": "chain-room",
+            "category": "transitive-3hop",
+            "context": "Mia is in the attic. Dan is with Mia. The key is with Dan.",
+            "question": "Where is the key?",
+            "choices": ["attic", "cellar"],
+            "answer_index": 0,
+        },
+        {
+            "id": "chain-room-1",
+            "pair": "chain-room",
+            "category": "transitive-3hop",
+            "context": "Mia is in the cellar. Dan is with Mia. The key is with Dan.",
+            "question": "Where is the key?",
+            "choices": ["attic", "cellar"],
+            "answer_index": 1,
+        },
+    ]
+    for fmt in ("plain", "chat"):
+        res_3hop = evaluate_questions(state_3hop, cfg_3hop, probes_3hop, format=fmt)
+        assert res_3hop["accuracy"] == 1.0
+        assert res_3hop["pair_accuracy"] == 1.0
+
+    assert (
+        generate(
+            state_3hop,
+            cfg_3hop,
+            "Mia has a red hat.\nQuestion: What color is Mia's hat?\nAnswer: ",
+            max_bytes=12,
+        )
+        == "red"
+    )
+    assert (
+        generate(
+            state_3hop,
+            cfg_3hop,
+            "<|user|>\nMia is in the garden. The key is with Mia.\n"
+            "Where is the key?\n<|assistant|>\n",
+            max_bytes=12,
+        )
+        == "garden"
+    )
+    assert (
+        generate(
+            state_3hop,
+            cfg_3hop,
+            "Mia is in the cellar. Dan is with Mia. The key is with Dan.\n"
+            "Question: Where is the key?\nAnswer: ",
+            max_bytes=12,
+        )
+        == "cellar"
+    )

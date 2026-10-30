@@ -1,5 +1,7 @@
 """Greedy byte generation with explicit recurrent state."""
 
+from functools import lru_cache
+
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -7,6 +9,23 @@ import numpy as np
 from mlm.data import BOS, EOS
 from mlm.model import initial_state
 from mlm.stream import make_stream_step
+
+
+@lru_cache(maxsize=16)
+def _make_seq_step(apply_fn, messages: bool):
+    @jax.jit
+    def step_seq(params, tokens_buf, init_carry, resets, valid_buf):
+        logits_seq, _ = apply_fn(
+            {"params": params},
+            tokens_buf,
+            init_carry,
+            resets,
+            messages=messages,
+            valid=valid_buf,
+        )
+        return logits_seq
+
+    return step_seq
 
 
 def generate(
@@ -24,6 +43,46 @@ def generate(
         raise ValueError("adapt_strength must be a finite non-negative float")
     if not 0.0 <= adapt_decay <= 1.0 or not np.isfinite(adapt_decay):
         raise ValueError("adapt_decay must be between 0 and 1")
+    if getattr(config, "relational_hops", 0) > 0:
+        if max_bytes == 0:
+            return ""
+        prefix = [BOS, *prompt.encode("utf-8")]
+        buf_len = max(160, ((len(prefix) + max_bytes + 63) // 64) * 64)
+        buf = np.full((1, buf_len), EOS, dtype=np.int32)
+        valid = np.zeros((1, buf_len), dtype=bool)
+        resets = jnp.zeros((1, buf_len), dtype=bool).at[:, 0].set(True)
+        init_carry = initial_state(config, 1)
+        cur_len = len(prefix)
+        buf[0, :cur_len] = prefix
+        valid[0, :cur_len] = True
+        step_seq = _make_seq_step(state.apply_fn, bool(messages))
+
+        output = bytearray()
+        adaptation = np.zeros(258, dtype=np.float32)
+        for _ in range(max_bytes):
+            logits_seq = step_seq(
+                state.params,
+                jnp.asarray(buf),
+                init_carry,
+                resets,
+                jnp.asarray(valid),
+            )
+            scores = np.asarray(logits_seq[0, cur_len - 1], dtype=np.float32).copy()
+            if adapt_strength > 0:
+                scores = scores - adapt_strength * adaptation[: scores.shape[0]]
+            scores[BOS] = -np.inf
+            chosen = int(scores.argmax())
+            if chosen == EOS:
+                break
+            if adapt_strength > 0:
+                adaptation = adapt_decay * adaptation
+                adaptation[chosen] += 1.0
+            output.append(chosen)
+            buf[0, cur_len] = chosen
+            valid[0, cur_len] = True
+            cur_len += 1
+        return output.decode("utf-8", errors="replace")
+
     tokens = jnp.array([[BOS, *prompt.encode("utf-8")]], dtype=jnp.int32)
     resets = jnp.zeros_like(tokens, dtype=bool).at[:, 0].set(True)
     logits, carry = state.apply_fn(
