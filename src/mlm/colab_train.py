@@ -107,11 +107,19 @@ def run_foundation_training(
         st = create_state(cfg_cur)
         growth_log = []
 
-    # Developmental schedule: 60% at 4 nodes (fast seed), 25% at 8 nodes, 15% at 16 nodes (10.30M)
-    s1 = max(1, int(round(total_steps * 0.60)))
-    s2 = max(1, int(round(total_steps * 0.25)))
-    s3 = max(1, total_steps - s1 - s2)
-    stage_plan = [(4, s1), (8, s2), (16, s3)]
+    cur_nodes = int(st.params["input_kernel"].shape[0])
+    if cur_nodes >= 16:
+        stage_plan = [(16, max(1, total_steps))]
+    elif cur_nodes >= 8:
+        s2 = max(1, int(round(total_steps * 0.40)))
+        s3 = max(1, total_steps - s2)
+        stage_plan = [(8, s2), (16, s3)]
+    else:
+        # Developmental schedule: 60% at 4 nodes, 25% at 8 nodes, 15% at 16 nodes
+        s1 = max(1, int(round(total_steps * 0.60)))
+        s2 = max(1, int(round(total_steps * 0.25)))
+        s3 = max(1, total_steps - s1 - s2)
+        stage_plan = [(4, s1), (8, s2), (16, s3)]
 
     rng = np.random.default_rng(base_cfg.seed)
     t_start = time.perf_counter()
@@ -177,12 +185,13 @@ def run_foundation_training(
     squad_probes = json.loads(
         (data_dir / "qa" / "squad-validation-questions.json").read_text()
     )["questions"]
-    if grpo_steps > 0 and squad_probes and cfg_cur.edges is None:
+    all_grpo_probes = squad_probes + sciq_probes
+    if grpo_steps > 0 and all_grpo_probes:
         print(f"Running {grpo_steps} DeepSeek-R1 critic-free GRPO reasoning steps...", flush=True)
         grpo_fn = make_grpo_step(cfg_cur)
         ref_params = st.params
         for g_i in range(grpo_steps):
-            probe = squad_probes[g_i % len(squad_probes)]
+            probe = all_grpo_probes[g_i % len(all_grpo_probes)]
             g_batch, g_rewards = build_grpo_question_group(probe, length=eff_len)
             st, _ = grpo_fn(st, ref_params, g_batch, g_rewards)
 
