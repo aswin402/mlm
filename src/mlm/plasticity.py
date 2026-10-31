@@ -223,7 +223,7 @@ def make_muon_adamw(params, config, decay):
             active = jnp.any(grad != 0, axis=(-2, -1), keepdims=True)
             next_buf = jnp.where(active, beta * buf + (1.0 - beta) * grad, buf)
             g_nest = beta * next_buf + (1.0 - beta) * grad
-            rms_scale = math.sqrt(max(grad.shape[-2], grad.shape[-1]))
+            rms_scale = 0.2 * math.sqrt(max(grad.shape[-2], grad.shape[-1]))
             if grad.ndim == 3 and grad.shape[0] >= 16 and grad.size >= 4_000_000:
                 k_act = min(4, grad.shape[0])
                 g_norms = jnp.sum(jnp.square(grad), axis=(-2, -1))

@@ -293,6 +293,44 @@ def run_10m_comparison(
         "continual_1shot_reply": ep_reply,
     }
 
+    mlm_100m_ckpt = Path("runs/mlm-100m-colab/mlm_100m_b8.mlm")
+    mlm_100m_rep_path = Path("runs/mlm-100m-colab/foundation_100m_report.json")
+    if mlm_100m_ckpt.exists() and mlm_100m_rep_path.exists():
+        st_100m, cfg_100m, _ = load_checkpoint(mlm_100m_ckpt)
+        rep_100m = json.loads(mlm_100m_rep_path.read_text(encoding="utf-8"))
+        _, _ = generate_with_trace(st_100m, cfg_100m, prompt, max_bytes=12)
+        t_100m0 = time.perf_counter()
+        reply_100m, trace_100m = generate_with_trace(st_100m, cfg_100m, prompt, max_bytes=12)
+        gen_100m_ms = (time.perf_counter() - t_100m0) * 1000.0
+        learner_100m = LiveLearner(st_100m, cfg_100m)
+        learner_100m.remember_facts("Aswin's project is codenamed Orion.")
+        ctx_100m = learner_100m.resolve_context("What is Aswin's project codenamed?", None)
+        ep_reply_100m, _ = generate_with_trace(
+            st_100m,
+            cfg_100m,
+            format_chat_prompt("What is Aswin's project codenamed?", context=ctx_100m),
+            max_bytes=12,
+        )
+        ev_100m = rep_100m["eval"]
+        report["models"]["mlm_100m_b8"] = {
+            "total_parameters": parameter_count(st_100m.params),
+            "active_parameters_per_byte": _active_parameter_count(cfg_100m, st_100m.params),
+            "checkpoint_mb": round(mlm_100m_ckpt.stat().st_size / (1024 * 1024), 2),
+            "train_ms_per_step": round(
+                rep_100m["total_sec"] * 1000.0 / max(1, rep_100m["total_steps"]), 1
+            ),
+            "infer_ms": round(gen_100m_ms, 1),
+            "final_train_loss": round(rep_100m["growth_log"][-1]["train_loss"], 4),
+            "english_val_bpb": round(ev_100m["english_val_bpb"], 4),
+            "chat_val_bpb": round(ev_100m["chat_val_bpb"], 4),
+            "sciq_accuracy": ev_100m["sciq_accuracy"],
+            "squad_accuracy": ev_100m["squad_accuracy"],
+            "reading_suites": ev_100m["reading_suites"],
+            "3hop_sample_reply": reply_100m,
+            "speculative_accepted_bytes": trace_100m["speculative_accepted"],
+            "continual_1shot_reply": ep_reply_100m,
+        }
+
     report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     return report
 
