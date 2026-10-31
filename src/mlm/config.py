@@ -6,11 +6,14 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # Prevent XLA/OpenMP from saturating all logical CPU threads and freezing laptop UI
-os.environ.setdefault("OMP_NUM_THREADS", "6")
-os.environ.setdefault(
-    "XLA_FLAGS",
-    "--xla_cpu_multi_thread_eigen=true intra_op_parallelism_threads=6",
-)
+if not (os.environ.get("COLAB_GPU") or os.environ.get("COLAB_RELEASE_TAG")):
+    os.environ.setdefault("OMP_NUM_THREADS", "6")
+    os.environ.setdefault(
+        "XLA_FLAGS",
+        "--xla_cpu_multi_thread_eigen=true intra_op_parallelism_threads=6",
+    )
+else:
+    os.environ.setdefault("XLA_PYTHON_CLIENT_PREALLOCATE", "false")
 
 
 class Config(BaseModel):
