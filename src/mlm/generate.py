@@ -717,10 +717,10 @@ class LiveLearner:
             return self.compact_episodic_facts()
         return 0
 
-    def resolve_context(self, user_message: str, explicit_context: str = "") -> str:
+    def resolve_context(self, user_message: str, explicit_context: str | None = "") -> str:
         """Resolve effective context by combining explicit context and episodic facts."""
         inline_clauses, q_part = _extract_clauses_and_question(user_message)
-        exp_ctx = explicit_context.strip()
+        exp_ctx = (explicit_context or "").strip()
         if exp_ctx:
             if inline_clauses:
                 self.remember_facts(inline_clauses)

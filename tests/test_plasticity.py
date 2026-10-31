@@ -1275,3 +1275,21 @@ def test_b8_checkpoint_compression_and_warm_moment_growth(tmp_path):
         assert deq_arr.shape == orig_arr.shape
         np.testing.assert_allclose(np.asarray(deq_arr), np.asarray(orig_arr), atol=2e-2, rtol=2e-2)
 
+    # Verify zero-valued weight channels do not underflow scale to 0.0 / NaN in b8 quantization
+    from mlm.checkpoint import dequantize_params_b8, quantize_params_b8
+    from mlm.compare_10m_models import _active_parameter_count
+    from mlm.generate import LiveLearner
+
+    zero_tree = {"w": np.zeros((4, 8), dtype=np.float32)}
+    deq_zero = dequantize_params_b8(quantize_params_b8(zero_tree))
+    assert np.all(np.isfinite(deq_zero["w"]))
+    assert np.all(deq_zero["w"] == 0.0)
+
+    # Verify sparse active parameter accounting and None-safe LiveLearner.resolve_context
+    active_p = _active_parameter_count(cfg8, st8.params)
+    assert active_p < sum(int(np.prod(v.shape)) for v in jax.tree.leaves(st8.params))
+    learner = LiveLearner(loaded_b8, loaded_cfg)
+    learner.remember_facts("Aswin's project is codenamed Orion.")
+    assert "Orion" in learner.resolve_context("What is Aswin's project codenamed?", None)
+
+

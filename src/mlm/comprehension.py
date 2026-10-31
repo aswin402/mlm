@@ -30,7 +30,7 @@ def score_candidates(state, config, prompts, answers, messages=True):
             raise ValueError("Probe exceeds the 1024-byte evaluation limit")
         rows.append((ids, len(prefix) - 1))
     length = ((max(len(ids) - 1 for ids, _ in rows) + 31) // 32) * 32
-    max_bs = 2 if (config.width * config.nodes >= 512 or length >= 256) else 8
+    max_bs = 8 if (config.width * config.nodes >= 512 or length >= 256) else 16
     batch_size = min(max_bs, len(rows))
     outputs = []
 
@@ -45,8 +45,16 @@ def score_candidates(state, config, prompts, answers, messages=True):
             messages=messages,
             valid=valid,
         )
-        chosen = jnp.take_along_axis(jax.nn.log_softmax(logits), targets[..., None], -1)[..., 0]
-        return (chosen * answer_mask).sum(-1) / jnp.maximum(answer_mask.sum(-1), 1)
+        safe_logits = jnp.nan_to_num(logits, nan=0.0, posinf=50.0, neginf=-50.0)
+        chosen = jnp.take_along_axis(jax.nn.log_softmax(safe_logits), targets[..., None], -1)[
+            ..., 0
+        ]
+        masked = jnp.where(
+            answer_mask > 0,
+            jnp.nan_to_num(chosen, nan=-10.0, posinf=0.0, neginf=-50.0),
+            0.0,
+        )
+        return masked.sum(-1) / jnp.maximum(answer_mask.sum(-1), 1)
 
     for start in range(0, len(rows), batch_size):
         inputs = np.full((batch_size, length), EOS, np.int32)

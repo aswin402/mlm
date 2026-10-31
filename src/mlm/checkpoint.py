@@ -17,18 +17,18 @@ from mlm.training import create_state
 
 
 def quantize_params_b8(params: dict) -> dict:
-    """Quantize float weight tensors to symmetric per-channel 8-bit (`int8`) with `fp16` scales."""
+    """Quantize float weight tensors to symmetric per-channel 8-bit (`int8`) with `fp32` scales."""
     packed = {}
     for k, v in params.items():
-        arr = np.asarray(v, dtype=np.float32)
+        arr = np.nan_to_num(np.asarray(v, dtype=np.float32), nan=0.0, posinf=0.0, neginf=0.0)
         if arr.ndim >= 2 and arr.size >= 64:
             reduce_axes = tuple(range(arr.ndim - 1))
             max_abs = np.amax(np.abs(arr), axis=reduce_axes, keepdims=True)
-            scale = np.maximum(max_abs / 127.0, 1e-8).astype(np.float16)
-            q = np.clip(np.round(arr / scale.astype(np.float32)), -127, 127).astype(np.int8)
+            scale = np.where(max_abs > 1e-12, max_abs / 127.0, 1.0).astype(np.float32)
+            q = np.clip(np.round(arr / scale), -127, 127).astype(np.int8)
             packed[k] = {"__b8__": True, "q": q, "scale": scale}
         else:
-            packed[k] = arr.astype(np.float16) if arr.size >= 16 else arr
+            packed[k] = arr
     return packed
 
 

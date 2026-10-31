@@ -46,7 +46,7 @@ class Config(BaseModel):
     edges: tuple[tuple[int, ...], ...] | None = None
     optimizer: Literal["adamw", "muon"] = "adamw"
     nodes: int = Field(default=8, ge=2, le=128)
-    width: int = Field(default=32, ge=4, le=1024)
+    width: int = Field(default=32, ge=4, le=2048)
     degree: int = Field(default=2, ge=1)
     rounds: int = Field(default=1, ge=1, le=16)
     batch_size: int = Field(default=2, ge=1, le=1024)

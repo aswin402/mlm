@@ -515,6 +515,14 @@ def load_or_init_chat_state(
     if checkpoint is not None and checkpoint.exists():
         state, config, _ = load_checkpoint(checkpoint)
         return state, config, str(checkpoint)
+    if checkpoint is None and config_path is None and seed is None:
+        for auto_ckpt in (
+            Path("runs/mlm-10m/mlm_10m_b8.mlm"),
+            Path("runs/mlm-10m-colab/mlm_10m_b8.mlm"),
+        ):
+            if auto_ckpt.exists():
+                state, config, _ = load_checkpoint(auto_ckpt)
+                return state, config, f"{auto_ckpt} (b8)"
     default_cfg = Path("configs/deepseek-v1.json")
     cfg_file = (
         config_path if config_path is not None else (default_cfg if default_cfg.exists() else None)

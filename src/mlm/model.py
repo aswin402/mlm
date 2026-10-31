@@ -4,6 +4,17 @@ import math
 
 import jax
 import jax.numpy as jnp
+
+# Forward-compatibility shim for JAX >= 0.11.0 (e.g., Google Colab) where jax.core symbols
+# moved to jax.extend.core before older Flax releases updated their internal imports.
+if hasattr(jax, "extend") and hasattr(jax.extend, "core"):
+    for _k in dir(jax.extend.core):
+        if not _k.startswith("_"):
+            try:
+                getattr(jax.core, _k)
+            except AttributeError:
+                setattr(jax.core, _k, getattr(jax.extend.core, _k))
+
 from flax import linen as nn
 
 from mlm.associative import delta_step

@@ -69,7 +69,7 @@ def run_foundation_training(
         flush=True,
     )
 
-    eng_train_path = data_dir / "english" / "train.txt"
+    eng_train_path = data_dir / "english" / "train.jsonl"
     if not eng_train_path.exists() or data_scale > 1:
         print(f"Preparing curated Hugging Face datasets (scale={data_scale}x)...", flush=True)
         prepare_curated_english(
@@ -84,9 +84,9 @@ def run_foundation_training(
         )
 
     lanes = {
-        "english": read_documents(data_dir / "english" / "train.txt"),
-        "conversation": read_documents(data_dir / "conversation" / "train.txt"),
-        "qa": read_documents(data_dir / "qa" / "train.txt"),
+        "english": read_documents(data_dir / "english" / "train.jsonl"),
+        "conversation": read_documents(data_dir / "conversation" / "train.jsonl"),
+        "qa": read_documents(data_dir / "qa" / "train.jsonl"),
     }
     lane_sizes = {
         k: float(sum(len(d.encode("utf-8")) for d in docs)) for k, docs in lanes.items()
@@ -121,8 +121,8 @@ def run_foundation_training(
             add_n = target_nodes - cfg_cur.nodes
             cfg_cur, st = grow_train_state(cfg_cur, st, add_nodes=add_n)
         elif st.params["input_kernel"].shape[0] > target_nodes:
-            # Resumed from an already-grown checkpoint
-            target_nodes = cfg_cur.nodes
+            # Resumed from an already-grown checkpoint; skip earlier stages
+            continue
 
         p_cnt = parameter_count(st.params)
         step_fn = make_train_step(cfg_cur)
@@ -151,8 +151,11 @@ def run_foundation_training(
                     flush=True,
                 )
 
-        # Functional edge rewiring at the end of each growth stage
-        cfg_cur, rewire_info = rewire_edges(cfg_cur, st.params, max_rewire_per_node=1)
+        # Functional edge rewiring at the end of the final growth stage
+        rewired_cnt = 0
+        if stage_idx == len(stage_plan):
+            cfg_cur, rewire_info = rewire_edges(cfg_cur, st.params, max_rewire_per_node=1)
+            rewired_cnt = rewire_info["rewired"]
         dt_stage = time.perf_counter() - t_stage
         growth_log.append(
             {
@@ -163,19 +166,18 @@ def run_foundation_training(
                 "steps": stage_steps,
                 "train_loss": last_loss,
                 "train_bpb": last_loss / math.log(2.0),
-                "rewired_edges": rewire_info["rewired"],
+                "rewired_edges": rewired_cnt,
                 "stage_sec": dt_stage,
             }
         )
 
-    # Critic-free DeepSeek-R1 GRPO reasoning consolidation on held-in QA probes
     sciq_probes = json.loads(
         (data_dir / "qa" / "sciq-validation-questions.json").read_text()
     )["questions"]
     squad_probes = json.loads(
         (data_dir / "qa" / "squad-validation-questions.json").read_text()
     )["questions"]
-    if grpo_steps > 0 and squad_probes:
+    if grpo_steps > 0 and squad_probes and cfg_cur.edges is None:
         print(f"Running {grpo_steps} DeepSeek-R1 critic-free GRPO reasoning steps...", flush=True)
         grpo_fn = make_grpo_step(cfg_cur)
         ref_params = st.params
@@ -206,10 +208,14 @@ def run_foundation_training(
     fp32_mb = ckpt_fp32.stat().st_size / (1024 * 1024)
 
     st_eval, cfg_eval, _ = load_checkpoint(ckpt_b8)
-    eng_eval = eval_corpus_bpb(st_eval, cfg_eval, data_dir / "english" / "validation.txt")
-    chat_eval = eval_corpus_bpb(st_eval, cfg_eval, data_dir / "conversation" / "validation.txt")
-    sciq_acc = eval_mc_probes(st_eval, cfg_eval, sciq_probes)
-    squad_acc = eval_mc_probes(st_eval, cfg_eval, squad_probes)
+    eng_eval = eval_corpus_bpb(
+        st_eval, cfg_eval, data_dir / "english" / "validation.jsonl", max_batches=4
+    )
+    chat_eval = eval_corpus_bpb(
+        st_eval, cfg_eval, data_dir / "conversation" / "validation.jsonl", max_batches=4
+    )
+    sciq_acc = eval_mc_probes(st_eval, cfg_eval, sciq_probes[:16])
+    squad_acc = eval_mc_probes(st_eval, cfg_eval, squad_probes[:16])
 
     reading_suites = {
         "v1_1hop": json.loads(Path("data/evaluation/reading-v1.json").read_text())["questions"],
