@@ -31,6 +31,25 @@ def _make_seq_step(apply_fn, messages: bool):
 
 
 @lru_cache(maxsize=16)
+def _make_single_step(apply_fn, messages: bool):
+    @jax.jit
+    def step_one(params, token_1x1, carry):
+        resets = jnp.zeros((1, 1), dtype=bool)
+        valid = jnp.ones((1, 1), dtype=bool)
+        logits_1x1, next_carry = apply_fn(
+            {"params": params},
+            token_1x1,
+            carry,
+            resets,
+            messages=messages,
+            valid=valid,
+        )
+        return logits_1x1, next_carry
+
+    return step_one
+
+
+@lru_cache(maxsize=16)
 def _make_seq_step_telemetry(apply_fn, messages: bool):
     @jax.jit
     def step_seq_tel(params, tokens_buf, init_carry, resets, valid_buf):
@@ -447,10 +466,29 @@ def generate_with_trace(
         if spec_done:
             step_start = max_bytes
 
+    step_one_fast = (
+        _make_single_step(state.apply_fn, bool(messages))
+        if not trace.get("relational_active")
+        else None
+    )
+    cur_carry = final_carry
+    prev_chosen = chosen0
+
     for step_i in range(step_start, max_bytes):
         if step_i == 0:
             scores = scores0
             chosen = chosen0
+        elif step_one_fast is not None:
+            logits_1x1, cur_carry = step_one_fast(
+                state.params,
+                jnp.array([[prev_chosen]], dtype=jnp.int32),
+                cur_carry,
+            )
+            scores = np.asarray(logits_1x1[0, 0], dtype=np.float32).copy()
+            if adapt_strength > 0:
+                scores = scores - adapt_strength * adaptation[: scores.shape[0]]
+            scores[BOS] = -np.inf
+            chosen = int(scores.argmax())
         else:
             logits_seq = step_seq_fast(
                 state.params,
@@ -478,6 +516,7 @@ def generate_with_trace(
         buf[0, cur_len] = chosen
         valid[0, cur_len] = True
         cur_len += 1
+        prev_chosen = chosen
 
     eval_ms = (time.perf_counter() - t_gen_start) * 1000.0
     eval_bytes = len(output)
@@ -510,44 +549,16 @@ def generate(
     if not 0.0 <= adapt_decay <= 1.0 or not np.isfinite(adapt_decay):
         raise ValueError("adapt_decay must be between 0 and 1")
     if getattr(config, "relational_hops", 0) > 0:
-        if max_bytes == 0:
-            return ""
-        prefix = [BOS, *prompt.encode("utf-8")]
-        buf_len = max(160, ((len(prefix) + max_bytes + 63) // 64) * 64)
-        buf = np.full((1, buf_len), EOS, dtype=np.int32)
-        valid = np.zeros((1, buf_len), dtype=bool)
-        resets = jnp.zeros((1, buf_len), dtype=bool).at[:, 0].set(True)
-        init_carry = initial_state(config, 1)
-        cur_len = len(prefix)
-        buf[0, :cur_len] = prefix
-        valid[0, :cur_len] = True
-        step_seq = _make_seq_step(state.apply_fn, bool(messages))
-
-        output = bytearray()
-        adaptation = np.zeros(258, dtype=np.float32)
-        for _ in range(max_bytes):
-            logits_seq = step_seq(
-                state.params,
-                jnp.asarray(buf),
-                init_carry,
-                resets,
-                jnp.asarray(valid),
-            )
-            scores = np.asarray(logits_seq[0, cur_len - 1], dtype=np.float32).copy()
-            if adapt_strength > 0:
-                scores = scores - adapt_strength * adaptation[: scores.shape[0]]
-            scores[BOS] = -np.inf
-            chosen = int(scores.argmax())
-            if chosen == EOS:
-                break
-            if adapt_strength > 0:
-                adaptation = adapt_decay * adaptation
-                adaptation[chosen] += 1.0
-            output.append(chosen)
-            buf[0, cur_len] = chosen
-            valid[0, cur_len] = True
-            cur_len += 1
-        return output.decode("utf-8", errors="replace")
+        reply, _ = generate_with_trace(
+            state,
+            config,
+            prompt,
+            max_bytes=max_bytes,
+            messages=bool(messages),
+            adapt_strength=adapt_strength,
+            adapt_decay=adapt_decay,
+        )
+        return reply
 
     tokens = jnp.array([[BOS, *prompt.encode("utf-8")]], dtype=jnp.int32)
     resets = jnp.zeros_like(tokens, dtype=bool).at[:, 0].set(True)
@@ -606,15 +617,88 @@ _STOP_WORDS = {
     "who",
     "which",
     "when",
+    "why",
     "how",
     "does",
     "did",
+    "you",
+    "your",
+    "can",
+    "could",
+    "would",
+    "should",
+    "will",
+    "for",
+    "not",
+    "but",
+    "all",
+    "any",
+    "some",
+    "more",
+    "most",
+    "other",
+    "such",
+    "only",
+    "own",
+    "same",
+    "than",
+    "too",
+    "very",
+    "just",
+    "now",
+    "hello",
+    "hey",
+    "thanks",
+    "thank",
+    "please",
+    "tell",
+    "about",
 }
 
 
 def _content_words_set(text: str) -> set[str]:
     cleaned = "".join(ch if ch.isalnum() else " " for ch in text)
     return {w.lower() for w in cleaned.split() if len(w) >= 3 and w.lower() not in _STOP_WORDS}
+
+
+_FACT_VERBS = {
+    "is",
+    "was",
+    "are",
+    "were",
+    "has",
+    "had",
+    "have",
+    "moved",
+    "went",
+    "belongs",
+    "codenamed",
+}
+_CONVERSATIONAL_STARTERS = {
+    "hi",
+    "hello",
+    "hey",
+    "good",
+    "thanks",
+    "thank",
+    "bye",
+    "goodbye",
+    "tell",
+    "explain",
+    "describe",
+    "write",
+    "give",
+    "show",
+    "help",
+    "please",
+}
+
+
+def _is_declarative_fact_clause(clause: str) -> bool:
+    words = "".join(ch if ch.isalnum() else " " for ch in clause).lower().split()
+    if len(words) < 3 or words[0] in _CONVERSATIONAL_STARTERS:
+        return False
+    return bool(set(words[1:]) & _FACT_VERBS)
 
 
 def _extract_clauses_and_question(user_message: str) -> tuple[list[str], str]:
@@ -629,7 +713,11 @@ def _extract_clauses_and_question(user_message: str) -> tuple[list[str], str]:
             clauses = [c.strip() + "." for c in ctx_part.split(".") if c.strip()]
             return clauses, q_part
         return [], msg
-    clauses = [c.strip() + "." for c in msg.split(".") if c.strip()]
+    clauses = [
+        c.strip() + "."
+        for c in msg.split(".")
+        if c.strip() and _is_declarative_fact_clause(c.strip())
+    ]
     return clauses, ""
 
 
@@ -660,7 +748,12 @@ class LiveLearner:
         self.pending = 0
         self.steps = 0
         self.carry = initial_state(config, 1)
-        self.step_fn = make_stream_step(config, messages=messages)
+        stream_cfg = (
+            config.model_copy(update={"learning_rate": min(config.learning_rate, 1e-5)})
+            if getattr(config, "nodes", 1) >= 16 and hasattr(config, "model_copy")
+            else config
+        )
+        self.step_fn = make_stream_step(stream_cfg, messages=messages)
         self.log: list[dict] = []
 
     @staticmethod
@@ -727,9 +820,13 @@ class LiveLearner:
             return exp_ctx
         if inline_clauses and not q_part:
             self.remember_facts(inline_clauses)
-            return " ".join(self.episodic_facts)
+            return ""
         if not inline_clauses and q_part:
-            return " ".join(self.episodic_facts)
+            q_words = _content_words_set(q_part)
+            ep_words = _content_words_set(" ".join(self.episodic_facts))
+            if q_words and (q_words & ep_words):
+                return " ".join(self.episodic_facts)
+            return ""
         if inline_clauses and q_part:
             turn_words = _content_words_set(" ".join(inline_clauses) + " " + q_part)
             prior = [
@@ -741,16 +838,16 @@ class LiveLearner:
             return " ".join(prior[-(self.max_episodic_facts - len(inline_clauses)) :])
         return ""
 
-    def _record_episodic_qa(self, user_message: str, eff_context: str, reply: str) -> None:
+    def _record_episodic_qa(self, user_message: str, eff_context: str, reply: str) -> bool:
         inline_clauses, q_part = _extract_clauses_and_question(user_message)
         if not q_part:
-            return
+            return False
         full_ctx = " ".join(
             part for part in [eff_context.strip(), " ".join(inline_clauses).strip()] if part
         ).strip()
         ans = reply.strip()
         if not full_ctx or not ans:
-            return
+            return False
         words: list[str] = []
         for token in "".join(ch if ch.isalnum() else " " for ch in full_ctx).split():
             if len(token) >= 3 and token.lower() not in _STOP_WORDS and token not in words:
@@ -770,6 +867,7 @@ class LiveLearner:
         )
         if len(self.episodic_qa) > 8:
             self.episodic_qa = self.episodic_qa[-8:]
+        return True
 
     def consolidate(
         self,
@@ -884,7 +982,8 @@ class LiveLearner:
             adapt_decay=adapt_decay,
         )
         self._record_episodic_qa(user_message, eff_ctx, reply)
-        steps = self.feed(f"{prompt}{reply}\n") if learn else []
+        should_stream = learn and getattr(self.config, "nodes", 1) < 16
+        steps = self.feed(f"{prompt}{reply}\n") if should_stream else []
         return reply, steps
 
     def chat_turn_with_trace(
@@ -914,8 +1013,9 @@ class LiveLearner:
         trace["episodic_facts"] = list(self.episodic_facts)
         trace["compacted_facts"] = int(self.compacted_facts)
         self._record_episodic_qa(user_message, eff_ctx, reply)
-        steps = self.feed(f"{prompt}{reply}\n") if learn else []
-        if learn and self.episodic_qa:
+        should_stream = learn and getattr(self.config, "nodes", 1) < 16
+        steps = self.feed(f"{prompt}{reply}\n") if should_stream else []
+        if should_stream and self.episodic_qa:
             cons = self.consolidate(grpo_steps=1, rewire=True)
             trace["auto_consolidated"] = cons
         return reply, trace, steps

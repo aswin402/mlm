@@ -1249,12 +1249,8 @@ def test_b8_checkpoint_compression_and_warm_moment_growth(tmp_path):
     assert st8.params["input_kernel"].shape[0] == 8
     # Verify warm shared moments were preserved across growth
     emb_shape = st.params["embedding"].shape
-    old_leaves = [
-        x for x in jax.tree.leaves(st.opt_state) if getattr(x, "shape", ()) == emb_shape
-    ]
-    new_leaves = [
-        x for x in jax.tree.leaves(st8.opt_state) if getattr(x, "shape", ()) == emb_shape
-    ]
+    old_leaves = [x for x in jax.tree.leaves(st.opt_state) if getattr(x, "shape", ()) == emb_shape]
+    new_leaves = [x for x in jax.tree.leaves(st8.opt_state) if getattr(x, "shape", ()) == emb_shape]
     assert len(old_leaves) >= 2
     for a, b in zip(old_leaves, new_leaves, strict=True):
         np.testing.assert_allclose(np.asarray(a), np.asarray(b))
@@ -1291,5 +1287,3 @@ def test_b8_checkpoint_compression_and_warm_moment_growth(tmp_path):
     learner = LiveLearner(loaded_b8, loaded_cfg)
     learner.remember_facts("Aswin's project is codenamed Orion.")
     assert "Orion" in learner.resolve_context("What is Aswin's project codenamed?", None)
-
-

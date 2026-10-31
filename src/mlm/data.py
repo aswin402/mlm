@@ -41,7 +41,12 @@ def corpus_hash(documents: list[str]) -> str:
     return digest.hexdigest()
 
 
-def make_batch(documents: list[str], indices, length: int) -> dict[str, np.ndarray]:
+def make_batch(
+    documents: list[str],
+    indices,
+    length: int,
+    masks: list[np.ndarray] | None = None,
+) -> dict[str, np.ndarray]:
     """Each row starts fresh; long documents are explicitly prefix-truncated."""
     if length < 1 or len(indices) == 0:
         raise ValueError("Batch and length must be nonempty")
@@ -52,11 +57,15 @@ def make_batch(documents: list[str], indices, length: int) -> dict[str, np.ndarr
     resets = np.zeros(shape, dtype=bool)
     resets[:, 0] = True
     for row, index in enumerate(indices):
-        tokens = encode(documents[int(index)])
+        idx = int(index)
+        tokens = encode(documents[idx])
         count = min(length, len(tokens) - 1)
         inputs[row, :count] = tokens[:count]
         targets[row, :count] = tokens[1 : count + 1]
-        mask[row, :count] = 1
+        if masks is not None:
+            mask[row, :count] = masks[idx][:count]
+        else:
+            mask[row, :count] = 1
     return {"inputs": inputs, "targets": targets, "mask": mask, "resets": resets}
 
 

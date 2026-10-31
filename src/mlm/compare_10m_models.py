@@ -24,9 +24,7 @@ def _active_parameter_count(cfg: Config, params: dict) -> int:
         return total
     n = cfg.nodes
     k_act = (
-        (cfg.shared_nodes + cfg.top_k_nodes)
-        if (0 < cfg.top_k_nodes < n - cfg.shared_nodes)
-        else n
+        (cfg.shared_nodes + cfg.top_k_nodes) if (0 < cfg.top_k_nodes < n - cfg.shared_nodes) else n
     )
     if k_act >= n:
         return total
@@ -50,12 +48,12 @@ def run_10m_comparison(
     mixed_train_docs = read_documents(data_dir / "mixed" / "train.jsonl")
     eng_val_path = data_dir / "english" / "validation.jsonl"
     chat_val_path = data_dir / "conversation" / "validation.jsonl"
-    sciq_probes = json.loads(
-        (data_dir / "qa" / "sciq-validation-questions.json").read_text()
-    )["questions"][:16]
-    squad_probes = json.loads(
-        (data_dir / "qa" / "squad-validation-questions.json").read_text()
-    )["questions"][:16]
+    sciq_probes = json.loads((data_dir / "qa" / "sciq-validation-questions.json").read_text())[
+        "questions"
+    ][:16]
+    squad_probes = json.loads((data_dir / "qa" / "squad-validation-questions.json").read_text())[
+        "questions"
+    ][:16]
 
     reading_suites = {
         "v1_1hop": json.loads(Path("data/evaluation/reading-v1.json").read_text())["questions"][:8],
@@ -136,10 +134,37 @@ def run_10m_comparison(
         seed=42,
     )
 
+    # 4. 10.05M Static Sparse MoE Baseline (16 experts, Top-3 active, no fast-weights/3-hop/growth)
+    cfg_static_moe_10m = Config(
+        architecture="graph",
+        nodes=16,
+        shared_nodes=1,
+        top_k_nodes=2,
+        groups=4,
+        node_update="hierarchical",
+        edge_aggregation="sum",
+        sinkhorn_edges=False,
+        adaptive_halt=False,
+        mtp_weight=0.0,
+        width=248,
+        degree=2,
+        rounds=1,
+        memory="none",
+        episodic_slots=0,
+        relational_hops=0,
+        local_plasticity=False,
+        optimizer="adamw",
+        batch_size=8,
+        length=64,
+        learning_rate=2e-3,
+        seed=42,
+    )
+
     baselines = [
         ("dense_gru_10m", cfg_gru_10m, "none"),
         ("static_graph_10m", cfg_static_graph_10m, "none"),
         ("delta_graph_10m", cfg_delta_graph_10m, "none"),
+        ("static_moe_10m", cfg_static_moe_10m, "none"),
     ]
 
     report_path = out_dir / "comparison_10m_report.json"

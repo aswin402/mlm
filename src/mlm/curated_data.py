@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from mlm.data import corpus_hash
-from mlm.hfdata import fetch_rows, get_json
+from mlm.hfdata import get_json
 
 
 def _clean_paragraph(text: str, max_chars: int = 640) -> str:
@@ -30,15 +30,33 @@ def _clean_paragraph(text: str, max_chars: int = 640) -> str:
         return joined
     cut = joined[:max_chars]
     last_dot = max(cut.rfind(". "), cut.rfind(".\n"))
-    if last_dot >= 120:
+    if last_dot >= min(40, max_chars // 3):
         return cut[: last_dot + 1].strip()
     return cut.strip()
+
+
+def _first_complete_sentences(text: str, max_chars: int = 110) -> str:
+    """Extract 1-2 complete sentences ending in '.', '!', or '?' within max_chars."""
+    joined = " ".join(ln.strip() for ln in text.strip().splitlines() if ln.strip())
+    if not joined:
+        return ""
+    if len(joined) <= max_chars and joined[-1] in ".!?":
+        return joined
+    cut = joined[:max_chars]
+    best = -1
+    for sep in (". ", "! ", "? ", ".", "!", "?"):
+        idx = cut.rfind(sep)
+        if idx > best:
+            best = idx
+    if best >= 6:
+        return cut[: best + 1].strip()
+    return ""
 
 
 def _make_supervised_chat_record(user_text: str, assistant_text: str) -> dict:
     """Format a `<|user|>...<|assistant|>...` record with assistant-only `loss_spans`."""
     prefix = f"<|user|>\n{user_text.strip()}\n<|assistant|>\n"
-    reply = f"{assistant_text.strip()}\n"
+    reply = assistant_text.strip()
     full_text = prefix + reply
     start_b = len(prefix.encode("utf-8"))
     end_b = len(full_text.encode("utf-8"))
@@ -81,6 +99,28 @@ def fetch_raw_items(root: Path, dataset: str, config: str, split: str, count: in
     return rows_out
 
 
+def _extract_turn_records(rows: list[dict], max_total_bytes: int = 126) -> list[dict]:
+    """Extract deduplicated supervised (user, assistant) chat records fitting max_total_bytes."""
+    records: list[dict] = []
+    seen: set[str] = set()
+    for r in rows:
+        msgs = r.get("messages", [])
+        for i in range(0, len(msgs) - 1, 2):
+            if msgs[i].get("role") == "user" and msgs[i + 1].get("role") == "assistant":
+                u = " ".join(msgs[i].get("content", "").strip().split())
+                a = _first_complete_sentences(msgs[i + 1].get("content", ""), max_chars=92)
+                if not u or not a or len(u) > 72 or "\n" in u:
+                    continue
+                key = u.lower()
+                if key in seen:
+                    continue
+                rec = _make_supervised_chat_record(u, a)
+                if len(rec["text"].encode("utf-8")) <= max_total_bytes:
+                    seen.add(key)
+                    records.append(rec)
+    return records
+
+
 def prepare_curated_english(
     root: Path,
     wiki_count: int = 300,
@@ -114,28 +154,45 @@ def prepare_curated_english(
             english_docs.append(body)
     english_docs = list(dict.fromkeys(english_docs))
 
-    # 2. Multi-Turn Chat & Grounded Instruction QA (SmolTalk + Dolly-15k)
-    smol_train, _ = fetch_rows(
+    # 2. Multi-Turn Chat & Grounded Instruction QA (SmolTalk + Magpie-Ultra + Alpaca + Dolly-15k)
+    smol_train_rows = fetch_raw_items(
         root, "HuggingFaceTB/smoltalk", "everyday-conversations", "train", smoltalk_count
     )
-    smol_val, _ = fetch_rows(
+    smol_val_rows = fetch_raw_items(
         root, "HuggingFaceTB/smoltalk", "everyday-conversations", "test", eval_size * 2
     )
+    magpie_rows = fetch_raw_items(root, "HuggingFaceTB/smoltalk", "smol-magpie-ultra", "train", 100)
+    alpaca_rows = fetch_raw_items(root, "tatsu-lab/alpaca", "default", "train", 200)
     dolly_rows = fetch_raw_items(
         root, "databricks/databricks-dolly-15k", "default", "train", dolly_count
     )
 
-    chat_records: list[dict] = []
-    for txt in smol_train:
-        if len(txt.encode("utf-8")) <= 900:
-            chat_records.append({"text": txt})
+    chat_records: list[dict] = _extract_turn_records(smol_train_rows + magpie_rows)
+    seen_users = {
+        r["text"].split("\n<|assistant|>\n")[0].replace("<|user|>\n", "").strip().lower()
+        for r in chat_records
+    }
+    for r in alpaca_rows:
+        if not r.get("input", "").strip():
+            inst = " ".join(r.get("instruction", "").strip().split())
+            resp = _first_complete_sentences(r.get("output", ""), max_chars=92)
+            if inst and resp and len(inst) <= 72 and inst.lower() not in seen_users:
+                rec = _make_supervised_chat_record(inst, resp)
+                if len(rec["text"].encode("utf-8")) <= 126:
+                    seen_users.add(inst.lower())
+                    chat_records.append(rec)
+
     for r in dolly_rows:
-        inst = r.get("instruction", "").strip()
-        ctx = _clean_paragraph(r.get("context", ""), max_chars=380)
-        resp = _clean_paragraph(r.get("response", ""), max_chars=320)
-        if inst and resp and len(inst) + len(ctx) + len(resp) <= 760:
-            user_q = f"{ctx}\n{inst}" if ctx else inst
-            chat_records.append(_make_supervised_chat_record(user_q, resp))
+        inst = " ".join(r.get("instruction", "").strip().split())
+        ctx = _clean_paragraph(r.get("context", ""), max_chars=240)
+        resp = _first_complete_sentences(r.get("response", ""), max_chars=92)
+        if not inst or not resp:
+            continue
+        if not ctx and len(inst) <= 72 and inst.lower() not in seen_users:
+            rec = _make_supervised_chat_record(inst, resp)
+            if len(rec["text"].encode("utf-8")) <= 126:
+                seen_users.add(inst.lower())
+                chat_records.append(rec)
 
     # 3. Real-World Reading Comprehension & Science QA (SciQ + SQuAD)
     sciq_train_rows = fetch_raw_items(root, "allenai/sciq", "default", "train", sciq_count)
@@ -228,8 +285,9 @@ def prepare_curated_english(
     eng_test = english_docs[-eval_size:]
     eng_train = english_docs[: -2 * eval_size]
 
-    chat_val = [{"text": t} for t in smol_val[:eval_size]]
-    chat_test = [{"text": t} for t in smol_val[eval_size : 2 * eval_size]]
+    val_turn_records = _extract_turn_records(smol_val_rows)
+    chat_val = val_turn_records[:eval_size]
+    chat_test = val_turn_records[eval_size : 2 * eval_size] or val_turn_records[:eval_size]
 
     # Write files
     eng_dir = root / "english"
@@ -277,6 +335,8 @@ def prepare_curated_english(
             "wikimedia/wikipedia (20231101.simple)",
             "HuggingFaceTB/cosmopedia-100k",
             "HuggingFaceTB/smoltalk (everyday-conversations)",
+            "HuggingFaceTB/smoltalk (smol-magpie-ultra)",
+            "tatsu-lab/alpaca",
             "databricks/databricks-dolly-15k",
             "allenai/sciq",
             "rajpurkar/squad",

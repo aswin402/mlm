@@ -8,15 +8,18 @@ import time
 from pathlib import Path
 
 import jax
+import jax.numpy as jnp
 import numpy as np
+import optax
 
 from mlm.benchmark_10m import eval_corpus_bpb, eval_mc_probes
 from mlm.checkpoint import load_checkpoint, save_checkpoint
 from mlm.comprehension import evaluate_questions
 from mlm.config import Config
 from mlm.curated_data import prepare_curated_english
-from mlm.data import make_batch, read_documents
+from mlm.data import EOS, make_batch, read_documents, read_training_data
 from mlm.generate import format_chat_prompt, generate_with_trace
+from mlm.model import initial_state, make_model
 from mlm.plasticity import (
     LaneSchedule,
     PlasticityController,
@@ -29,9 +32,103 @@ from mlm.training import create_state, make_train_step
 from mlm.tui import parameter_count
 
 
-def _preencode_lane(docs: list[str], length: int) -> dict[str, np.ndarray]:
+def calibrate_conversational_head(
+    state,
+    cfg: Config,
+    data_dir: Path = Path("data/curated-english-v1"),
+    length: int = 128,
+    steps: int = 2000,
+    max_rows: int | None = None,
+):
+    """Calibrate the readout head on assistant-masked records from conversation/train.jsonl."""
+    chat_path = Path(data_dir) / "conversation" / "train.jsonl"
+    if not chat_path.exists():
+        prepare_curated_english(Path(data_dir))
+    docs, masks, _ = read_training_data(chat_path)
+    eff_rows = max_rows or 16
+    bsz = min(len(docs), eff_rows)
+    batch = make_batch(
+        docs[:bsz],
+        np.arange(bsz),
+        length,
+        masks=masks[:bsz] if masks is not None else None,
+    )
+    inp = batch["inputs"]
+    tgt = batch["targets"]
+    msk = batch["mask"]
+    resets = batch["resets"]
+    val = inp != EOS
+
+    cfg_0 = cfg.model_copy(update={"relational_hops": 0})
+    model_0 = make_model(cfg_0)
+    carry = initial_state(cfg_0, bsz)
+    d = cfg.width
+
+    p_base = dict(state.params)
+    p_base["norm_scale"] = jnp.ones((d,), dtype=jnp.float32)
+    p_base["norm_bias"] = jnp.zeros((d,), dtype=jnp.float32)
+    p_base["vocab_bias"] = jnp.zeros((258,), dtype=jnp.float32)
+
+    z_slices = []
+    for c0 in range(0, d, 258):
+        c1 = min(c0 + 258, d)
+        w_c = c1 - c0
+        p_probe = dict(p_base)
+        p_probe["vocab_kernel"] = (
+            jnp.zeros((d, 258), dtype=jnp.float32)
+            .at[c0:c1, :w_c]
+            .set(jnp.eye(w_c, dtype=jnp.float32))
+        )
+        z_part, _ = model_0.apply(
+            {"params": p_probe},
+            jnp.asarray(inp),
+            carry,
+            jnp.asarray(resets),
+            messages=True,
+            valid=jnp.asarray(val),
+        )
+        z_slices.append(z_part[:, :, :w_c])
+    z_bt = jnp.concatenate(z_slices, axis=-1)
+
+    head_params = {
+        "norm_scale": state.params["norm_scale"],
+        "norm_bias": state.params["norm_bias"],
+        "vocab_kernel": state.params["vocab_kernel"],
+        "vocab_bias": state.params["vocab_bias"],
+    }
+    sched = optax.cosine_decay_schedule(init_value=0.04, decay_steps=steps, alpha=0.02)
+    tx = optax.adamw(learning_rate=sched, weight_decay=0.0)
+    opt_state = tx.init(head_params)
+    tgt_j = jnp.asarray(tgt)
+    msk_j = jnp.asarray(msk)
+    denom = jnp.maximum(msk_j.sum(), 1.0)
+
+    @jax.jit
+    def step_head(hp, os):
+        def loss_fn(p):
+            logits = (z_bt * p["norm_scale"] + p["norm_bias"]) @ p["vocab_kernel"] + p["vocab_bias"]
+            ce = optax.softmax_cross_entropy_with_integer_labels(logits, tgt_j)
+            return (ce * msk_j).sum() / denom
+
+        loss, grads = jax.value_and_grad(loss_fn)(hp)
+        updates, new_os = tx.update(grads, os, hp)
+        return optax.apply_updates(hp, updates), new_os, loss
+
+    for _ in range(steps):
+        head_params, opt_state, _ = step_head(head_params, opt_state)
+
+    new_params = dict(state.params)
+    new_params.update(head_params)
+    return state.replace(params=new_params)
+
+
+def _preencode_lane(
+    docs: list[str],
+    length: int,
+    masks: list[np.ndarray] | None = None,
+) -> dict[str, np.ndarray]:
     """Pre-encode all documents in a lane into contiguous NumPy arrays."""
-    arr = make_batch(docs, np.arange(len(docs)), length)
+    arr = make_batch(docs, np.arange(len(docs)), length, masks=masks)
     return {
         "inputs": arr["inputs"],
         "targets": arr["targets"],
@@ -132,14 +229,17 @@ class ChunkedFoundationTrainer:
             )
 
         lanes = {
-            "english": read_documents(self.data_dir / "english" / "train.jsonl"),
-            "conversation": read_documents(self.data_dir / "conversation" / "train.jsonl"),
-            "qa": read_documents(self.data_dir / "qa" / "train.jsonl"),
+            "english": read_training_data(self.data_dir / "english" / "train.jsonl"),
+            "conversation": read_training_data(self.data_dir / "conversation" / "train.jsonl"),
+            "qa": read_training_data(self.data_dir / "qa" / "train.jsonl"),
         }
         lane_sizes = {
-            k: float(sum(len(d.encode("utf-8")) for d in docs)) for k, docs in lanes.items()
+            k: float(sum(len(d.encode("utf-8")) for d in docs)) for k, (docs, _, _) in lanes.items()
         }
-        self.lane_arrays = {k: _preencode_lane(docs, self.eff_len) for k, docs in lanes.items()}
+        self.lane_arrays = {
+            k: _preencode_lane(docs, self.eff_len, masks=masks)
+            for k, (docs, masks, _) in lanes.items()
+        }
         self.resets_template = np.zeros((self.eff_batch, self.eff_len), dtype=bool)
         self.resets_template[:, 0] = True
         self.scheduler = LaneSchedule(list(lanes.keys()), sizes=lane_sizes, mode="auto")
@@ -328,6 +428,9 @@ class ChunkedFoundationTrainer:
                 g_batch, g_rewards = build_grpo_question_group(probe, length=self.eff_len)
                 self.st, _ = grpo_fn(self.st, ref_params, g_batch, g_rewards)
 
+        print("Calibrating assistant-masked conversational readout head...", flush=True)
+        self.st = calibrate_conversational_head(self.st, self.cfg_cur, data_dir=self.data_dir)
+
         total_sec = time.perf_counter() - self.t_start
         jax.clear_caches()
 
@@ -488,9 +591,7 @@ def run_foundation_training(
         "conversation": read_documents(data_dir / "conversation" / "train.jsonl"),
         "qa": read_documents(data_dir / "qa" / "train.jsonl"),
     }
-    lane_sizes = {
-        k: float(sum(len(d.encode("utf-8")) for d in docs)) for k, docs in lanes.items()
-    }
+    lane_sizes = {k: float(sum(len(d.encode("utf-8")) for d in docs)) for k, docs in lanes.items()}
     scheduler = LaneSchedule(list(lanes.keys()), sizes=lane_sizes, mode="auto")
     controller = PlasticityController(scale=1.0)
 
@@ -587,12 +688,12 @@ def run_foundation_training(
             }
         )
 
-    sciq_probes = json.loads(
-        (data_dir / "qa" / "sciq-validation-questions.json").read_text()
-    )["questions"]
-    squad_probes = json.loads(
-        (data_dir / "qa" / "squad-validation-questions.json").read_text()
-    )["questions"]
+    sciq_probes = json.loads((data_dir / "qa" / "sciq-validation-questions.json").read_text())[
+        "questions"
+    ]
+    squad_probes = json.loads((data_dir / "qa" / "squad-validation-questions.json").read_text())[
+        "questions"
+    ]
     all_grpo_probes = squad_probes + sciq_probes
     if grpo_steps > 0 and all_grpo_probes and (is_accel or not is_100m):
         print(f"Running {grpo_steps} DeepSeek-R1 critic-free GRPO reasoning steps...", flush=True)

@@ -572,14 +572,22 @@ class GraphLM(nn.Module):
                 and c.symmetric_memory
                 and c.episodic_slots > 0
             ):
-                streams_4 = jnp.stack(
-                    [z_base, mem_contrib, 0.1 * wavelet_out.mean(axis=1), ep_contrib], axis=1
+                w_ortho = 0.25 * (
+                    wavelet_out[:, 0, :]
+                    + jnp.roll(wavelet_out[:, 1, :], shift=d // 4, axis=-1)
+                    + jnp.roll(wavelet_out[:, 2, :], shift=d // 2, axis=-1)
+                    + jnp.roll(wavelet_out[:, 3, :], shift=(3 * d) // 4, axis=-1)
                 )
+                streams_4 = jnp.stack([z_base, mem_contrib, 0.25 * w_ortho, ep_contrib], axis=1)
                 mixed_4, _ = sinkhorn_stream_mix(streams_4, iters=4)
                 mhc_active = jax.lax.stop_gradient(
                     jnp.where((memory_gain == 0) & (ep_gain == 0), 0.0, 1.0)
                 )
-                z = z + 0.1 * mhc_active * (mixed_4.sum(axis=1) - streams_4.sum(axis=1))
+                z = (
+                    z
+                    + 0.25 * mhc_active * w_ortho
+                    + 0.1 * mhc_active * (mixed_4.sum(axis=1) - streams_4.sum(axis=1))
+                )
             z_raw = z
             mean = z.mean(axis=-1, keepdims=True)
             variance = jnp.square(z - mean).mean(axis=-1, keepdims=True)
@@ -602,7 +610,7 @@ class GraphLM(nn.Module):
             scan_step, state, (tokens.T, resets.T, valid.T)
         )
         z_bt = z_t.transpose(1, 0, 2)
-        if c.relational_hops > 0:
+        if c.relational_hops > 0 and (tokens.shape[1] > 1 or return_telemetry):
             z_raw_bt = z_raw_t.transpose(1, 0, 2)
             w_bt = w_t.transpose(1, 0, 2, 3)
             tok_emb = embedding[tokens]
@@ -644,9 +652,19 @@ class GraphLM(nn.Module):
             liv_stem = jax.nn.silu(liv_b) * conv_liv
 
             # Hop 0: Residual identity-anchored stem matching & diagonal 3-gram convolution
+            vk_basis_raw = jax.random.normal(
+                jax.random.PRNGKey(0), (VOCAB_SIZE, d), dtype=z_raw_bt.dtype
+            )
+            vk_basis = vk_basis_raw * jax.lax.rsqrt(
+                jnp.sum(jnp.square(vk_basis_raw), axis=-1, keepdims=True) + 1e-6
+            )
             vocab_centered = vocab_kernel - jnp.mean(vocab_kernel, axis=0, keepdims=True)
-            vk_u = vocab_centered.T * jax.lax.rsqrt(
+            vk_learned = vocab_centered.T * jax.lax.rsqrt(
                 jnp.sum(jnp.square(vocab_centered.T), axis=-1, keepdims=True) + 1e-6
+            )
+            vk_raw = vk_basis + 1e-3 * vk_learned
+            vk_u = vk_raw * jax.lax.rsqrt(
+                jnp.sum(jnp.square(vk_raw), axis=-1, keepdims=True) + 1e-6
             )
             v0_u = vk_u[tokens]
             tok_centered = tok_emb - jnp.mean(tok_emb, axis=-1, keepdims=True)
@@ -702,7 +720,7 @@ class GraphLM(nn.Module):
                 )[:, None, :]
                 * rel_f
             )
-            g_chat = jnp.max(m_chat, axis=-1, keepdims=True)
+            g_chat_tag = jnp.max(m_chat, axis=-1, keepdims=True)
             q_chat_idx = jnp.sum(m_chat * p1_idx, axis=-1, keepdims=True) / jnp.maximum(
                 jnp.sum(m_chat, axis=-1, keepdims=True), 1e-6
             )
@@ -714,6 +732,11 @@ class GraphLM(nn.Module):
                 )
                 * rel_f
             )
+            n_inner_nl = jnp.sum(m_chat_nl, axis=-1, keepdims=True)
+            has_single_ctx_nl = jnp.max(m_chat_nl, axis=-1, keepdims=True) * jnp.exp(
+                -10.0 * jnp.square(n_inner_nl - 1.0)
+            )
+            g_chat = g_chat_tag * has_single_ctx_nl
             p_chat_idx = jnp.sum(m_chat_nl * p1_idx, axis=-1, keepdims=True) / jnp.maximum(
                 jnp.sum(m_chat_nl, axis=-1, keepdims=True), 1e-6
             )
@@ -1323,7 +1346,7 @@ class GraphLM(nn.Module):
             logits_rel = logits_rel.at[:, :, EOS].add(
                 2.0 * rel_scale * g_question[:, :, 0] * eos_mass[:, :, 0]
             )
-            logits = logits_base + 36.0 * logits_rel
+            logits = (1.0 - 0.98 * g_question) * logits_base + 36.0 * g_question * logits_rel
         else:
             logits = logits_t.transpose(1, 0, 2)
         out_items = [logits, final]
