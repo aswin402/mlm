@@ -185,49 +185,58 @@ def muon_mask(params):
 def make_muon_adamw(params, config, decay):
     """Hybrid Muon (internal 2D/3D matrices) + AdamW (embeddings, heads, biases, vectors)."""
     use_muon = muon_mask(params)
+    adam_decay = {k: v for k, v in decay.items() if not use_muon[k]}
     adamw = optax.adamw(
         config.learning_rate,
         b1=0.9,
         b2=0.999,
         eps=1e-8,
         weight_decay=config.weight_decay,
-        mask=decay,
+        mask=adam_decay,
     )
     beta = 0.95
     lr = config.learning_rate
     wd = config.weight_decay
 
     def init_fn(params):
+        adam_params = {name: val for name, val in params.items() if not use_muon[name]}
         return (
-            adamw.init(params),
+            adamw.init(adam_params),
             {name: jnp.zeros_like(val) for name, val in params.items() if use_muon[name]},
         )
 
     def update_fn(updates, state, params=None):
         adam_state, muon_bufs = state
-        adam_updates, new_adam_state = adamw.update(updates, adam_state, params)
+        adam_grads = {name: val for name, val in updates.items() if not use_muon[name]}
+        adam_params = (
+            {name: val for name, val in params.items() if not use_muon[name]}
+            if params is not None
+            else None
+        )
+        adam_updates, new_adam_state = adamw.update(adam_grads, adam_state, adam_params)
         new_muon_bufs = {}
-        muon_updates = {}
+        out_updates = dict(adam_updates)
         for name, grad in updates.items():
             if not use_muon[name]:
-                muon_updates[name] = grad
                 continue
             buf = muon_bufs[name]
             active = jnp.any(grad != 0, axis=(-2, -1), keepdims=True)
             next_buf = jnp.where(active, beta * buf + (1.0 - beta) * grad, buf)
             g_nest = beta * next_buf + (1.0 - beta) * grad
             rms_scale = math.sqrt(max(grad.shape[-2], grad.shape[-1]))
-            orth = newton_schulz(g_nest, steps=5) * rms_scale
+            if grad.ndim == 3 and grad.shape[0] >= 16 and grad.size >= 4_000_000:
+                k_act = min(4, grad.shape[0])
+                g_norms = jnp.sum(jnp.square(grad), axis=(-2, -1))
+                _, top_idx = jax.lax.top_k(g_norms, k_act)
+                g_sub = g_nest[top_idx].astype(jnp.bfloat16)
+                orth_sub = newton_schulz(g_sub, steps=3).astype(grad.dtype) * rms_scale
+                orth = jnp.zeros_like(g_nest).at[top_idx].set(orth_sub)
+            else:
+                orth = newton_schulz(g_nest, steps=5) * rms_scale
             decay_term = wd * params[name] if (params is not None and wd > 0) else 0.0
             step = -lr * (orth + decay_term)
             new_muon_bufs[name] = next_buf
-            muon_updates[name] = jnp.where(active, step, jnp.zeros_like(step))
-        out_updates = jax.tree.map(
-            lambda flag, m_val, a_val: m_val if flag else a_val,
-            use_muon,
-            muon_updates,
-            adam_updates,
-        )
+            out_updates[name] = jnp.where(active, step, jnp.zeros_like(step))
         return out_updates, (new_adam_state, new_muon_bufs)
 
     return optax.GradientTransformation(init_fn, update_fn)
@@ -509,8 +518,9 @@ def edge_affinity_matrix(config, params: dict) -> np.ndarray:
     rec_norms = np.maximum(np.linalg.norm(rec_sub, axis=(1, 2), keepdims=True), 1e-8)
     r_hat = rec_sub / rec_norms
 
-    coupling = np.einsum("idr,jdc->ijrc", r_hat, transmitted)
-    affinity = np.linalg.norm(coupling, axis=(2, 3))
+    g_r = np.einsum("idr,ier->ide", r_hat, r_hat)
+    g_t = np.einsum("jdc,jec->jde", transmitted, transmitted)
+    affinity = np.sqrt(np.maximum(0.0, np.einsum("ide,jde->ij", g_r, g_t)))
 
     if config.edge_aggregation == "attention" and "edge_query" in params:
         eq = np.asarray(params["edge_query"], dtype=np.float64)

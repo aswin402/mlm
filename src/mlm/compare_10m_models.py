@@ -31,9 +31,9 @@ def _active_parameter_count(cfg: Config, params: dict) -> int:
     if k_act >= n:
         return total
     node_Scoped = 0
-    for name in ("input_kernel", "hidden_kernel", "gru_bias", "read_kernel"):
-        if name in params:
-            node_Scoped += int(np.prod(params[name].shape))
+    for val in params.values():
+        if getattr(val, "shape", ()) and val.shape[0] == n:
+            node_Scoped += int(np.prod(val.shape))
     inactive_frac = (n - k_act) / n
     return int(round(total - node_Scoped * inactive_frac))
 

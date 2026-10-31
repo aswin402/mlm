@@ -1,6 +1,7 @@
 """Cloud GPU / Local developmental foundation trainer for 10.30M+ b8 MLM."""
 
 import argparse
+import gc
 import json
 import math
 import time
@@ -52,19 +53,23 @@ def run_foundation_training(
     data_scale: int = 1,
     grpo_steps: int = 12,
     resume_from: Path | None = None,
+    config_path: Path = Path("configs/mlm-10m-growth.json"),
+    ckpt_name: str = "mlm_10m_b8.mlm",
 ) -> dict:
-    """Run staged developmental foundation training (4 -> 8 -> 16 nodes) and save b8."""
+    """Run staged developmental foundation training (e.g. 4->8->16 or 16->32->64) and save b8."""
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     backend = jax.default_backend()
     devices = [str(d) for d in jax.devices()]
     is_accel = backend in ("gpu", "tpu")
 
-    eff_batch = batch_size or (32 if is_accel else 8)
-    eff_len = length or (128 if is_accel else 64)
+    base_cfg = Config.model_validate_json(Path(config_path).read_text())
+    is_100m = base_cfg.nodes >= 64
+    eff_batch = batch_size or ((16 if is_100m else 32) if is_accel else (2 if is_100m else 8))
+    eff_len = length or ((96 if is_100m else 128) if is_accel else (32 if is_100m else 64))
 
     print(
-        f"[MLM Foundation Trainer] backend={backend} | devices={devices} | "
+        f"[MLM Foundation Trainer] config={config_path} | backend={backend} | devices={devices} | "
         f"batch_size={eff_batch} | length={eff_len} | total_steps={total_steps}",
         flush=True,
     )
@@ -94,8 +99,10 @@ def run_foundation_training(
     scheduler = LaneSchedule(list(lanes.keys()), sizes=lane_sizes, mode="auto")
     controller = PlasticityController(scale=1.0)
 
-    base_cfg = Config.model_validate_json(Path("configs/mlm-10m-growth.json").read_text())
     base_cfg = base_cfg.model_copy(update={"batch_size": eff_batch, "length": eff_len})
+    n_final = base_cfg.nodes
+    n_mid = max(4, n_final // 2)
+    n_seed = max(4, n_final // 4)
 
     if resume_from is not None and Path(resume_from).exists():
         print(f"Resuming from checkpoint: {resume_from}", flush=True)
@@ -103,31 +110,37 @@ def run_foundation_training(
         cfg_cur = cfg_cur.model_copy(update={"batch_size": eff_batch, "length": eff_len})
         growth_log = list(meta.get("growth", []))
     else:
-        cfg_cur = base_cfg.model_copy(update={"nodes": 4})
+        cfg_cur = base_cfg.model_copy(update={"nodes": n_seed})
         st = create_state(cfg_cur)
         growth_log = []
 
     cur_nodes = int(st.params["input_kernel"].shape[0])
-    if cur_nodes >= 16:
-        stage_plan = [(16, max(1, total_steps))]
-    elif cur_nodes >= 8:
+    if cur_nodes >= n_final:
+        stage_plan = [(n_final, max(1, total_steps))]
+    elif cur_nodes >= n_mid:
         s2 = max(1, int(round(total_steps * 0.40)))
         s3 = max(1, total_steps - s2)
-        stage_plan = [(8, s2), (16, s3)]
+        stage_plan = [(n_mid, s2), (n_final, s3)]
     else:
-        # Developmental schedule: 60% at 4 nodes, 25% at 8 nodes, 15% at 16 nodes
+        # Developmental schedule: 60% at seed nodes, 25% at mid nodes, 15% at final nodes
         s1 = max(1, int(round(total_steps * 0.60)))
         s2 = max(1, int(round(total_steps * 0.25)))
         s3 = max(1, total_steps - s1 - s2)
-        stage_plan = [(4, s1), (8, s2), (16, s3)]
+        stage_plan = [(n_seed, s1), (n_mid, s2), (n_final, s3)]
 
     rng = np.random.default_rng(base_cfg.seed)
     t_start = time.perf_counter()
+    step_fn = None
 
     for stage_idx, (target_nodes, stage_steps) in enumerate(stage_plan, start=1):
+        step_fn = None
+        gc.collect()
+        jax.clear_caches()
         if st.params["input_kernel"].shape[0] < target_nodes:
             add_n = target_nodes - cfg_cur.nodes
             cfg_cur, st = grow_train_state(cfg_cur, st, add_nodes=add_n)
+            gc.collect()
+            jax.clear_caches()
         elif st.params["input_kernel"].shape[0] > target_nodes:
             # Resumed from an already-grown checkpoint; skip earlier stages
             continue
@@ -186,7 +199,7 @@ def run_foundation_training(
         (data_dir / "qa" / "squad-validation-questions.json").read_text()
     )["questions"]
     all_grpo_probes = squad_probes + sciq_probes
-    if grpo_steps > 0 and all_grpo_probes:
+    if grpo_steps > 0 and all_grpo_probes and (is_accel or not is_100m):
         print(f"Running {grpo_steps} DeepSeek-R1 critic-free GRPO reasoning steps...", flush=True)
         grpo_fn = make_grpo_step(cfg_cur)
         ref_params = st.params
@@ -196,9 +209,9 @@ def run_foundation_training(
             st, _ = grpo_fn(st, ref_params, g_batch, g_rewards)
 
     total_sec = time.perf_counter() - t_start
+    jax.clear_caches()
 
-    ckpt_b8 = out_dir / "mlm_10m_b8.mlm"
-    ckpt_fp32 = out_dir / "mlm_10m_fp32.mlm"
+    ckpt_b8 = out_dir / ckpt_name
     save_checkpoint(
         ckpt_b8,
         st,
@@ -206,37 +219,47 @@ def run_foundation_training(
         {"growth": growth_log, "backend": backend, "total_steps": total_steps},
         quantize="b8",
     )
-    save_checkpoint(
-        ckpt_fp32,
-        st,
-        cfg_cur,
-        {"growth": growth_log, "backend": backend, "total_steps": total_steps},
-        quantize="none",
-    )
     b8_mb = ckpt_b8.stat().st_size / (1024 * 1024)
-    fp32_mb = ckpt_fp32.stat().st_size / (1024 * 1024)
+    if is_100m:
+        fp32_mb = (parameter_count(st.params) * 15.2) / (1024 * 1024)
+        st_eval, cfg_eval = st, cfg_cur
+    else:
+        ckpt_fp32 = out_dir / "mlm_10m_fp32.mlm"
+        save_checkpoint(
+            ckpt_fp32,
+            st,
+            cfg_cur,
+            {"growth": growth_log, "backend": backend, "total_steps": total_steps},
+            quantize="none",
+        )
+        fp32_mb = ckpt_fp32.stat().st_size / (1024 * 1024)
+        st_eval, cfg_eval, _ = load_checkpoint(ckpt_b8)
 
-    st_eval, cfg_eval, _ = load_checkpoint(ckpt_b8)
+    val_batches = 1 if (is_100m and not is_accel) else (2 if is_100m else 4)
+    mc_count = 4 if (is_100m and not is_accel) else (8 if is_100m else 16)
+    suite_cap = 2 if (is_100m and not is_accel) else (4 if is_100m else 16)
     eng_eval = eval_corpus_bpb(
-        st_eval, cfg_eval, data_dir / "english" / "validation.jsonl", max_batches=4
+        st_eval, cfg_eval, data_dir / "english" / "validation.jsonl", max_batches=val_batches
     )
     chat_eval = eval_corpus_bpb(
-        st_eval, cfg_eval, data_dir / "conversation" / "validation.jsonl", max_batches=4
+        st_eval, cfg_eval, data_dir / "conversation" / "validation.jsonl", max_batches=val_batches
     )
-    sciq_acc = eval_mc_probes(st_eval, cfg_eval, sciq_probes[:16])
-    squad_acc = eval_mc_probes(st_eval, cfg_eval, squad_probes[:16])
+    sciq_acc = eval_mc_probes(st_eval, cfg_eval, sciq_probes[:mc_count])
+    squad_acc = eval_mc_probes(st_eval, cfg_eval, squad_probes[:mc_count])
 
     reading_suites = {
-        "v1_1hop": json.loads(Path("data/evaluation/reading-v1.json").read_text())["questions"],
+        "v1_1hop": json.loads(Path("data/evaluation/reading-v1.json").read_text())["questions"][
+            :suite_cap
+        ],
         "v2_2hop": json.loads(Path("data/evaluation/reading-v2-multihop.json").read_text())[
             "questions"
-        ],
+        ][:suite_cap],
         "v3_3hop": json.loads(Path("data/evaluation/reading-v3-3hop.json").read_text())[
             "questions"
-        ],
+        ][:suite_cap],
         "v4_temporal": json.loads(Path("data/evaluation/reading-v4-temporal.json").read_text())[
             "questions"
-        ],
+        ][:suite_cap],
     }
     suite_scores = {}
     for s_key, probes in reading_suites.items():

@@ -517,6 +517,8 @@ def load_or_init_chat_state(
         return state, config, str(checkpoint)
     if checkpoint is None and config_path is None and seed is None:
         for auto_ckpt in (
+            Path("runs/mlm-100m-colab/mlm_100m_b8.mlm"),
+            Path("runs/mlm-100m/mlm_100m_b8.mlm"),
             Path("runs/mlm-10m/mlm_10m_b8.mlm"),
             Path("runs/mlm-10m-colab/mlm_10m_b8.mlm"),
         ):
