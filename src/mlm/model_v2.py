@@ -509,7 +509,7 @@ def grow_model_v2_nodes(
     add_nodes: int,
     birth_gate: float = 0.05,
     mature_lr_scale: float = 0.15,
-    shared_lr_scale: float = 0.25,
+    shared_lr_scale: float = 0.50,
 ) -> tuple[dict[str, jnp.ndarray], ConfigV2]:
     """Grow `add_nodes` specialist Graph Nodes per block via crossover of strongest parent nodes."""
     if config.n_experts < 2 or add_nodes < 1:

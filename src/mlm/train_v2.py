@@ -134,6 +134,8 @@ def run_train_v2(
                 "learning_rate": config.learning_rate,
                 "batch_size": config.batch_size,
                 "max_seq_len": config.max_seq_len,
+                "mature_lr_scale": config.mature_lr_scale,
+                "shared_lr_scale": config.shared_lr_scale,
             }
         )
         if add_nodes > 0:

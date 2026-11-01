@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import random
 from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -64,7 +65,14 @@ def read_hf_parquet_rows(
             break
         local_parquet = download_parquet_shard(url, shard_cache)
         need = max_rows - len(rows)
-        df = pl.read_parquet(local_parquet, n_rows=need)
+        if dataset == "wikimedia/wikipedia":
+            df_full = pl.read_parquet(local_parquet)
+            df = df_full.filter(
+                pl.col("title").str.contains(r"^[A-Z][a-z]+( [a-z]+)?$")
+                & (pl.col("text").str.len_bytes() >= 500)
+            ).head(need)
+        else:
+            df = pl.read_parquet(local_parquet, n_rows=need)
         rows.extend(df.to_dicts())
     return rows[:max_rows]
 
@@ -74,15 +82,17 @@ def extract_multi_turn_chat_from_parquet(
     max_user_chars: int = 240,
     max_assistant_chars: int = 320,
     max_total_bytes: int = 560,
+    first_turn_only: bool = True,
 ) -> list[dict]:
-    """Extract clean supervised `(user, assistant)` chat pairs from SmolTalk/Magpie Parquet rows."""
+    """Extract clean self-contained supervised `(user, assistant)` chat pairs from Parquet rows."""
     records: list[dict] = []
     seen: set[str] = set()
     for r in rows:
         msgs = r.get("messages")
-        if not isinstance(msgs, list):
+        if not isinstance(msgs, list) or len(msgs) < 2:
             continue
-        for i in range(0, len(msgs) - 1, 2):
+        max_idx = 1 if first_turn_only else len(msgs) - 1
+        for i in range(0, max_idx, 2):
             m_u = msgs[i] if isinstance(msgs[i], dict) else {}
             m_a = msgs[i + 1] if isinstance(msgs[i + 1], dict) else {}
             if m_u.get("role") == "user" and m_a.get("role") == "assistant":
@@ -236,9 +246,11 @@ def build_large_parquet_corpus(
 
 def _write_split_jsonl(out_dir: Path, records: list[dict], val_ratio: int = 20) -> dict[str, int]:
     out_dir.mkdir(parents=True, exist_ok=True)
-    val_n = min(128, max(16, len(records) // val_ratio))
-    train_r = records[:-val_n]
-    val_r = records[-val_n:]
+    shuffled = list(records)
+    random.Random(42).shuffle(shuffled)
+    val_n = min(128, max(16, len(shuffled) // val_ratio))
+    train_r = shuffled[:-val_n]
+    val_r = shuffled[-val_n:]
     (out_dir / "train.jsonl").write_text(
         "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in train_r),
         encoding="utf-8",
@@ -304,8 +316,19 @@ def build_staged_english_corpora(
             stage1_records.append({"text": ctx})
 
     # Stage 2 (`english_understand`): Grounded Reading Comprehension & Science QA + 25% Stage 1
-    stage2_pure: list[dict] = []
+    wiki_qa: list[dict] = []
+    sciq_qa: list[dict] = []
+    squad_qa: list[dict] = []
     seen_q: set[str] = set()
+    for r in wiki_raw:
+        title = str(r.get("title", "")).strip()
+        raw_text = str(r.get("text", "")).replace(" ()", "").replace("()", "")
+        body = _first_complete_sentences(raw_text, max_chars=240)
+        if title and body and len(body) >= 40:
+            u = f"What is {title.lower()}?"
+            if u.lower() not in seen_q:
+                seen_q.add(u.lower())
+                wiki_qa.append(_make_supervised_chat_record(u, body))
     for r in sciq_raw:
         q = " ".join(str(r.get("question", "")).strip().split())
         ans = " ".join(str(r.get("correct_answer", "")).strip().split())
@@ -313,7 +336,7 @@ def build_staged_english_corpora(
         if q and ans and q.lower() not in seen_q:
             seen_q.add(q.lower())
             reply = f"{ans.capitalize()}. {sup}".strip() if sup else f"{ans.capitalize()}."
-            stage2_pure.append(_make_supervised_chat_record(q, reply))
+            sciq_qa.append(_make_supervised_chat_record(q, reply))
     for r in squad_raw:
         ctx = _clean_paragraph(str(r.get("context", "")), max_chars=320)
         q = " ".join(str(r.get("question", "")).strip().split())
@@ -325,25 +348,30 @@ def build_staged_english_corpora(
                 seen_q.add(q.lower())
                 u = f"{ctx}\nQuestion: {q}"
                 reply = ans if ans[-1] in ".!?" else f"{ans}."
-                stage2_pure.append(_make_supervised_chat_record(u, reply))
-    for r in wiki_raw[:500]:
-        title = str(r.get("title", "")).strip()
-        body = _first_complete_sentences(str(r.get("text", "")), max_chars=240)
-        if title and body:
-            u = f"What is {title}?"
-            if u.lower() not in seen_q:
-                seen_q.add(u.lower())
-                stage2_pure.append(_make_supervised_chat_record(u, body))
+                squad_qa.append(_make_supervised_chat_record(u, reply))
+
+    stage2_pure = wiki_qa + sciq_qa + squad_qa
 
     stage2_records: list[dict] = []
     for idx, rec in enumerate(stage2_pure):
         stage2_records.append(rec)
-        if idx % 3 == 0 and stage1_records:
+        if idx % 4 == 0 and stage1_records:
             stage2_records.append(stage1_records[idx % len(stage1_records)])
 
-    # Stage 3 (`english_chat`): Multi-Turn Everyday Chat + Instruction QA + 25% Stage 1 & 2 Replay
-    stage3_pure = extract_multi_turn_chat_from_parquet(smol_raw)
+    # Stage 3 (`english_chat`): Self-contained Everyday Chat + Supervised Stage 2 Replay
+    stage3_pure = extract_multi_turn_chat_from_parquet(smol_raw, first_turn_only=True)
     seen_chat = {r["text"].split("\n<|assistant|>\n")[0].lower() for r in stage3_pure}
+
+    # Include any existing curated conversation records if present
+    curated_conv = root / "conversation" / "train.jsonl"
+    if curated_conv.exists():
+        for line in curated_conv.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            if "<|assistant|>\n" in str(row.get("text", "")) and "loss_spans" in row:
+                stage3_pure.append(row)
+
     for r in dolly_raw:
         if str(r.get("category", "")) not in ("open_qa", "general_qa", "brainstorming"):
             continue
@@ -365,13 +393,8 @@ def build_staged_english_corpora(
                 seen_chat.add(k)
                 stage3_pure.append(_make_supervised_chat_record(u, a))
 
-    stage3_records: list[dict] = []
-    for idx, rec in enumerate(stage3_pure):
-        stage3_records.append(rec)
-        if idx % 4 == 0 and stage1_records:
-            stage3_records.append(stage1_records[idx % len(stage1_records)])
-        if idx % 4 == 2 and stage2_pure:
-            stage3_records.append(stage2_pure[idx % len(stage2_pure)])
+    # Replay supervised Stage 2 records (`What is X?` + Science QA) in `<|user|>/<|assistant|>`
+    stage3_records = list(stage3_pure) + list(wiki_qa) + list(sciq_qa[:600]) + list(squad_qa[:300])
 
     s1_counts = _write_split_jsonl(root / "stage1_english_learn", stage1_records)
     s2_counts = _write_split_jsonl(root / "stage2_english_understand", stage2_records)
