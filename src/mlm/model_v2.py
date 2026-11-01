@@ -54,6 +54,8 @@ class ConfigV2(BaseModel):
     shared_lr_scale: float = Field(default=1.0, ge=0.0, le=1.0)
     router_bias_gamma: float = Field(default=1e-3, ge=0.0, le=0.1)
     mtp_weight: float = Field(default=0.25, ge=0.0, le=2.0)
+    think_open_id: int = Field(default=-1, ge=-1, le=65536)
+    think_close_id: int = Field(default=-1, ge=-1, le=65536)
     tie_embeddings: bool = True
     rope_theta: float = Field(default=10000.0, gt=100.0)
     rms_eps: float = Field(default=1e-5, gt=0.0)
@@ -408,9 +410,15 @@ def forward_with_hidden_v2(
     bsz, t_len = tokens.shape
     x = params["tok_embeddings.weight"][tokens]  # (B, T, D)
     cos, sin = precompute_rope_freqs(t_len, config.head_dim, config.rope_theta)
-    use_tiered_reasoning = config.mature_experts >= 8 and config.n_experts > config.mature_experts
+    use_tiered_reasoning = (
+        config.mature_experts >= 8
+        and config.n_experts > config.mature_experts
+        and config.think_open_id >= 0
+    )
     think_tier_mask = (
-        jnp.maximum.accumulate((tokens == 292).astype(jnp.float32), axis=-1)[..., None]
+        jnp.maximum.accumulate((tokens == config.think_open_id).astype(jnp.float32), axis=-1)[
+            ..., None
+        ]
         if use_tiered_reasoning
         else None
     )
@@ -721,15 +729,17 @@ def grow_model_v2_nodes(
         )
 
     emb_arr = np.asarray(params["tok_embeddings.weight"], dtype=np.float32).copy()
-    if n_old >= 8 and emb_arr.shape[0] > 293:
+    t_open = new_cfg.think_open_id
+    t_close = new_cfg.think_close_id
+    if n_old >= 8 and 0 <= t_open < emb_arr.shape[0] and 0 <= t_close < emb_arr.shape[0]:
         mean_norm = float(np.mean(np.linalg.norm(emb_arr, axis=-1)))
-        v_base = emb_arr[292] / max(float(np.linalg.norm(emb_arr[292])), 1e-6)
+        v_base = emb_arr[t_open] / max(float(np.linalg.norm(emb_arr[t_open])), 1e-6)
         ortho_raw = rng.normal(0.0, 1.0, size=v_base.shape).astype(np.float32)
         ortho_raw = ortho_raw - float(np.dot(ortho_raw, v_base)) * v_base
         v_ortho = ortho_raw / max(float(np.linalg.norm(ortho_raw)), 1e-6)
         target_n = 1.35 * mean_norm
-        emb_arr[292] = target_n * (0.70710678 * v_base + 0.70710678 * v_ortho)
-        emb_arr[293] = target_n * (0.70710678 * v_base - 0.70710678 * v_ortho)
+        emb_arr[t_open] = target_n * (0.70710678 * v_base + 0.70710678 * v_ortho)
+        emb_arr[t_close] = target_n * (0.70710678 * v_base - 0.70710678 * v_ortho)
         new_params["tok_embeddings.weight"] = jnp.asarray(emb_arr)
 
     return new_params, new_cfg
@@ -806,6 +816,11 @@ def generate_v2(
         and config.mature_experts >= 8
         and config.n_experts > config.mature_experts
     )
+    close_id = (
+        config.think_close_id
+        if config.think_close_id >= 0
+        else int(tokenizer.encode("<|think|>", add_bos=False, add_eos=False)[-1])
+    )
     step_limit = min(max_new_tokens, 36) if is_tiered_think else max_new_tokens
     for _ in range(step_limit):
         ctx = (prompt_ids + generated)[-seq_len:]
@@ -839,7 +854,7 @@ def generate_v2(
         if next_id == tokenizer.eos_id:
             break
         generated.append(next_id)
-        if prefilled_think and len(generated) >= 5 and next_id == 293:
+        if prefilled_think and len(generated) >= 5 and next_id == close_id:
             break
 
     raw_decoded = tokenizer.decode(generated, skip_special_tokens=False)
@@ -938,6 +953,15 @@ def load_checkpoint_v2(
         tok_tmp.write_bytes(zf.read("tokenizer.json"))
         tokenizer = BPETokenizer.load(tok_tmp)
         tok_tmp.unlink(missing_ok=True)
+        if config.think_open_id < 0 or config.think_close_id < 0:
+            think_ids = tokenizer.encode("<|think|>", add_bos=False, add_eos=False)
+            if len(think_ids) >= 2:
+                config = config.model_copy(
+                    update={
+                        "think_open_id": int(think_ids[0]),
+                        "think_close_id": int(think_ids[-1]),
+                    }
+                )
 
         np_params = load_safetensors_bytes(zf.read("model.safetensors"))
 
