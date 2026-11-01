@@ -16,12 +16,14 @@ from mlm.gguf_export import export_gguf_v2, verify_gguf_with_rust
 from mlm.model_v2 import (
     ConfigV2,
     create_state_v2,
+    expand_shortconv_kernel_v2,
     forward_v2,
     generate_v2,
     grow_model_v2_depth,
     grow_model_v2_nodes,
     load_checkpoint_v2,
     make_train_step_v2,
+    merge_checkpoints_v2,
     save_checkpoint_v2,
 )
 from mlm.tokenizer import BPETokenizer
@@ -119,6 +121,7 @@ def run_train_v2(
     gguf_out: Path | None = None,
     init_checkpoint: Path | None = None,
     add_nodes: int = 0,
+    expand_conv_kernel: int = 0,
     pretrained_tokenizer: BPETokenizer | None = None,
 ) -> dict:
     """Train MLM v2 with Rust BPE tokenization, parallel updates, and optional GGUF export."""
@@ -129,8 +132,13 @@ def run_train_v2(
     val_records = load_jsonl_records(val_path)
     all_texts = [r["text"] for r in train_records + val_records]
 
+    teacher_params: dict[str, jnp.ndarray] | None = None
+    teacher_config: ConfigV2 | None = None
     if init_checkpoint is not None:
         warm_params, warm_cfg, tokenizer, _ = load_checkpoint_v2(init_checkpoint)
+        if config.kd_weight > 0.0:
+            teacher_params = {k: jnp.array(v, copy=True) for k, v in warm_params.items()}
+            teacher_config = warm_cfg
         config = warm_cfg.model_copy(
             update={
                 "learning_rate": config.learning_rate,
@@ -140,8 +148,18 @@ def run_train_v2(
                 "shared_lr_scale": config.shared_lr_scale,
                 "router_bias_gamma": config.router_bias_gamma,
                 "mtp_weight": config.mtp_weight,
+                "kd_weight": config.kd_weight,
+                "kd_top_k": config.kd_top_k,
+                "kd_temperature": config.kd_temperature,
+                "sliding_window": config.sliding_window,
+                "use_head_gate": config.use_head_gate,
+                "sandwich_norm_clip": config.sandwich_norm_clip,
             }
         )
+        if expand_conv_kernel > config.conv_kernel:
+            warm_params, config = expand_shortconv_kernel_v2(
+                warm_params, config, new_kernel=expand_conv_kernel
+            )
         if add_nodes > 0:
             warm_params, config = grow_model_v2_nodes(warm_params, config, add_nodes=add_nodes)
         state = create_state_v2(config, total_steps=steps)
@@ -162,7 +180,12 @@ def run_train_v2(
 
     train_ds = build_tokenized_dataset(train_records, tokenizer, config.max_seq_len)
     val_ds = build_tokenized_dataset(val_records, tokenizer, config.max_seq_len)
-    step_fn = make_train_step_v2(config, total_steps=steps)
+    step_fn = make_train_step_v2(
+        config,
+        total_steps=steps,
+        teacher_params=teacher_params,
+        teacher_config=teacher_config,
+    )
 
     rng = np.random.default_rng(config.seed)
     n_train = len(train_records)
@@ -551,6 +574,14 @@ def make_grpo_step_v2(
                     scaled_updates[k] = u * jnp.asarray(r_mask)
                 else:
                     scaled_updates[k] = u
+            elif k.endswith(".shortconv.conv.weight") and (
+                0 < config.mature_conv_kernel < config.conv_kernel
+                and config.shared_lr_scale > 0.0
+            ):
+                new_taps = config.conv_kernel - config.mature_conv_kernel
+                c_mask = np.ones((config.conv_kernel, 1), dtype=np.float32)
+                c_mask[new_taps:, :] = float(config.shared_lr_scale)
+                scaled_updates[k] = u * jnp.asarray(c_mask)
             elif k.startswith("mtp_"):
                 scaled_updates[k] = u
             else:
@@ -591,6 +622,7 @@ def run_grpo_v2(
     group_size: int = 4,
     learning_rate: float = 4e-4,
     kl_beta: float = 0.04,
+    merge_alpha: float = 0.65,
     gguf_out: Path | None = None,
 ) -> dict:
     """Run DeepSeek-R1 + Dr. GRPO reinforcement learning on an MLM v2 checkpoint."""
@@ -678,6 +710,9 @@ def run_grpo_v2(
                 ),
                 flush=True,
             )
+
+    if 0.0 < merge_alpha < 1.0:
+        state.params = merge_checkpoints_v2(ref_params, state.params, alpha=merge_alpha)
 
     save_checkpoint_v2(
         out_dir / "latest.mlm2",

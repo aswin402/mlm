@@ -43,9 +43,16 @@ class ConfigV2(BaseModel):
     n_heads: int = Field(default=9, ge=1, le=64)
     n_kv_heads: int = Field(default=3, ge=1, le=64)
     ffn_dim: int = Field(default=1536, ge=128, le=16384)
-    conv_kernel: int = Field(default=4, ge=2, le=8)
+    conv_kernel: int = Field(default=4, ge=2, le=16)
+    mature_conv_kernel: int = Field(default=0, ge=0, le=16)
     attn_interval: int = Field(default=4, ge=1, le=16)
     use_gated_deltanet: bool = True
+    use_head_gate: bool = True
+    sliding_window: int = Field(default=0, ge=0, le=8192)
+    sandwich_norm_clip: float = Field(default=0.0, ge=0.0, le=20.0)
+    kd_weight: float = Field(default=0.0, ge=0.0, le=5.0)
+    kd_top_k: int = Field(default=16, ge=2, le=128)
+    kd_temperature: float = Field(default=2.0, gt=0.1, le=10.0)
     n_experts: int = Field(default=0, ge=0, le=64)
     top_k_experts: int = Field(default=2, ge=1, le=16)
     expert_ffn_dim: int = Field(default=256, ge=64, le=4096)
@@ -92,6 +99,23 @@ def rms_norm(x: jnp.ndarray, weight: jnp.ndarray, eps: float = 1e-5) -> jnp.ndar
     variance = jnp.mean(jnp.square(x_f32), axis=-1, keepdims=True)
     normed = x_f32 * jax.lax.rsqrt(variance + eps)
     return (normed * weight.astype(jnp.float32)).astype(x.dtype)
+
+
+def sandwich_rms_bound(
+    dx: jnp.ndarray,
+    post_scale: jnp.ndarray | None = None,
+    clip_rms: float = 3.0,
+    eps: float = 1e-5,
+) -> jnp.ndarray:
+    """LFM3 Sandwich Sublayer Bounding: suppress activation spikes while preserving identity."""
+    out = dx.astype(jnp.float32)
+    if post_scale is not None:
+        out = out * post_scale.astype(jnp.float32)[None, None, :]
+    if clip_rms > 0.0:
+        rms = jnp.sqrt(jnp.mean(jnp.square(out), axis=-1, keepdims=True) + eps)
+        factor = jnp.minimum(1.0, float(clip_rms) / rms)
+        out = out * factor
+    return out.astype(dx.dtype)
 
 
 def precompute_rope_freqs(
@@ -185,8 +209,11 @@ def grouped_query_attention(
     n_heads: int,
     n_kv_heads: int,
     rms_eps: float = 1e-5,
+    attn_gate_w: jnp.ndarray | None = None,
+    attn_gate_b: jnp.ndarray | None = None,
+    sliding_window: int = 0,
 ) -> jnp.ndarray:
-    """Grouped-Query Attention (GQA) with QK-RMSNorm and Rotary Position Embeddings."""
+    """LFM3 Head-Wise Gated & Tri-Hybrid Grouped-Query Attention (GQA) with QK-RMSNorm + RoPE."""
     bsz, t_len, d_model = x.shape
     head_dim = d_model // n_heads
     kv_group_size = n_heads // n_kv_heads
@@ -211,11 +238,26 @@ def grouped_query_attention(
 
     scale = 1.0 / jnp.sqrt(float(head_dim))
     logits = jnp.matmul(q_t, jnp.swapaxes(k_t, -1, -2)) * scale
-    causal = jnp.tril(jnp.ones((t_len, t_len), dtype=jnp.bool_))[None, None, :, :]
-    logits = jnp.where(causal, logits, -1e9)
+    if sliding_window > 0:
+        idx = jnp.arange(t_len)
+        dist = idx[:, None] - idx[None, :]  # (T, T)
+        global_causal = (dist >= 0)[None, None, :, :]
+        swa_causal = ((dist >= 0) & (dist < sliding_window))[None, None, :, :]
+        is_swa_head = (jnp.arange(n_heads) % 2 == 1)[None, :, None, None]
+        mask = jnp.where(is_swa_head, swa_causal, global_causal)
+    else:
+        mask = jnp.tril(jnp.ones((t_len, t_len), dtype=jnp.bool_))[None, None, :, :]
+    logits = jnp.where(mask, logits, -1e9)
     weights = jax.nn.softmax(logits, axis=-1)
     attn_out = jnp.matmul(weights, v_t)  # (B, H, T, D_h)
-    merged = jnp.transpose(attn_out, (0, 2, 1, 3)).reshape(bsz, t_len, d_model)
+    attn_heads = jnp.transpose(attn_out, (0, 2, 1, 3))  # (B, T, H, D_h)
+    if attn_gate_w is not None:
+        gate_logits = x @ attn_gate_w  # (B, T, H)
+        if attn_gate_b is not None:
+            gate_logits = gate_logits + attn_gate_b[None, None, :]
+        head_gates = 2.0 * jax.nn.sigmoid(gate_logits)[..., None]  # (B, T, H, 1), 1.0 at zero init
+        attn_heads = attn_heads * head_gates
+    merged = attn_heads.reshape(bsz, t_len, d_model)
     return merged @ wo
 
 
@@ -326,6 +368,8 @@ def init_params_v2(config: ConfigV2) -> dict[str, jnp.ndarray]:
         p = f"blk.{i}"
         params[f"{p}.attn_norm.weight"] = jnp.ones((d,), dtype=jnp.float32)
         params[f"{p}.ffn_norm.weight"] = jnp.ones((d,), dtype=jnp.float32)
+        params[f"{p}.attn_post_scale"] = jnp.ones((d,), dtype=jnp.float32)
+        params[f"{p}.ffn_post_scale"] = jnp.ones((d,), dtype=jnp.float32)
 
         if config.is_attention_layer(i):
             params[f"{p}.attn_q.weight"] = jnp.asarray(
@@ -342,8 +386,11 @@ def init_params_v2(config: ConfigV2) -> dict[str, jnp.ndarray]:
             )
             params[f"{p}.attn_q_norm.weight"] = jnp.ones((hd,), dtype=jnp.float32)
             params[f"{p}.attn_k_norm.weight"] = jnp.ones((hd,), dtype=jnp.float32)
+            if config.use_head_gate:
+                params[f"{p}.attn_gate.weight"] = jnp.zeros((d, h), dtype=jnp.float32)
+                params[f"{p}.attn_gate.bias"] = jnp.zeros((h,), dtype=jnp.float32)
         else:
-            # LFM2 Gated ShortConv + optional Parallel Gated DeltaNet
+            # LFM2/LFM3 Gated ShortConv + optional Parallel Gated DeltaNet
             params[f"{p}.shortconv.in_proj.weight"] = jnp.asarray(
                 rng.normal(0.0, std, size=(d, 3 * d)).astype(np.float32)
             )
@@ -440,6 +487,9 @@ def forward_with_hidden_v2(
                 config.n_heads,
                 config.n_kv_heads,
                 config.rms_eps,
+                attn_gate_w=params.get(f"{p}.attn_gate.weight") if config.use_head_gate else None,
+                attn_gate_b=params.get(f"{p}.attn_gate.bias") if config.use_head_gate else None,
+                sliding_window=config.sliding_window,
             )
         else:
             proj = normed @ params[f"{p}.shortconv.in_proj.weight"]
@@ -458,6 +508,12 @@ def forward_with_hidden_v2(
                 )
                 y_mix = y_mix + delta_out * params[f"{p}.deltanet.scale"][None, None, :]
             dx = y_mix @ params[f"{p}.shortconv.out_proj.weight"]
+        dx = sandwich_rms_bound(
+            dx,
+            params.get(f"{p}.attn_post_scale"),
+            clip_rms=config.sandwich_norm_clip,
+            eps=config.rms_eps,
+        )
         x = x + dx
 
         ffn_normed = rms_norm(x, params[f"{p}.ffn_norm.weight"], config.rms_eps)
@@ -479,6 +535,12 @@ def forward_with_hidden_v2(
                 mature_nodes=config.mature_experts if use_tiered_reasoning else 0,
                 new_tier_mask=think_tier_mask,
             )
+        ffn_out = sandwich_rms_bound(
+            ffn_out,
+            params.get(f"{p}.ffn_post_scale"),
+            clip_rms=config.sandwich_norm_clip,
+            eps=config.rms_eps,
+        )
         x = x + ffn_out
 
     hidden_normed = rms_norm(x, params["output_norm.weight"], config.rms_eps)
@@ -544,7 +606,37 @@ def create_state_v2(config: ConfigV2, total_steps: int = 1000) -> TrainStateV2:
     return TrainStateV2(step=0, params=params, opt_state=opt_state)
 
 
-def make_train_step_v2(config: ConfigV2, total_steps: int = 1000):
+def tempered_topk_kd_loss_v2(
+    student_logits: jnp.ndarray,
+    teacher_logits: jnp.ndarray,
+    mask: jnp.ndarray,
+    top_k: int = 16,
+    temperature: float = 2.0,
+) -> jnp.ndarray:
+    """LFM2/2.5 Tempered, Decoupled Top-K Knowledge Distillation (`arXiv:2511.23404`).
+
+    Restricts KL divergence to the teacher's top-K probability support window to avoid
+    tail support mismatch on compact student models.
+    """
+    k_eff = min(int(top_k), student_logits.shape[-1])
+    t_stopped = jax.lax.stop_gradient(teacher_logits)
+    t_vals, top_idx = jax.lax.top_k(t_stopped, k_eff)  # (B, T, K)
+    s_vals = jnp.take_along_axis(student_logits, top_idx, axis=-1)  # (B, T, K)
+    temp = float(temperature)
+    t_log_p = jax.nn.log_softmax(t_vals / temp, axis=-1)
+    t_p = jnp.exp(t_log_p)
+    s_log_p = jax.nn.log_softmax(s_vals / temp, axis=-1)
+    kl_tok = (temp * temp) * jnp.sum(t_p * (t_log_p - s_log_p), axis=-1)  # (B, T)
+    denom = jnp.maximum(jnp.sum(mask), 1.0)
+    return jnp.sum(kl_tok * mask) / denom
+
+
+def make_train_step_v2(
+    config: ConfigV2,
+    total_steps: int = 1000,
+    teacher_params: dict[str, jnp.ndarray] | None = None,
+    teacher_config: ConfigV2 | None = None,
+):
     """Compile a parallel sequence training step for MLM v2."""
     warmup = min(config.warmup_steps, max(1, total_steps // 5))
     decay_steps = max(total_steps, warmup + 1)
@@ -559,6 +651,7 @@ def make_train_step_v2(config: ConfigV2, total_steps: int = 1000):
         optax.clip_by_global_norm(config.clip_norm),
         optax.adamw(learning_rate=schedule, weight_decay=config.weight_decay),
     )
+    eff_teacher_cfg = teacher_config if teacher_config is not None else config
 
     @jax.jit
     def step_fn(
@@ -573,7 +666,7 @@ def make_train_step_v2(config: ConfigV2, total_steps: int = 1000):
             log_probs = jax.nn.log_softmax(logits, axis=-1)
             tok_loss = -jnp.take_along_axis(log_probs, targets[..., None], axis=-1)[..., 0]
             denom = jnp.maximum(jnp.sum(mask), 1.0)
-            ce_loss = jnp.sum(tok_loss * mask) / denom
+            total_loss = jnp.sum(tok_loss * mask) / denom
             if config.mtp_weight > 0.0 and "mtp_proj.weight" in p:
                 mtp_logits = compute_mtp_logits_v2(p, hidden_normed, targets[:, :-1], config)
                 mtp_lps = jax.nn.log_softmax(mtp_logits, axis=-1)
@@ -583,8 +676,18 @@ def make_train_step_v2(config: ConfigV2, total_steps: int = 1000):
                 mtp_mask = mask[:, :-1] * mask[:, 1:]
                 mtp_denom = jnp.maximum(jnp.sum(mtp_mask), 1.0)
                 mtp_loss = jnp.sum(mtp_tok_loss * mtp_mask) / mtp_denom
-                return ce_loss + float(config.mtp_weight) * mtp_loss
-            return ce_loss
+                total_loss = total_loss + float(config.mtp_weight) * mtp_loss
+            if config.kd_weight > 0.0 and teacher_params is not None:
+                t_logits, _ = forward_with_hidden_v2(teacher_params, inputs, eff_teacher_cfg)
+                kd_loss = tempered_topk_kd_loss_v2(
+                    logits,
+                    t_logits,
+                    mask,
+                    top_k=config.kd_top_k,
+                    temperature=config.kd_temperature,
+                )
+                total_loss = total_loss + float(config.kd_weight) * kd_loss
+            return total_loss
 
         loss, grads = jax.value_and_grad(loss_fn)(params)
         clean_grads = {
@@ -593,7 +696,11 @@ def make_train_step_v2(config: ConfigV2, total_steps: int = 1000):
         }
         grad_norm = optax.tree.norm(clean_grads)
         updates, new_opt_state = tx.update(clean_grads, opt_state, params)
-        if config.mature_experts > 0 or config.shared_lr_scale < 1.0:
+        if (
+            config.mature_experts > 0
+            or config.shared_lr_scale < 1.0
+            or config.mature_conv_kernel > 0
+        ):
             scaled_updates = {}
             for k, u in updates.items():
                 if k.endswith(".nodes.router_bias"):
@@ -612,6 +719,14 @@ def make_train_step_v2(config: ConfigV2, total_steps: int = 1000):
                         scaled_updates[k] = u * jnp.asarray(r_mask)
                     else:
                         scaled_updates[k] = u
+                elif k.endswith(".shortconv.conv.weight") and (
+                    0 < config.mature_conv_kernel < config.conv_kernel
+                    and config.shared_lr_scale > 0.0
+                ):
+                    new_taps = config.conv_kernel - config.mature_conv_kernel
+                    c_mask = np.ones((config.conv_kernel, 1), dtype=np.float32)
+                    c_mask[new_taps:, :] = float(config.shared_lr_scale)
+                    scaled_updates[k] = u * jnp.asarray(c_mask)
                 elif k.startswith("mtp_"):
                     scaled_updates[k] = u
                 else:
@@ -743,6 +858,57 @@ def grow_model_v2_nodes(
         new_params["tok_embeddings.weight"] = jnp.asarray(emb_arr)
 
     return new_params, new_cfg
+
+
+def expand_shortconv_kernel_v2(
+    params: dict[str, jnp.ndarray],
+    config: ConfigV2,
+    new_kernel: int = 7,
+) -> tuple[dict[str, jnp.ndarray], ConfigV2]:
+    """LFM3 Continual Receptive-Field Expansion: losslessly widen ShortConv `K -> new_kernel`.
+
+    Prepends `(new_kernel - config.conv_kernel, d_model)` zeros to the causal left-padding rows
+    of `blk.{i}.shortconv.conv.weight`, preserving exact step-0 output identity while enabling
+    continual training of the extended local lookback window.
+    """
+    if new_kernel <= config.conv_kernel:
+        return params, config
+    k_old = config.conv_kernel
+    extra = new_kernel - k_old
+    new_params = dict(params)
+    for i in range(config.n_layers):
+        ck = f"blk.{i}.shortconv.conv.weight"
+        if ck in new_params:
+            w_old = np.asarray(new_params[ck], dtype=np.float32)
+            pad_zeros = np.zeros((extra, w_old.shape[1]), dtype=np.float32)
+            new_params[ck] = jnp.asarray(np.concatenate([pad_zeros, w_old], axis=0))
+    new_cfg = config.model_copy(
+        update={
+            "conv_kernel": new_kernel,
+            "mature_conv_kernel": k_old,
+        }
+    )
+    return new_params, new_cfg
+
+
+def merge_checkpoints_v2(
+    params_base: dict[str, jnp.ndarray],
+    params_tuned: dict[str, jnp.ndarray],
+    alpha: float = 0.65,
+) -> dict[str, jnp.ndarray]:
+    """LFM2.5 Post-Training Weight-Space Model Merging (`(1 - alpha) * base + alpha * tuned`)."""
+    w_tuned = float(np.clip(alpha, 0.0, 1.0))
+    w_base = 1.0 - w_tuned
+    merged: dict[str, jnp.ndarray] = {}
+    for k, v_tuned in params_tuned.items():
+        if k in params_base and params_base[k].shape == v_tuned.shape:
+            merged[k] = (
+                w_base * params_base[k].astype(jnp.float32)
+                + w_tuned * v_tuned.astype(jnp.float32)
+            )
+        else:
+            merged[k] = v_tuned
+    return merged
 
 
 def grow_model_v2_depth(
@@ -966,10 +1132,24 @@ def load_checkpoint_v2(
         np_params = load_safetensors_bytes(zf.read("model.safetensors"))
 
     params = {k: jnp.asarray(v, dtype=jnp.float32) for k, v in np_params.items()}
-    # Backward compatibility for checkpoints saved before DeepSeek-V3 router_bias / MTP
-    if config.n_experts > 0:
-        for i in range(config.n_layers):
-            b_key = f"blk.{i}.nodes.router_bias"
+    # Backward compatibility for checkpoints saved before DeepSeek-V3 / LFM3 upgrades
+    for i in range(config.n_layers):
+        p_key = f"blk.{i}"
+        if f"{p_key}.attn_post_scale" not in params:
+            params[f"{p_key}.attn_post_scale"] = jnp.ones((config.d_model,), dtype=jnp.float32)
+        if f"{p_key}.ffn_post_scale" not in params:
+            params[f"{p_key}.ffn_post_scale"] = jnp.ones((config.d_model,), dtype=jnp.float32)
+        if config.is_attention_layer(i) and config.use_head_gate:
+            if f"{p_key}.attn_gate.weight" not in params:
+                params[f"{p_key}.attn_gate.weight"] = jnp.zeros(
+                    (config.d_model, config.n_heads), dtype=jnp.float32
+                )
+            if f"{p_key}.attn_gate.bias" not in params:
+                params[f"{p_key}.attn_gate.bias"] = jnp.zeros(
+                    (config.n_heads,), dtype=jnp.float32
+                )
+        if config.n_experts > 0:
+            b_key = f"{p_key}.nodes.router_bias"
             if b_key not in params:
                 params[b_key] = jnp.zeros((config.n_experts,), dtype=jnp.float32)
     if "mtp_norm.weight" not in params:

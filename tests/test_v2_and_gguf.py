@@ -7,12 +7,15 @@ from mlm.gguf_export import export_gguf_v2, verify_gguf_with_rust
 from mlm.model_v2 import (
     ConfigV2,
     create_state_v2,
+    expand_shortconv_kernel_v2,
     forward_v2,
     generate_v2,
     grow_model_v2_depth,
     load_checkpoint_v2,
     make_train_step_v2,
+    merge_checkpoints_v2,
     save_checkpoint_v2,
+    tempered_topk_kd_loss_v2,
 )
 from mlm.tokenizer import BPETokenizer
 from mlm.train_v2 import (
@@ -98,6 +101,21 @@ def test_model_v2_hybrid_train_grow_and_gguf(tmp_path: Path):
     grown_params, grown_cfg = grow_model_v2_depth(state.params, cfg, 6)
     logits_after = forward_v2(grown_params, ds["inputs"][:2], grown_cfg)
     assert logits_before.shape == logits_after.shape
+
+    # LFM3 ShortConv receptive-field expansion (K=4 -> K=7) must be 100% lossless at step 0
+    k7_params, k7_cfg = expand_shortconv_kernel_v2(grown_params, grown_cfg, new_kernel=7)
+    assert k7_cfg.conv_kernel == 7
+    assert k7_cfg.mature_conv_kernel == 4
+    logits_k7 = forward_v2(k7_params, ds["inputs"][:2], k7_cfg)
+    assert float(abs(logits_after - logits_k7).max()) < 1e-6
+
+    # LFM2.5 Tempered Decoupled Top-K KD loss must be 0.0 when student == teacher
+    kd_zero = float(
+        tempered_topk_kd_loss_v2(logits_k7, logits_after, ds["mask"][:2], top_k=16, temperature=2.0)
+    )
+    assert abs(kd_zero) < 1e-5
+    merged_p = merge_checkpoints_v2(grown_params, k7_params, alpha=0.5)
+    assert len(merged_p) == len(k7_params)
 
     # Save & load checkpoint with SafeTensors + Rust BPE
     ckpt_path = tmp_path / "model.mlm2"
@@ -218,7 +236,7 @@ def test_cli_train_v2_and_chat(tmp_path: Path, capsys):
     # Test DeepSeek-R1 + Dr. GRPO verifiable reward & RL step on grown checkpoint
     r_good = score_grpo_response_v2(
         "What is science?",
-        "<|think|>Science studies the natural world.<|/think>\nScience studies nature.",
+        "<|think|>Science studies the natural world.<|/think|>\nScience studies nature.",
         "Science studies nature.",
     )
     r_bad = score_grpo_response_v2(
