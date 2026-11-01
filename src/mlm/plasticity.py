@@ -115,14 +115,32 @@ def node_activity_scales(grads, params):
 def scale_optimizer(optimizer, params, config):
     """Scale final updates, including decay, without changing moments or state shape."""
     scales = role_scales(config)
+    mature_n = getattr(config, "mature_nodes", 0)
+    mature_scale = getattr(config, "mature_node_lr_scale", 1.0)
     if (
         all(value == 1 for value in scales.values())
         and not config.local_plasticity
         and config.warmup_steps == 0
+        and mature_n == 0
     ):
         return optimizer
     roles = parameter_roles(params)
-    multipliers = {name: scales[role] for name, role in roles.items()}
+    multipliers = {}
+    for name, role in roles.items():
+        base_s = scales[role]
+        p_arr = params[name]
+        if (
+            role == "node"
+            and mature_n > 0
+            and getattr(p_arr, "ndim", 0) >= 2
+            and p_arr.shape[0] == config.nodes
+            and mature_n < config.nodes
+        ):
+            per_node = np.ones((config.nodes,) + (1,) * (p_arr.ndim - 1), dtype=np.float32) * base_s
+            per_node[:mature_n] *= float(mature_scale)
+            multipliers[name] = jnp.asarray(per_node)
+        else:
+            multipliers[name] = base_s
 
     def update(updates, state, params=None):
         raw_grads = updates
@@ -265,7 +283,9 @@ def recombine_grow_nodes(
             tuple(config.edges[i]) if i < n else tuple(int(x) for x in default_new[i])
             for i in range(n_new)
         )
-    new_config = config.model_copy(update={"nodes": n_new, "edges": new_edges})
+    new_config = config.model_copy(
+        update={"nodes": n_new, "edges": new_edges, "mature_nodes": n}
+    )
     norms = jnp.linalg.norm(params["read_kernel"], axis=(1, 2))
     order = jnp.argsort(-norms)
     rng = jax.random.PRNGKey(config.seed + n_new)

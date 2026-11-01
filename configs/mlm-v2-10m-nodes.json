@@ -1,0 +1,21 @@
+{
+  "arch_version": "v2_hybrid",
+  "vocab_size": 4096,
+  "d_model": 192,
+  "n_layers": 8,
+  "n_heads": 6,
+  "n_kv_heads": 2,
+  "ffn_dim": 384,
+  "conv_kernel": 4,
+  "attn_interval": 4,
+  "use_gated_deltanet": true,
+  "n_experts": 4,
+  "top_k_experts": 2,
+  "expert_ffn_dim": 192,
+  "tie_embeddings": true,
+  "max_seq_len": 96,
+  "batch_size": 16,
+  "learning_rate": 0.002,
+  "weight_decay": 0.03,
+  "warmup_steps": 20
+}

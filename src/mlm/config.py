@@ -55,6 +55,8 @@ class Config(BaseModel):
     shared_lr_scale: float = Field(default=1.0, gt=0, le=1, allow_inf_nan=False)
     node_lr_scale: float = Field(default=1.0, gt=0, le=1, allow_inf_nan=False)
     router_lr_scale: float = Field(default=1.0, gt=0, le=1, allow_inf_nan=False)
+    mature_nodes: int = Field(default=0, ge=0, le=128)
+    mature_node_lr_scale: float = Field(default=0.1, gt=0, le=1, allow_inf_nan=False)
     weight_decay: float = Field(default=0.01, ge=0, le=1, allow_inf_nan=False)
     clip_norm: float = Field(default=1.0, gt=0, allow_inf_nan=False)
     seed: int = Field(default=42, ge=0, le=2**31 - 1)

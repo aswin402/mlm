@@ -11,8 +11,11 @@ __pycache__/
 /runs/
 /results/
 *.mlm
+*.mlm2
+*.gguf
 *.npy
 *.npz
+target/
 
 # Generated/downloaded data; publish only original lightweight fixtures
 /data/*

@@ -506,6 +506,125 @@ def run_chat_tui(
     return learner.state, learner.config
 
 
+def run_chat_tui_v2(
+    checkpoint_path: Path,
+    max_new_tokens: int = 64,
+    show_thinking: bool = True,
+    initial_context: str = "",
+    input_stream=None,
+    output_stream=None,
+    color: bool | None = None,
+) -> None:
+    """Interactive llama.cpp-style TUI for MLM v2 (.mlm2) checkpoints."""
+    import time
+
+    from mlm.model_v2 import generate_v2, load_checkpoint_v2
+    from mlm.train_v2 import format_chat_prompt_v2
+
+    in_s = input_stream if input_stream is not None else sys.stdin
+    out_s = output_stream if output_stream is not None else sys.stdout
+    use_color = color if color is not None else (hasattr(out_s, "isatty") and bool(out_s.isatty()))
+
+    params_v2, cfg_v2, tok_v2, manifest = load_checkpoint_v2(checkpoint_path)
+    n_params = parameter_count(params_v2)
+    step = int(manifest.get("step", 0))
+    devs = ", ".join(str(d) for d in jax.devices())
+
+    def writeln(text: str = ""):
+        out_s.write(text + "\n")
+        out_s.flush()
+
+    top_border = "╭" + "─" * 78 + "╮"
+    mid_border = "├" + "─" * 78 + "┤"
+    bot_border = "╰" + "─" * 78 + "╯"
+    arch_str = _c(cfg_v2.arch_version.upper(), BRIGHT_GREEN, use_color)
+    param_str = _c(f"{n_params:,}", BRIGHT_YELLOW, use_color)
+    banner = [
+        _c(top_border, CYAN, use_color),
+        _c("│ ", CYAN, use_color)
+        + _c("⚡ MLM v2 Interactive Neural Console", BOLD + BRIGHT_CYAN, use_color)
+        + _c("  (Hybrid Liquid-Delta + Rust BPE)", DIM, use_color),
+        _c(mid_border, CYAN, use_color),
+        (
+            f"  {_c('model_load_meta:', BOLD, use_color)}  arch={arch_str} | "
+            f"params={param_str} ({n_params * 4 / (1024 * 1024):.2f} MiB fp32) | "
+            f"step={step} | src={checkpoint_path}"
+        ),
+        (
+            f"  {_c('system_backend: ', BOLD, use_color)}  jax_devices=[{devs}] | "
+            f"vocab={cfg_v2.vocab_size} Rust BPE subwords | format=SafeTensors (.mlm2)"
+        ),
+        (
+            f"  {_c('hybrid_stack:   ', BOLD, use_color)}  layers={cfg_v2.n_layers} | "
+            f"d_model={cfg_v2.d_model} | heads={cfg_v2.n_heads} (kv={cfg_v2.n_kv_heads}) | "
+            f"core_ffn={cfg_v2.ffn_dim} | shortconv_k={cfg_v2.conv_kernel}"
+        ),
+        (
+            f"  {_c('graph_nodes:    ', BOLD, use_color)}  specialist_nodes={cfg_v2.n_experts} "
+            f"(active_top_k={cfg_v2.top_k_experts}, mature_protected={cfg_v2.mature_experts}, "
+            f"node_dim={cfg_v2.expert_ffn_dim})"
+        ),
+        _c(mid_border, CYAN, use_color),
+        (
+            f"  {_c('Autonomous Chat:', BOLD, use_color)} "
+            f"Type messages naturally (type 'exit' or 'quit' to leave)"
+        ),
+        _c(bot_border, CYAN, use_color),
+    ]
+    writeln("\n".join(banner))
+
+    while True:
+        out_s.write(_c("\nYou ❯ ", BOLD + BRIGHT_GREEN, use_color))
+        out_s.flush()
+        try:
+            line = in_s.readline()
+        except (KeyboardInterrupt, EOFError):
+            writeln()
+            break
+        if not line:
+            writeln()
+            break
+        user_text = line.strip()
+        if not user_text:
+            continue
+        if user_text.lower() in ("quit", "exit", "q"):
+            writeln(_c("Exiting MLM v2 interactive session.", DIM, use_color))
+            break
+
+        prompt = format_chat_prompt_v2(user_text.replace("\\n", "\n"), initial_context)
+        p_toks = len(tok_v2.encode(prompt, add_bos=True, add_eos=False))
+        t0 = time.perf_counter()
+        reply = generate_v2(
+            params_v2, cfg_v2, tok_v2, prompt, max_new_tokens=max_new_tokens
+        ).strip()
+        elapsed_ms = (time.perf_counter() - t0) * 1000.0
+        r_toks = max(1, len(tok_v2.encode(reply, add_bos=False, add_eos=False)))
+        tps = r_toks / max(elapsed_ms / 1000.0, 1e-6)
+
+        if show_thinking:
+            hdr = "╭─ 🧠 MLM v2 Hybrid Telemetry (<think>) " + "─" * 30 + "╮"
+            ftr = "╰" + "─" * 69 + "╯"
+            writeln(_c(hdr, MAGENTA, use_color))
+            writeln(
+                _c("│ ", MAGENTA, use_color)
+                + _c("Stack: ", BOLD, use_color)
+                + f"{cfg_v2.n_layers} layers (LFM2 ShortConv + Parallel Gated DeltaNet + GQA)"
+            )
+            writeln(
+                _c("│ ", MAGENTA, use_color)
+                + _c("Subwords: ", BOLD, use_color)
+                + f"prompt={p_toks} BPE tokens → generated={r_toks} BPE tokens"
+            )
+            writeln(_c(ftr, MAGENTA, use_color))
+
+        writeln(_c("MLM ❯ ", BOLD + BRIGHT_CYAN, use_color) + reply)
+        footer = (
+            f"[ prompt: {p_toks} tok | eval: {r_toks} tok in {elapsed_ms:.1f} ms "
+            f"({tps:.1f} tok/s) | vocab={cfg_v2.vocab_size} BPE ]"
+        )
+        writeln(_c(footer, GRAY, use_color))
+
+
 def load_or_init_chat_state(
     checkpoint: Path | None,
     config_path: Path | None = None,
@@ -587,6 +706,27 @@ def chat_main(argv: list[str] | None = None) -> None:
     parser.add_argument("--save", type=Path, default=None, help="Save updated checkpoint on exit")
     parser.add_argument("--stats", type=Path, default=None, help="Write JSON stats on exit")
     args = parser.parse_args(argv)
+
+    if args.checkpoint is not None and args.checkpoint.suffix == ".mlm2":
+        from mlm.model_v2 import generate_v2, load_checkpoint_v2
+        from mlm.train_v2 import format_chat_prompt_v2
+
+        if args.message is not None:
+            params_v2, cfg_v2, tok_v2, _ = load_checkpoint_v2(args.checkpoint)
+            prompt = format_chat_prompt_v2(args.message.replace("\\n", "\n"), args.context)
+            reply = generate_v2(
+                params_v2, cfg_v2, tok_v2, prompt, max_new_tokens=max(16, args.max_bytes // 2)
+            )
+            sys.stdout.write(reply.strip() + "\n")
+            return
+        run_chat_tui_v2(
+            args.checkpoint,
+            max_new_tokens=max(16, args.max_bytes // 2),
+            show_thinking=not args.no_think,
+            initial_context=args.context,
+            color=False if args.no_color else None,
+        )
+        return
 
     state, config, label = load_or_init_chat_state(args.checkpoint, args.config, seed=args.seed)
     learn_flag = bool(args.learn) and not bool(args.no_learn)

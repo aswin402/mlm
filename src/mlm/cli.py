@@ -283,9 +283,111 @@ def main(argv=None):
     continual.add_argument("--auto-grow", action="store_true")
     continual.add_argument("--rewire", action="store_true")
     continual.add_argument("--grpo", action="store_true")
+    train_v2_p = commands.add_parser(
+        "train-v2",
+        help="Train MLM v2 (Deep Hybrid Liquid-Delta + Rust BPE + SafeTensors + GGUF)",
+    )
+    train_v2_p.add_argument("--train", type=Path, required=True)
+    train_v2_p.add_argument("--validation", type=Path, required=True)
+    train_v2_p.add_argument("--config", type=Path)
+    train_v2_p.add_argument("--out", type=Path, required=True)
+    train_v2_p.add_argument("--steps", type=int, default=400)
+    train_v2_p.add_argument("--eval-every", type=int, default=100)
+    train_v2_p.add_argument("--grow-to-layers", type=int, default=0)
+    train_v2_p.add_argument("--init", type=Path, help="Continue from existing .mlm2 checkpoint")
+    train_v2_p.add_argument("--add-nodes", type=int, default=0, help="Grow +N specialist nodes")
+    train_v2_p.add_argument("--export-gguf", type=Path)
+    grow_eng_p = commands.add_parser(
+        "grow-english-v2",
+        help="Staged Core+English Node Growth (4 Learn -> 6 Understand -> 8 Chat = 10M Model)",
+    )
+    grow_eng_p.add_argument("--data-root", type=Path, default=Path("data/curated-english-v1"))
+    grow_eng_p.add_argument("--config", type=Path, default=Path("configs/mlm-v2-10m-nodes.json"))
+    grow_eng_p.add_argument("--out", type=Path, required=True)
+    grow_eng_p.add_argument("--s1-steps", type=int, default=80)
+    grow_eng_p.add_argument("--s2-steps", type=int, default=80)
+    grow_eng_p.add_argument("--s3-steps", type=int, default=120)
+    grow_eng_p.add_argument("--eval-every", type=int, default=40)
+    grow_eng_p.add_argument("--export-gguf", type=Path)
+    export_gguf_p = commands.add_parser(
+        "export-gguf",
+        help="Export an MLM v2 (.mlm2) checkpoint to a llama.cpp-compatible .gguf file",
+    )
+    export_gguf_p.add_argument("checkpoint", type=Path)
+    export_gguf_p.add_argument("--out", type=Path, required=True)
+    export_gguf_p.add_argument("--f16", action="store_true")
+    parquet_p = commands.add_parser(
+        "stream-parquet",
+        help="Stream and curate large Hugging Face Parquet shards via Rust Polars",
+    )
+    parquet_p.add_argument("--root", type=Path, default=Path("data/curated-english-v1"))
+    parquet_p.add_argument("--max-rows", type=int, default=2000)
     args = parser.parse_args(argv)
     if args.command == "train":
         run_train(args)
+    elif args.command == "train-v2":
+        from mlm.model_v2 import ConfigV2
+        from mlm.train_v2 import run_train_v2
+
+        cfg_v2 = (
+            ConfigV2.model_validate_json(args.config.read_text())
+            if args.config
+            else ConfigV2()
+        )
+        summary = run_train_v2(
+            args.train,
+            args.validation,
+            args.out,
+            cfg_v2,
+            steps=args.steps,
+            eval_every=args.eval_every,
+            grow_to_layers=args.grow_to_layers,
+            gguf_out=args.export_gguf,
+            init_checkpoint=args.init,
+            add_nodes=args.add_nodes,
+        )
+        print(json.dumps(summary, indent=2), flush=True)
+    elif args.command == "grow-english-v2":
+        from mlm.model_v2 import ConfigV2
+        from mlm.train_v2 import run_staged_english_growth_v2
+
+        cfg_v2 = (
+            ConfigV2.model_validate_json(args.config.read_text())
+            if args.config and args.config.exists()
+            else ConfigV2(n_experts=4)
+        )
+        summary = run_staged_english_growth_v2(
+            args.data_root,
+            args.out,
+            cfg_v2,
+            stage_steps=(args.s1_steps, args.s2_steps, args.s3_steps),
+            eval_every=args.eval_every,
+            gguf_out=args.export_gguf,
+        )
+        print(json.dumps(summary, indent=2), flush=True)
+    elif args.command == "export-gguf":
+        from mlm.gguf_export import export_gguf_v2, verify_gguf_with_rust
+        from mlm.model_v2 import load_checkpoint_v2
+
+        params, cfg_v2, tokenizer, _ = load_checkpoint_v2(args.checkpoint)
+        info = export_gguf_v2(
+            args.out, params, cfg_v2, tokenizer, use_f16=bool(args.f16)
+        )
+        info["rust_verification"] = verify_gguf_with_rust(args.out)
+        print(json.dumps(info, indent=2), flush=True)
+    elif args.command == "stream-parquet":
+        from mlm.parquet_stream import build_large_parquet_corpus
+
+        info = build_large_parquet_corpus(
+            args.root,
+            smoltalk_rows=args.max_rows,
+            alpaca_rows=args.max_rows,
+            dolly_rows=args.max_rows,
+            sciq_rows=args.max_rows,
+            squad_rows=args.max_rows,
+            wiki_rows=args.max_rows // 2,
+        )
+        print(json.dumps(info, indent=2), flush=True)
     elif args.command == "stream-train":
         from mlm.streamrun import run
 
@@ -296,6 +398,26 @@ def main(argv=None):
         summary = run_continual(args)
         print(json.dumps(summary, indent=2), flush=True)
     elif args.command == "chat":
+        if args.checkpoint is not None and args.checkpoint.suffix == ".mlm2":
+            from mlm.model_v2 import generate_v2, load_checkpoint_v2
+            from mlm.train_v2 import format_chat_prompt_v2
+            from mlm.tui import run_chat_tui_v2
+
+            if args.message is not None:
+                params_v2, cfg_v2, tok_v2, _ = load_checkpoint_v2(args.checkpoint)
+                prompt = format_chat_prompt_v2(args.message.replace("\\n", "\n"), args.context)
+                reply = generate_v2(
+                    params_v2, cfg_v2, tok_v2, prompt, max_new_tokens=max(16, args.max_bytes // 2)
+                )
+                print(reply.strip())
+                return
+            run_chat_tui_v2(
+                args.checkpoint,
+                max_new_tokens=max(16, args.max_bytes // 2),
+                show_thinking=not args.no_think,
+                initial_context=args.context,
+            )
+            return
         from mlm.tui import (
             format_perf_footer,
             format_thinking_panel,

@@ -1,0 +1,13 @@
+[package]
+name = "mlm_core"
+version = "0.2.0"
+edition = "2021"
+description = "Native Rust GGUF v3 binary inspector and sequence packer for MLM v2"
+
+[lib]
+name = "mlm_core"
+path = "src/lib.rs"
+
+[[bin]]
+name = "mlm-gguf-inspect"
+path = "src/main.rs"
