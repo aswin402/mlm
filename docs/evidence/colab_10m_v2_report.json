@@ -1,0 +1,158 @@
+{
+  "stage1": {
+    "arch_version": "v2_hybrid",
+    "parameters": 7861952,
+    "vocab_size": 4096,
+    "n_layers": 8,
+    "d_model": 192,
+    "n_experts": 4,
+    "mature_experts": 0,
+    "steps": 1000,
+    "elapsed_seconds": 119.96661938600005,
+    "tokens_per_second": 21192.961950686597,
+    "best_val_loss": 4.909328219938259,
+    "checkpoint": "/content/mlm/runs/mlm-10m-colab/stage1_learn/best.mlm2",
+    "latest_checkpoint": "/content/mlm/runs/mlm-10m-colab/stage1_learn/latest.mlm2",
+    "gguf": null,
+    "samples": [
+      {
+        "prompt": "Hi",
+        "reply": "es the 18 years of win on July 2013 as it-bablington, 2008 and Destiny's Child. They were not yet except Antarctica. In 2012, Beyonc\u00e9 performed to her"
+      },
+      {
+        "prompt": "How are you?",
+        "reply": "commonly known as Beyonc\u00e9 and a child, ectica of intellectual reproduction. Types of antibiotics, these organs such as the Year of Studies, is also expected by genocide and a"
+      },
+      {
+        "prompt": "What is science?",
+        "reply": "because of humans have had been described as a state in 1870."
+      }
+    ]
+  },
+  "stage2": {
+    "arch_version": "v2_hybrid",
+    "parameters": 9634496,
+    "vocab_size": 4096,
+    "n_layers": 8,
+    "d_model": 192,
+    "n_experts": 6,
+    "mature_experts": 4,
+    "steps": 1200,
+    "elapsed_seconds": 200.05498924199992,
+    "tokens_per_second": 8303.996847538921,
+    "best_val_loss": 2.5526146576911817,
+    "checkpoint": "/content/mlm/runs/mlm-10m-colab/stage2_understand/best.mlm2",
+    "latest_checkpoint": "/content/mlm/runs/mlm-10m-colab/stage2_understand/latest.mlm2",
+    "gguf": null,
+    "samples": [
+      {
+        "prompt": "Hi",
+        "reply": "Biochemical reactions. Energy: A chemical reaction is a substance that cannot be broken down into other types of matter. Most molecular compounds, such as sugar or molecules, which also how they"
+      },
+      {
+        "prompt": "How are you?",
+        "reply": "Oxygen. There are two basic types of cell division, with dramatically different products. Mitosis begins with a diploid somatic cell and ends with two genetically identical"
+      },
+      {
+        "prompt": "What is science?",
+        "reply": "In chemistry, a salt is any change to another or flow. The number is becoming more in all parts of which or determine the solidest of this."
+      }
+    ]
+  },
+  "stage3": {
+    "arch_version": "v2_hybrid",
+    "parameters": 11407040,
+    "vocab_size": 4096,
+    "n_layers": 8,
+    "d_model": 192,
+    "n_experts": 8,
+    "mature_experts": 6,
+    "steps": 1600,
+    "elapsed_seconds": 286.96166201999995,
+    "tokens_per_second": 7793.734480963962,
+    "best_val_loss": 4.194526802493626,
+    "checkpoint": "/content/mlm/runs/mlm-10m-colab/best.mlm2",
+    "latest_checkpoint": "/content/mlm/runs/mlm-10m-colab/latest.mlm2",
+    "gguf": {
+      "path": "/content/mlm/runs/mlm-10m-colab/mlm_10m_v2.gguf",
+      "architecture": "lfm2",
+      "tensor_count": 135,
+      "metadata_kv_count": 22,
+      "file_size_bytes": 48871424,
+      "rust_verification": {
+        "valid": true,
+        "version": 3,
+        "tensor_count": 135,
+        "metadata_kv_count": 22,
+        "file_size_bytes": 48871424
+      }
+    },
+    "samples": [
+      {
+        "prompt": "Hi",
+        "reply": "Hello! How can I help you today?"
+      },
+      {
+        "prompt": "How are you?",
+        "reply": "There are many different ways to invest your money. You can leave it in a Saving account, high yield saving account, stock market, real estate, bonds,"
+      },
+      {
+        "prompt": "What is science?",
+        "reply": "Science is what we do to find out about the natural world. Natural sciences include, chemistry, biology, geology, astronomy, and physics. Science uses mathematics and logic,"
+      }
+    ]
+  },
+  "chat_eval": [
+    {
+      "prompt": "Hi",
+      "reply": "Hello! How can I help you today?"
+    },
+    {
+      "prompt": "Hi there",
+      "reply": "Hello! How can I help you today?"
+    },
+    {
+      "prompt": "Hello! How are you?",
+      "reply": "There are many different ways to invest your money. You can leave it in a Saving account, high yield saving account, stock market, real estate, bonds, notes, Gold, Silver"
+    },
+    {
+      "prompt": "What is science?",
+      "reply": "Science is what we do to find out about the natural world. Natural sciences include, chemistry, biology, geology, astronomy, and physics. Science uses mathematics and logic, which are sometimes called \"formal sci"
+    },
+    {
+      "prompt": "What is photosynthesis?",
+      "reply": "Photosynthesis is how plants and some microorganisms make  carbohydrates. It is an endothermic (takes in heat) chemical process which uses sunlight to turn carbon dioxide into sugars."
+    },
+    {
+      "prompt": "What is gravity?",
+      "reply": "A chemical compound is a chemical formed from atoms of different chemical elements. The different atoms are joined by chemical bonds. Each compound has a fixed ratio between the elements."
+    },
+    {
+      "prompt": "Why is the sky blue?",
+      "reply": "Blue light is scattered in all directions by the tiny molecules of air in Earth's atmosphere. Blue is scattered more than other colors because it travels as shorter, smaller waves. This is why we see"
+    },
+    {
+      "prompt": "Can you give me some career advice?",
+      "reply": "What really sets The inherits of meditation, which is what to enables healthing them. According to the general theory of relativity, it starts existing something that as well asply as."
+    }
+  ],
+  "mlm2_bytes_len": 45905979,
+  "gguf_bytes_len": 48871424,
+  "head_to_head_benchmarks": {
+    "MLM-v2-10M (Ours, 11.4M)": {
+      "blimp_grammar_acc": 83.33,
+      "stage2_qa_4way_acc": 58.0,
+      "stage3_chat_4way_acc": 30.0
+    },
+    "Pythia-14M (14.1M)": {
+      "blimp_grammar_acc": 75.0,
+      "stage2_qa_4way_acc": 44.0,
+      "stage3_chat_4way_acc": 34.0
+    },
+    "TinyStories-8M (8.3M)": {
+      "blimp_grammar_acc": 100.0,
+      "stage2_qa_4way_acc": 32.0,
+      "stage3_chat_4way_acc": 22.0
+    }
+  }
+}

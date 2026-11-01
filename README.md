@@ -1,5 +1,25 @@
 # Mini Learning Model (MLM)
 
+Version **0.0.18** — includes both the `MLM v2` Hybrid Liquid-Delta + Continual Recombinative Graph Node architecture (`model_v2.py`, Rust `tokenizers` BPE, Rust `polars` Parquet streaming, Rust `safetensors` `.mlm2` checkpoints, and `llama.cpp` GGUF v3 `.gguf` export with native Rust verifier `crates/mlm_core`) and the `v1` byte-level recurrent graph model.
+
+## MLM v2 (`10M` Staged-Node Growth: `4 → 6 → 8` Specialist Graph Nodes)
+
+```sh
+uv run mlm grow-english-v2 --data-root data/curated-english-v1 --out runs/mlm-10m-colab --s1-steps 1000 --s2-steps 1200 --s3-steps 1600 --gguf-out runs/mlm-10m-colab/mlm_10m_v2.gguf
+uv run mlm chat runs/mlm-10m-colab/mlm_10m_v2.mlm2 --message "What is photosynthesis?"
+./crates/mlm_core/target/release/mlm-gguf-inspect runs/mlm-10m-colab/mlm_10m_v2.gguf
+```
+
+| Benchmark Suite (Zero-Shot on Colab T4 GPU) | Random | `TinyStories-8M` (`8.3M`) | `Pythia-14M` (`14.1M`) | **`MLM v2 (11.4M, 4→6→8 Nodes)`** |
+|---|---:|---:|---:|---:|
+| **BLiMP English Grammar Minimal Pairs** | `50.0%` | `100.0%` | `75.0%` | **`83.33%`** |
+| **Held-Out 4-Way Science & Reading QA (`Stage 2 Val`)** | `25.0%` | `32.0%` | `44.0%` | **`58.00%`** |
+| **Held-Out 4-Way Multi-Turn Chat Selection (`Stage 3 Val`)** | `25.0%` | `22.0%` | `34.0%` | **`30.00%` (`48.0%` Split 1)** |
+
+See [Colab 10M v2 benchmark report](docs/evidence/colab_10m_v2_report.json) for full telemetry.
+
+---
+
 Version **0.0.12** — an experimental byte-level language model built from small GRU networks connected by a directed graph, with DeepSeekMoE shared + specialist multi-timescale and top-$k$ sparse routing, DeepSeek-V3 auxiliary-loss-free load balancing and causal target-conditioned multi-token prediction (MTP), PonderNet-style adaptive round halting with geometric KL regularization, learned neighbor edge attention with mHC doubly-stochastic Sinkhorn mixing (`sinkhorn_edge_weights` and GLM-5.3-Flash 4-stream `sinkhorn_stream_mix`) and functional edge rewiring, Kimi Delta Attention (KDA) / GLM-5.3-Flash channel-wise + per-key liquid-decay associative memory (`memory_decay`, `channel_alpha` + `ShortConv`) with bidirectional multi-horizon Laplace traces (`symmetric_memory`) and Titans prediction-surprise gating (`surprise_gating`), DeepSeek MLA content-addressed latent episodic slots (`episodic_slots`), LFM 2.5 Linear Input-Varying (LIV) short-range causal stem convolution, $H$-hop disjoint-clause transitive relational composition (`relational_hops=3`) with `IndexShare` cross-hop sparse entity indexing, causal temporal state-overwrite, multi-attribute same-subject clause specificity, and GLM-5.3-Flash speculative multi-byte word-span decoding (`generate()`, `generate_with_trace()`), activity-modulated local node plasticity, autonomous plateau-gated node growth and pruning, held-out-governed plasticity and power-law curriculum scheduling, DeepSeek-R1 critic-free Group Relative Policy Optimization (GRPO), autonomous `SAO` episodic state-overwrite compaction and background sleep consolidation during command-free real-time chat, and hybrid Muon/AdamW optimization.
 
 The prototype trains and can memorize tiny binding tasks. Learning remains sensitive to English replay sampling, and reliable generalization and chat are not established. Hardware-sparse kernel execution and a Transformer-replacement claim remain future research.
