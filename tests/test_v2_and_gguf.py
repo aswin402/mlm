@@ -6,6 +6,7 @@ from mlm.cli import main
 from mlm.gguf_export import export_gguf_v2, verify_gguf_with_rust
 from mlm.model_v2 import (
     ConfigV2,
+    build_layer_execution_schedule,
     create_state_v2,
     expand_shortconv_kernel_v2,
     forward_v2,
@@ -15,6 +16,7 @@ from mlm.model_v2 import (
     make_train_step_v2,
     merge_checkpoints_v2,
     save_checkpoint_v2,
+    sinkhorn_knopp_2x2,
     tempered_topk_kd_loss_v2,
 )
 from mlm.tokenizer import BPETokenizer
@@ -116,6 +118,22 @@ def test_model_v2_hybrid_train_grow_and_gguf(tmp_path: Path):
     assert abs(kd_zero) < 1e-5
     merged_p = merge_checkpoints_v2(grown_params, k7_params, alpha=0.5)
     assert len(merged_p) == len(k7_params)
+
+    # SenseNova-Loop mHC Sinkhorn-Knopp Birkhoff projection & Contiguous Hybrid Looping
+    import jax.numpy as jnp
+
+    ds_mat = sinkhorn_knopp_2x2(jnp.array([[1.2, -0.4], [0.3, 0.9]], dtype=jnp.float32), iters=8)
+    assert bool(jnp.all(ds_mat >= 0.0))
+    assert float(jnp.max(jnp.abs(jnp.sum(ds_mat, axis=-1) - 1.0))) < 1e-4
+    assert float(jnp.max(jnp.abs(jnp.sum(ds_mat, axis=-2) - 1.0))) < 1e-4
+
+    loop_cfg = k7_cfg.model_copy(
+        update={"loop_start_layer": 1, "loop_end_layer": 5, "loop_repeats": 2}
+    )
+    sched = build_layer_execution_schedule(loop_cfg)
+    assert len(sched) == 10  # 6 physical layers + 4 looped passes = 10 effective layer passes
+    logits_loop = forward_v2(k7_params, ds["inputs"][:2], loop_cfg)
+    assert logits_loop.shape == logits_k7.shape
 
     # Save & load checkpoint with SafeTensors + Rust BPE
     ckpt_path = tmp_path / "model.mlm2"

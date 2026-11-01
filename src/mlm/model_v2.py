@@ -50,6 +50,11 @@ class ConfigV2(BaseModel):
     use_head_gate: bool = True
     sliding_window: int = Field(default=0, ge=0, le=8192)
     sandwich_norm_clip: float = Field(default=0.0, ge=0.0, le=20.0)
+    use_mhc: bool = True
+    mhc_sinkhorn_iters: int = Field(default=6, ge=1, le=20)
+    loop_start_layer: int = Field(default=0, ge=0, le=64)
+    loop_end_layer: int = Field(default=0, ge=0, le=64)
+    loop_repeats: int = Field(default=1, ge=1, le=4)
     kd_weight: float = Field(default=0.0, ge=0.0, le=5.0)
     kd_top_k: int = Field(default=16, ge=2, le=128)
     kd_temperature: float = Field(default=2.0, gt=0.1, le=10.0)
@@ -116,6 +121,76 @@ def sandwich_rms_bound(
         factor = jnp.minimum(1.0, float(clip_rms) / rms)
         out = out * factor
     return out.astype(dx.dtype)
+
+
+def sinkhorn_knopp_2x2(logits_2x2: jnp.ndarray, iters: int = 6) -> jnp.ndarray:
+    """SenseNova-Loop / mHC (`arXiv:2512.24880`): Sinkhorn-Knopp Birkhoff polytope projection.
+
+    Projects a raw `(..., 2, 2)` matrix onto the manifold of doubly stochastic matrices
+    (non-negative entries with rows and columns summing to 1.0, guaranteeing spectral norm <= 1).
+    """
+    mat = jnp.exp(jnp.clip(logits_2x2.astype(jnp.float32), -8.0, 8.0))
+    for _ in range(iters):
+        mat = mat / jnp.maximum(jnp.sum(mat, axis=-1, keepdims=True), 1e-6)
+        mat = mat / jnp.maximum(jnp.sum(mat, axis=-2, keepdims=True), 1e-6)
+    return mat.astype(logits_2x2.dtype)
+
+
+def mhc_read_stream(streams: jnp.ndarray, pre_logits: jnp.ndarray) -> jnp.ndarray:
+    """Read width-`D` state `(B, T, D)` from 2-stream `mHC` state `(B, T, 2, D)`."""
+    w_pre = jax.nn.softmax(pre_logits.astype(jnp.float32), axis=-1).astype(streams.dtype)
+    return jnp.einsum("s,btsd->btd", w_pre, streams)
+
+
+def mhc_write_stream(
+    streams: jnp.ndarray,
+    dy: jnp.ndarray,
+    res_logits: jnp.ndarray,
+    post_weights: jnp.ndarray,
+    sinkhorn_iters: int = 6,
+) -> jnp.ndarray:
+    """Update 2-stream `mHC` state `(B, T, 2, D)` with Birkhoff stream mixing and write-back."""
+    h_res = sinkhorn_knopp_2x2(res_logits, iters=sinkhorn_iters)
+    mixed = jnp.einsum("oi,btid->btod", h_res, streams)
+    w_post = post_weights.astype(streams.dtype)[None, None, :, None]
+    return mixed + w_post * dy[:, :, None, :]
+
+
+def build_layer_execution_schedule(config: ConfigV2) -> list[tuple[int, int]]:
+    """Build `(layer_idx, pass_idx)` schedule with SenseNova-Loop Contiguous Hybrid Looping."""
+    n = config.n_layers
+    s = config.loop_start_layer
+    e = config.loop_end_layer
+    r = config.loop_repeats
+    if r <= 1 or s >= e or s < 0 or e > n:
+        return [(i, 0) for i in range(n)]
+    schedule: list[tuple[int, int]] = [(i, 0) for i in range(s)]
+    for p_idx in range(r):
+        for i in range(s, e):
+            schedule.append((i, p_idx))
+    for i in range(e, n):
+        schedule.append((i, 0))
+    return schedule
+
+
+def _default_mhc_tensors(
+    max_passes: int = 2,
+    symmetry_break: bool = True,
+) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+    """Create `(res, pre, post)` mHC tensors of shapes `(P, 2, 2)`, `(P, 2)`, `(P, 2)`."""
+    res_np = np.zeros((max_passes, 2, 2), dtype=np.float32)
+    pre_np = np.zeros((max_passes, 2), dtype=np.float32)
+    post_np = np.ones((max_passes, 2), dtype=np.float32)
+    for p_idx in range(max_passes):
+        res_np[p_idx] = np.array([[2.5, -2.5], [-2.5, 2.5]], dtype=np.float32)
+        if symmetry_break:
+            if p_idx % 2 == 0:
+                pre_np[p_idx] = np.array([0.5, -0.5], dtype=np.float32)
+                post_np[p_idx] = np.array([1.12, 0.88], dtype=np.float32)
+            else:
+                pre_np[p_idx] = np.array([-0.5, 0.5], dtype=np.float32)
+                post_np[p_idx] = np.array([0.72, 0.92], dtype=np.float32)
+    return jnp.asarray(res_np), jnp.asarray(pre_np), jnp.asarray(post_np)
 
 
 def precompute_rope_freqs(
@@ -364,12 +439,24 @@ def init_params_v2(config: ConfigV2) -> dict[str, jnp.ndarray]:
         )
 
     layer_scale = float(std / np.sqrt(2.0 * config.n_layers))
+    max_passes = max(2, int(config.loop_repeats))
+    mhc_res, mhc_pre, mhc_post = _default_mhc_tensors(max_passes, symmetry_break=True)
+    if config.use_mhc:
+        params["output_mhc.pre"] = jnp.zeros((2,), dtype=jnp.float32)
+
     for i in range(config.n_layers):
         p = f"blk.{i}"
         params[f"{p}.attn_norm.weight"] = jnp.ones((d,), dtype=jnp.float32)
         params[f"{p}.ffn_norm.weight"] = jnp.ones((d,), dtype=jnp.float32)
         params[f"{p}.attn_post_scale"] = jnp.ones((d,), dtype=jnp.float32)
         params[f"{p}.ffn_post_scale"] = jnp.ones((d,), dtype=jnp.float32)
+        if config.use_mhc:
+            params[f"{p}.attn_mhc.res"] = jnp.array(mhc_res, copy=True)
+            params[f"{p}.attn_mhc.pre"] = jnp.array(mhc_pre, copy=True)
+            params[f"{p}.attn_mhc.post"] = jnp.array(mhc_post, copy=True)
+            params[f"{p}.ffn_mhc.res"] = jnp.array(mhc_res, copy=True)
+            params[f"{p}.ffn_mhc.pre"] = jnp.array(mhc_pre, copy=True)
+            params[f"{p}.ffn_mhc.post"] = jnp.array(mhc_post, copy=True)
 
         if config.is_attention_layer(i):
             params[f"{p}.attn_q.weight"] = jnp.asarray(
@@ -470,9 +557,21 @@ def forward_with_hidden_v2(
         else None
     )
 
-    for i in range(config.n_layers):
+    mhc_enabled = config.use_mhc and "blk.0.attn_mhc.res" in params
+    streams = jnp.stack([x, x], axis=-2) if mhc_enabled else None  # (B, T, 2, D)
+    schedule = build_layer_execution_schedule(config)
+
+    for i, pass_idx in schedule:
         p = f"blk.{i}"
-        normed = rms_norm(x, params[f"{p}.attn_norm.weight"], config.rms_eps)
+        if mhc_enabled and streams is not None:
+            a_pre = params[f"{p}.attn_mhc.pre"]
+            p_slot = min(pass_idx, a_pre.shape[0] - 1)
+            x_in = mhc_read_stream(streams, a_pre[p_slot])
+        else:
+            p_slot = 0
+            x_in = x
+
+        normed = rms_norm(x_in, params[f"{p}.attn_norm.weight"], config.rms_eps)
         if config.is_attention_layer(i):
             dx = grouped_query_attention(
                 normed,
@@ -514,9 +613,23 @@ def forward_with_hidden_v2(
             clip_rms=config.sandwich_norm_clip,
             eps=config.rms_eps,
         )
-        x = x + dx
+        if mhc_enabled and streams is not None:
+            streams = mhc_write_stream(
+                streams,
+                dx,
+                params[f"{p}.attn_mhc.res"][p_slot],
+                params[f"{p}.attn_mhc.post"][p_slot],
+                sinkhorn_iters=config.mhc_sinkhorn_iters,
+            )
+            f_pre = params[f"{p}.ffn_mhc.pre"]
+            f_slot = min(pass_idx, f_pre.shape[0] - 1)
+            x_ffn_in = mhc_read_stream(streams, f_pre[f_slot])
+        else:
+            f_slot = 0
+            x = x + dx
+            x_ffn_in = x
 
-        ffn_normed = rms_norm(x, params[f"{p}.ffn_norm.weight"], config.rms_eps)
+        ffn_normed = rms_norm(x_ffn_in, params[f"{p}.ffn_norm.weight"], config.rms_eps)
         ffn_out = swiglu_ffn(
             ffn_normed,
             params[f"{p}.ffn_gate.weight"],
@@ -524,6 +637,16 @@ def forward_with_hidden_v2(
             params[f"{p}.ffn_down.weight"],
         )
         if config.n_experts > 0 and f"{p}.nodes.router.weight" in params:
+            in_loop = (
+                config.loop_repeats > 1
+                and config.loop_start_layer <= i < config.loop_end_layer
+            )
+            is_final_pass = (pass_idx == config.loop_repeats - 1) if in_loop else True
+            pass_tier_mask = (
+                think_tier_mask if (think_tier_mask is not None and is_final_pass) else (
+                    jnp.zeros_like(think_tier_mask) if think_tier_mask is not None else None
+                )
+            )
             ffn_out = ffn_out + routed_graph_nodes_ffn(
                 ffn_normed,
                 params[f"{p}.nodes.router.weight"],
@@ -533,7 +656,7 @@ def forward_with_hidden_v2(
                 config.top_k_experts,
                 params.get(f"{p}.nodes.router_bias"),
                 mature_nodes=config.mature_experts if use_tiered_reasoning else 0,
-                new_tier_mask=think_tier_mask,
+                new_tier_mask=pass_tier_mask,
             )
         ffn_out = sandwich_rms_bound(
             ffn_out,
@@ -541,7 +664,20 @@ def forward_with_hidden_v2(
             clip_rms=config.sandwich_norm_clip,
             eps=config.rms_eps,
         )
-        x = x + ffn_out
+        if mhc_enabled and streams is not None:
+            streams = mhc_write_stream(
+                streams,
+                ffn_out,
+                params[f"{p}.ffn_mhc.res"][f_slot],
+                params[f"{p}.ffn_mhc.post"][f_slot],
+                sinkhorn_iters=config.mhc_sinkhorn_iters,
+            )
+        else:
+            x = x + ffn_out
+
+    if mhc_enabled and streams is not None:
+        out_pre = params.get("output_mhc.pre", jnp.zeros((2,), dtype=streams.dtype))
+        x = mhc_read_stream(streams, out_pre)
 
     hidden_normed = rms_norm(x, params["output_norm.weight"], config.rms_eps)
     out_w = (
@@ -1132,13 +1268,30 @@ def load_checkpoint_v2(
         np_params = load_safetensors_bytes(zf.read("model.safetensors"))
 
     params = {k: jnp.asarray(v, dtype=jnp.float32) for k, v in np_params.items()}
-    # Backward compatibility for checkpoints saved before DeepSeek-V3 / LFM3 upgrades
+    # Backward compatibility for checkpoints saved before DeepSeek-V3 / LFM3 / SenseNova-Loop
+    max_passes = max(2, int(config.loop_repeats))
+    mhc_res_id, mhc_pre_id, mhc_post_id = _default_mhc_tensors(max_passes, symmetry_break=False)
+    if config.use_mhc and "output_mhc.pre" not in params:
+        params["output_mhc.pre"] = jnp.zeros((2,), dtype=jnp.float32)
     for i in range(config.n_layers):
         p_key = f"blk.{i}"
         if f"{p_key}.attn_post_scale" not in params:
             params[f"{p_key}.attn_post_scale"] = jnp.ones((config.d_model,), dtype=jnp.float32)
         if f"{p_key}.ffn_post_scale" not in params:
             params[f"{p_key}.ffn_post_scale"] = jnp.ones((config.d_model,), dtype=jnp.float32)
+        if config.use_mhc:
+            if f"{p_key}.attn_mhc.res" not in params:
+                params[f"{p_key}.attn_mhc.res"] = jnp.array(mhc_res_id, copy=True)
+            if f"{p_key}.attn_mhc.pre" not in params:
+                params[f"{p_key}.attn_mhc.pre"] = jnp.array(mhc_pre_id, copy=True)
+            if f"{p_key}.attn_mhc.post" not in params:
+                params[f"{p_key}.attn_mhc.post"] = jnp.array(mhc_post_id, copy=True)
+            if f"{p_key}.ffn_mhc.res" not in params:
+                params[f"{p_key}.ffn_mhc.res"] = jnp.array(mhc_res_id, copy=True)
+            if f"{p_key}.ffn_mhc.pre" not in params:
+                params[f"{p_key}.ffn_mhc.pre"] = jnp.array(mhc_pre_id, copy=True)
+            if f"{p_key}.ffn_mhc.post" not in params:
+                params[f"{p_key}.ffn_mhc.post"] = jnp.array(mhc_post_id, copy=True)
         if config.is_attention_layer(i) and config.use_head_gate:
             if f"{p_key}.attn_gate.weight" not in params:
                 params[f"{p_key}.attn_gate.weight"] = jnp.zeros(

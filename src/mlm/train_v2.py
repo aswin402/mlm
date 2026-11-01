@@ -15,6 +15,7 @@ import optax
 from mlm.gguf_export import export_gguf_v2, verify_gguf_with_rust
 from mlm.model_v2 import (
     ConfigV2,
+    build_layer_execution_schedule,
     create_state_v2,
     expand_shortconv_kernel_v2,
     forward_v2,
@@ -154,6 +155,11 @@ def run_train_v2(
                 "sliding_window": config.sliding_window,
                 "use_head_gate": config.use_head_gate,
                 "sandwich_norm_clip": config.sandwich_norm_clip,
+                "use_mhc": config.use_mhc,
+                "mhc_sinkhorn_iters": config.mhc_sinkhorn_iters,
+                "loop_start_layer": config.loop_start_layer,
+                "loop_end_layer": config.loop_end_layer,
+                "loop_repeats": config.loop_repeats,
             }
         )
         if expand_conv_kernel > config.conv_kernel:
@@ -267,6 +273,8 @@ def run_train_v2(
         "parameters": n_params,
         "vocab_size": config.vocab_size,
         "n_layers": config.n_layers,
+        "effective_layer_passes": len(build_layer_execution_schedule(config)),
+        "use_mhc": config.use_mhc,
         "d_model": config.d_model,
         "n_experts": config.n_experts,
         "mature_experts": config.mature_experts,
