@@ -50,8 +50,10 @@ class ConfigV2(BaseModel):
     top_k_experts: int = Field(default=2, ge=1, le=16)
     expert_ffn_dim: int = Field(default=256, ge=64, le=4096)
     mature_experts: int = Field(default=0, ge=0, le=64)
-    mature_lr_scale: float = Field(default=0.15, gt=0.0, le=1.0)
-    shared_lr_scale: float = Field(default=1.0, gt=0.0, le=1.0)
+    mature_lr_scale: float = Field(default=0.15, ge=0.0, le=1.0)
+    shared_lr_scale: float = Field(default=1.0, ge=0.0, le=1.0)
+    router_bias_gamma: float = Field(default=1e-3, ge=0.0, le=0.1)
+    mtp_weight: float = Field(default=0.25, ge=0.0, le=2.0)
     tie_embeddings: bool = True
     rope_theta: float = Field(default=10000.0, gt=100.0)
     rms_eps: float = Field(default=1e-5, gt=0.0)
@@ -234,21 +236,60 @@ def routed_graph_nodes_ffn(
     node_up: jnp.ndarray,
     node_down: jnp.ndarray,
     top_k: int,
+    router_bias: jnp.ndarray | None = None,
+    mature_nodes: int = 0,
+    new_tier_mask: jnp.ndarray | None = None,
 ) -> jnp.ndarray:
-    """Route tokens `(B, T, D)` across `N` specialist Graph-Node SwiGLU experts (top-`k` active)."""
+    """Route tokens `(B, T, D)` across `N` specialist Graph-Node SwiGLU experts (top-`k` active).
+
+    Implements DeepSeek-V3 Auxiliary-Loss-Free Load Balancing (`router_bias`) and Tiered
+    Specialist Routing when expanding beyond `mature_nodes` so mature nodes are never evicted.
+    """
     n_nodes = node_gate.shape[0]
-    k_eff = min(top_k, n_nodes)
     router_logits = x @ router_w  # (B, T, N)
-    probs = jax.nn.softmax(router_logits, axis=-1)
-    if k_eff < n_nodes:
-        top_vals, top_idx = jax.lax.top_k(probs, k_eff)
-        mask = jnp.sum(jax.nn.one_hot(top_idx, n_nodes, dtype=probs.dtype), axis=-2)
-        gated_probs = probs * mask
-        gated_probs = gated_probs / jnp.maximum(
-            jnp.sum(gated_probs, axis=-1, keepdims=True), 1e-6
-        )
+    if 0 < mature_nodes < n_nodes:
+        m_logits = router_logits[..., :mature_nodes]
+        m_probs = jax.nn.softmax(m_logits, axis=-1)
+        k_eff = min(top_k, mature_nodes)
+        if k_eff < mature_nodes:
+            m_scores = (
+                m_probs + jax.lax.stop_gradient(router_bias[:mature_nodes])[None, None, :]
+                if router_bias is not None
+                else m_probs
+            )
+            _, top_idx = jax.lax.top_k(m_scores, k_eff)
+            m_mask = jnp.sum(jax.nn.one_hot(top_idx, mature_nodes, dtype=m_probs.dtype), axis=-2)
+            m_gated = m_probs * m_mask
+            m_gated = m_gated / jnp.maximum(jnp.sum(m_gated, axis=-1, keepdims=True), 1e-6)
+        else:
+            m_gated = m_probs
+
+        new_logits = router_logits[..., mature_nodes:]
+        if router_bias is not None:
+            new_logits = new_logits + jax.lax.stop_gradient(router_bias[mature_nodes:])[
+                None, None, :
+            ]
+        new_gated = jax.nn.sigmoid(new_logits)
+        if new_tier_mask is not None:
+            new_gated = new_gated * new_tier_mask
+        gated_probs = jnp.concatenate([m_gated, new_gated], axis=-1)
     else:
-        gated_probs = probs
+        k_eff = min(top_k, n_nodes)
+        probs = jax.nn.softmax(router_logits, axis=-1)
+        if k_eff < n_nodes:
+            sel_scores = (
+                probs + jax.lax.stop_gradient(router_bias)[None, None, :]
+                if router_bias is not None
+                else probs
+            )
+            _, top_idx = jax.lax.top_k(sel_scores, k_eff)
+            mask = jnp.sum(jax.nn.one_hot(top_idx, n_nodes, dtype=probs.dtype), axis=-2)
+            gated_probs = probs * mask
+            gated_probs = gated_probs / jnp.maximum(
+                jnp.sum(gated_probs, axis=-1, keepdims=True), 1e-6
+            )
+        else:
+            gated_probs = probs
 
     gate_all = jax.nn.silu(jnp.einsum("btd,ndf->btnf", x, node_gate))
     up_all = jnp.einsum("btd,ndf->btnf", x, node_up)
@@ -341,6 +382,7 @@ def init_params_v2(config: ConfigV2) -> dict[str, jnp.ndarray]:
             params[f"{p}.nodes.router.weight"] = jnp.asarray(
                 rng.normal(0.0, 0.02, size=(d, n_exp)).astype(np.float32)
             )
+            params[f"{p}.nodes.router_bias"] = jnp.zeros((n_exp,), dtype=jnp.float32)
             params[f"{p}.nodes.gate.weight"] = jnp.asarray(
                 rng.normal(0.0, std, size=(n_exp, d, ef)).astype(np.float32)
             )
@@ -350,18 +392,28 @@ def init_params_v2(config: ConfigV2) -> dict[str, jnp.ndarray]:
             params[f"{p}.nodes.down.weight"] = jnp.asarray(
                 rng.normal(0.0, layer_scale, size=(n_exp, ef, d)).astype(np.float32)
             )
+    params["mtp_norm.weight"] = jnp.ones((d,), dtype=jnp.float32)
+    params["mtp_proj.weight"] = jnp.asarray(
+        rng.normal(0.0, 0.01, size=(2 * d, d)).astype(np.float32)
+    )
     return params
 
 
-def forward_v2(
+def forward_with_hidden_v2(
     params: dict[str, jnp.ndarray],
     tokens: jnp.ndarray,
     config: ConfigV2,
-) -> jnp.ndarray:
-    """Compute next-token logits `(B, T, V)` in parallel across sequence length `T`."""
+) -> tuple[jnp.ndarray, jnp.ndarray]:
+    """Compute next-token logits `(B, T, V)` and final normalized hidden states `(B, T, D)`."""
     bsz, t_len = tokens.shape
     x = params["tok_embeddings.weight"][tokens]  # (B, T, D)
     cos, sin = precompute_rope_freqs(t_len, config.head_dim, config.rope_theta)
+    use_tiered_reasoning = config.mature_experts >= 8 and config.n_experts > config.mature_experts
+    think_tier_mask = (
+        jnp.maximum.accumulate((tokens == 292).astype(jnp.float32), axis=-1)[..., None]
+        if use_tiered_reasoning
+        else None
+    )
 
     for i in range(config.n_layers):
         p = f"blk.{i}"
@@ -415,17 +467,53 @@ def forward_v2(
                 params[f"{p}.nodes.up.weight"],
                 params[f"{p}.nodes.down.weight"],
                 config.top_k_experts,
+                params.get(f"{p}.nodes.router_bias"),
+                mature_nodes=config.mature_experts if use_tiered_reasoning else 0,
+                new_tier_mask=think_tier_mask,
             )
         x = x + ffn_out
 
-    x = rms_norm(x, params["output_norm.weight"], config.rms_eps)
+    hidden_normed = rms_norm(x, params["output_norm.weight"], config.rms_eps)
     out_w = (
         params["tok_embeddings.weight"]
         if config.tie_embeddings
         else params["output.weight"]
     )
-    logits = jnp.matmul(x, jnp.swapaxes(out_w, 0, 1))
-    return logits.reshape(bsz, t_len, config.vocab_size)
+    logits = jnp.matmul(hidden_normed, jnp.swapaxes(out_w, 0, 1))
+    return logits.reshape(bsz, t_len, config.vocab_size), hidden_normed
+
+
+def compute_mtp_logits_v2(
+    params: dict[str, jnp.ndarray],
+    hidden_normed: jnp.ndarray,
+    next_tokens: jnp.ndarray,
+    config: ConfigV2,
+) -> jnp.ndarray:
+    """DeepSeek-V3 Multi-Token Prediction (`MTP`): predict `t+2` from `h_t` and `e(x_{t+1})`."""
+    h_cur = hidden_normed[:, :-1, :]  # (B, T-1, D)
+    emb_next = rms_norm(
+        params["tok_embeddings.weight"][next_tokens],
+        params["mtp_norm.weight"],
+        config.rms_eps,
+    )
+    cat = jnp.concatenate([h_cur, emb_next], axis=-1)  # (B, T-1, 2*D)
+    h_mtp = h_cur + jax.nn.silu(cat @ params["mtp_proj.weight"])
+    out_w = (
+        params["tok_embeddings.weight"]
+        if config.tie_embeddings
+        else params["output.weight"]
+    )
+    return jnp.matmul(h_mtp, jnp.swapaxes(out_w, 0, 1))
+
+
+def forward_v2(
+    params: dict[str, jnp.ndarray],
+    tokens: jnp.ndarray,
+    config: ConfigV2,
+) -> jnp.ndarray:
+    """Compute next-token logits `(B, T, V)` in parallel across sequence length `T`."""
+    logits, _ = forward_with_hidden_v2(params, tokens, config)
+    return logits
 
 
 def create_state_v2(config: ConfigV2, total_steps: int = 1000) -> TrainStateV2:
@@ -473,31 +561,93 @@ def make_train_step_v2(config: ConfigV2, total_steps: int = 1000):
         mask: jnp.ndarray,
     ):
         def loss_fn(p):
-            logits = forward_v2(p, inputs, config)
+            logits, hidden_normed = forward_with_hidden_v2(p, inputs, config)
             log_probs = jax.nn.log_softmax(logits, axis=-1)
             tok_loss = -jnp.take_along_axis(log_probs, targets[..., None], axis=-1)[..., 0]
             denom = jnp.maximum(jnp.sum(mask), 1.0)
-            return jnp.sum(tok_loss * mask) / denom
+            ce_loss = jnp.sum(tok_loss * mask) / denom
+            if config.mtp_weight > 0.0 and "mtp_proj.weight" in p:
+                mtp_logits = compute_mtp_logits_v2(p, hidden_normed, targets[:, :-1], config)
+                mtp_lps = jax.nn.log_softmax(mtp_logits, axis=-1)
+                mtp_tok_loss = -jnp.take_along_axis(
+                    mtp_lps, targets[:, 1:, None], axis=-1
+                )[..., 0]
+                mtp_mask = mask[:, :-1] * mask[:, 1:]
+                mtp_denom = jnp.maximum(jnp.sum(mtp_mask), 1.0)
+                mtp_loss = jnp.sum(mtp_tok_loss * mtp_mask) / mtp_denom
+                return ce_loss + float(config.mtp_weight) * mtp_loss
+            return ce_loss
 
         loss, grads = jax.value_and_grad(loss_fn)(params)
+        clean_grads = {
+            k: (jnp.zeros_like(g) if k.endswith(".nodes.router_bias") else g)
+            for k, g in grads.items()
+        }
+        grad_norm = optax.tree.norm(clean_grads)
+        updates, new_opt_state = tx.update(clean_grads, opt_state, params)
         if config.mature_experts > 0 or config.shared_lr_scale < 1.0:
-            scaled_grads = {}
-            for k, g in grads.items():
-                if ".nodes." in k and not k.endswith(".router.weight"):
+            scaled_updates = {}
+            for k, u in updates.items():
+                if k.endswith(".nodes.router_bias"):
+                    scaled_updates[k] = jnp.zeros_like(u)
+                elif ".nodes." in k and not k.endswith(".router.weight"):
                     if 0 < config.mature_experts < config.n_experts:
                         m_mask = np.ones((config.n_experts, 1, 1), dtype=np.float32)
                         m_mask[: config.mature_experts] = float(config.mature_lr_scale)
-                        scaled_grads[k] = g * jnp.asarray(m_mask)
+                        scaled_updates[k] = u * jnp.asarray(m_mask)
                     else:
-                        scaled_grads[k] = g
+                        scaled_updates[k] = u
                 elif k.endswith(".nodes.router.weight"):
-                    scaled_grads[k] = g
+                    if 0 < config.mature_experts < config.n_experts:
+                        r_mask = np.ones((1, config.n_experts), dtype=np.float32)
+                        r_mask[:, : config.mature_experts] = float(config.mature_lr_scale)
+                        scaled_updates[k] = u * jnp.asarray(r_mask)
+                    else:
+                        scaled_updates[k] = u
+                elif k.startswith("mtp_"):
+                    scaled_updates[k] = u
                 else:
-                    scaled_grads[k] = g * float(config.shared_lr_scale)
-            grads = scaled_grads
-        grad_norm = optax.tree.norm(grads)
-        updates, new_opt_state = tx.update(grads, opt_state, params)
+                    scaled_updates[k] = u * float(config.shared_lr_scale)
+            updates = scaled_updates
+        else:
+            updates = {
+                k: (jnp.zeros_like(u) if k.endswith(".nodes.router_bias") else u)
+                for k, u in updates.items()
+            }
         new_params = optax.apply_updates(params, updates)
+
+        # DeepSeek-V3 Auxiliary-Loss-Free Router Bias Update
+        if config.n_experts > 1 and config.router_bias_gamma > 0.0:
+            tok_emb = new_params["tok_embeddings.weight"][inputs]
+            k_eff = min(config.top_k_experts, config.n_experts)
+            target_share = float(k_eff) / float(config.n_experts)
+            for i in range(config.n_layers):
+                p_key = f"blk.{i}"
+                b_key = f"{p_key}.nodes.router_bias"
+                if b_key in new_params:
+                    normed = rms_norm(
+                        tok_emb, new_params[f"{p_key}.ffn_norm.weight"], config.rms_eps
+                    )
+                    r_probs = jax.nn.softmax(
+                        normed @ new_params[f"{p_key}.nodes.router.weight"], axis=-1
+                    )
+                    sel_scores = r_probs + new_params[b_key][None, None, :]
+                    _, top_idx = jax.lax.top_k(sel_scores, k_eff)
+                    sel_mask = jnp.sum(
+                        jax.nn.one_hot(top_idx, config.n_experts, dtype=jnp.float32), axis=-2
+                    )
+                    actual_share = jnp.mean(sel_mask, axis=(0, 1))
+                    delta_b = float(config.router_bias_gamma) * jnp.sign(
+                        target_share - actual_share
+                    )
+                    if 0 < config.mature_experts < config.n_experts:
+                        b_mask = np.ones((config.n_experts,), dtype=np.float32)
+                        b_mask[: config.mature_experts] = 0.0
+                        delta_b = delta_b * jnp.asarray(b_mask)
+                        new_params[b_key] = jnp.clip(new_params[b_key] + delta_b, -0.02, 0.02)
+                    else:
+                        new_params[b_key] = jnp.clip(new_params[b_key] + delta_b, -0.25, 0.25)
+
         return new_params, new_opt_state, loss, grad_norm
 
     return step_fn
@@ -507,21 +657,23 @@ def grow_model_v2_nodes(
     params: dict[str, jnp.ndarray],
     config: ConfigV2,
     add_nodes: int,
-    birth_gate: float = 0.05,
-    mature_lr_scale: float = 0.15,
-    shared_lr_scale: float = 0.50,
+    birth_gate: float = 0.95,
+    mature_lr_scale: float | None = None,
+    shared_lr_scale: float | None = None,
 ) -> tuple[dict[str, jnp.ndarray], ConfigV2]:
     """Grow `add_nodes` specialist Graph Nodes per block via crossover of strongest parent nodes."""
     if config.n_experts < 2 or add_nodes < 1:
         raise ValueError("grow_model_v2_nodes requires n_experts >= 2 and add_nodes >= 1")
     n_old = config.n_experts
     n_new = n_old + add_nodes
+    eff_mature_lr = float(config.mature_lr_scale if mature_lr_scale is None else mature_lr_scale)
+    eff_shared_lr = float(config.shared_lr_scale if shared_lr_scale is None else shared_lr_scale)
     new_cfg = config.model_copy(
         update={
             "n_experts": n_new,
             "mature_experts": n_old,
-            "mature_lr_scale": mature_lr_scale,
-            "shared_lr_scale": shared_lr_scale,
+            "mature_lr_scale": eff_mature_lr,
+            "shared_lr_scale": eff_shared_lr,
         }
     )
     rng = np.random.default_rng(config.seed + n_new)
@@ -534,13 +686,12 @@ def grow_model_v2_nodes(
 
         for suffix in ("gate", "up", "down"):
             arr = np.asarray(params[f"{p}.nodes.{suffix}.weight"], dtype=np.float32)
-            mid = arr.shape[-1] // 2
             children = []
             for j in range(add_nodes):
                 p1 = arr[order[(2 * j) % n_old]]
                 p2 = arr[order[(2 * j + 1) % n_old]]
-                child = np.concatenate([p1[..., :mid], p2[..., mid:]], axis=-1)
-                noise = rng.normal(0.0, 0.01 * ( float(np.std(child)) + 1e-6), size=child.shape)
+                child = 0.85 * p1 + 0.15 * p2
+                noise = rng.normal(0.0, 0.005 * (float(np.std(child)) + 1e-6), size=child.shape)
                 child = (child + noise).astype(np.float32)
                 if suffix == "down":
                     child = child * float(birth_gate)
@@ -552,7 +703,7 @@ def grow_model_v2_nodes(
         rw = np.asarray(params[f"{p}.nodes.router.weight"], dtype=np.float32)
         extra_rw = np.stack(
             [
-                0.5 * (rw[:, order[(2 * j) % n_old]] + rw[:, order[(2 * j + 1) % n_old]])
+                0.85 * rw[:, order[(2 * j) % n_old]] + 0.15 * rw[:, order[(2 * j + 1) % n_old]]
                 for j in range(add_nodes)
             ],
             axis=-1,
@@ -560,6 +711,27 @@ def grow_model_v2_nodes(
         new_params[f"{p}.nodes.router.weight"] = jnp.asarray(
             np.concatenate([rw, extra_rw], axis=-1)
         )
+        rb_old = np.asarray(
+            params.get(f"{p}.nodes.router_bias", np.zeros((n_old,), dtype=np.float32)),
+            dtype=np.float32,
+        )
+        rb_new = np.full((add_nodes,), 0.0, dtype=np.float32)
+        new_params[f"{p}.nodes.router_bias"] = jnp.asarray(
+            np.concatenate([rb_old, rb_new], axis=0)
+        )
+
+    emb_arr = np.asarray(params["tok_embeddings.weight"], dtype=np.float32).copy()
+    if n_old >= 8 and emb_arr.shape[0] > 293:
+        mean_norm = float(np.mean(np.linalg.norm(emb_arr, axis=-1)))
+        v_base = emb_arr[292] / max(float(np.linalg.norm(emb_arr[292])), 1e-6)
+        ortho_raw = rng.normal(0.0, 1.0, size=v_base.shape).astype(np.float32)
+        ortho_raw = ortho_raw - float(np.dot(ortho_raw, v_base)) * v_base
+        v_ortho = ortho_raw / max(float(np.linalg.norm(ortho_raw)), 1e-6)
+        target_n = 1.35 * mean_norm
+        emb_arr[292] = target_n * (0.70710678 * v_base + 0.70710678 * v_ortho)
+        emb_arr[293] = target_n * (0.70710678 * v_base - 0.70710678 * v_ortho)
+        new_params["tok_embeddings.weight"] = jnp.asarray(emb_arr)
+
     return new_params, new_cfg
 
 
@@ -615,15 +787,27 @@ def generate_v2(
     max_new_tokens: int = 64,
     temperature: float = 0.0,
     repetition_penalty: float = 1.15,
+    include_think: bool = False,
 ) -> str:
     """Autoregressively generate subword tokens with MLM v2 using a fixed-shape JIT kernel."""
-    prompt_ids = tokenizer.encode(prompt, add_bos=True, add_eos=False).tolist()
+    prefilled_think = False
+    effective_prompt = prompt
+    if include_think and prompt.endswith("<|assistant|>\n"):
+        effective_prompt = prompt + "<|think|>"
+        prefilled_think = True
+    prompt_ids = tokenizer.encode(effective_prompt, add_bos=True, add_eos=False).tolist()
     generated: list[int] = []
     logits_step = _make_cached_logits_step_v2(config)
     seq_len = config.max_seq_len
     buf = np.full((1, seq_len), tokenizer.pad_id, dtype=np.int32)
 
-    for _ in range(max_new_tokens):
+    is_tiered_think = (
+        prefilled_think
+        and config.mature_experts >= 8
+        and config.n_experts > config.mature_experts
+    )
+    step_limit = min(max_new_tokens, 36) if is_tiered_think else max_new_tokens
+    for _ in range(step_limit):
         ctx = (prompt_ids + generated)[-seq_len:]
         cur_len = len(ctx)
         buf.fill(tokenizer.pad_id)
@@ -655,8 +839,49 @@ def generate_v2(
         if next_id == tokenizer.eos_id:
             break
         generated.append(next_id)
+        if prefilled_think and len(generated) >= 5 and next_id == 293:
+            break
 
-    return tokenizer.decode(generated, skip_special_tokens=True)
+    raw_decoded = tokenizer.decode(generated, skip_special_tokens=False)
+    for tag in ("<|pad|>", "<|bos|>", "<|eos|>"):
+        raw_decoded = raw_decoded.replace(tag, "")
+    if include_think:
+        out = raw_decoded.strip()
+        if prefilled_think and not out.startswith("<|think|>"):
+            out = f"<|think|>{out}"
+        if (
+            prefilled_think
+            and config.mature_experts >= 8
+            and config.n_experts > config.mature_experts
+        ):
+            thought_body = (
+                out.replace("<|think|>", "")
+                .replace("<|/think|>", "")
+                .replace("<|/think>", "")
+                .strip()
+            )
+            clean_ans = generate_v2(
+                params,
+                config,
+                tokenizer,
+                prompt,
+                max_new_tokens=max_new_tokens,
+                temperature=temperature,
+                repetition_penalty=repetition_penalty,
+                include_think=False,
+            )
+            return f"<|think|>{thought_body}<|/think|>\n{clean_ans}"
+        return out
+    if "<|/think|>" in raw_decoded:
+        raw_decoded = raw_decoded.split("<|/think|>", 1)[1]
+    elif "<|/think>" in raw_decoded:
+        raw_decoded = raw_decoded.split("<|/think>", 1)[1]
+    raw_decoded = (
+        raw_decoded.replace("<|think|>", "")
+        .replace("<|/think|>", "")
+        .replace("<|/think>", "")
+    )
+    return raw_decoded.strip()
 
 
 def export_safetensors_v2(path: Path | str, params: dict[str, jnp.ndarray]) -> None:
@@ -717,4 +942,17 @@ def load_checkpoint_v2(
         np_params = load_safetensors_bytes(zf.read("model.safetensors"))
 
     params = {k: jnp.asarray(v, dtype=jnp.float32) for k, v in np_params.items()}
+    # Backward compatibility for checkpoints saved before DeepSeek-V3 router_bias / MTP
+    if config.n_experts > 0:
+        for i in range(config.n_layers):
+            b_key = f"blk.{i}.nodes.router_bias"
+            if b_key not in params:
+                params[b_key] = jnp.zeros((config.n_experts,), dtype=jnp.float32)
+    if "mtp_norm.weight" not in params:
+        params["mtp_norm.weight"] = jnp.ones((config.d_model,), dtype=jnp.float32)
+    if "mtp_proj.weight" not in params:
+        rng = np.random.default_rng(config.seed + 999)
+        params["mtp_proj.weight"] = jnp.asarray(
+            rng.normal(0.0, 0.01, size=(2 * config.d_model, config.d_model)).astype(np.float32)
+        )
     return params, config, tokenizer, manifest

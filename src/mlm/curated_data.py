@@ -67,6 +67,23 @@ def _make_supervised_chat_record(user_text: str, assistant_text: str) -> dict:
     }
 
 
+def _make_supervised_think_record(
+    user_text: str, thought_text: str, answer_text: str = ""
+) -> dict:
+    """Format a DeepSeek-R1 `<|think|>...<|/think|>` record supervised after `<|think|>`."""
+    prefix = f"<|user|>\n{user_text.strip()}\n<|assistant|>\n<|think|>"
+    reply = f"{thought_text.strip()}<|/think|>"
+    full_text = prefix + reply
+    start_b = len(prefix.encode("utf-8"))
+    end_b = len(full_text.encode("utf-8"))
+    return {
+        "text": full_text,
+        "loss_spans": [[start_b, end_b]],
+        "score_eos": True,
+        "answer": answer_text.strip(),
+    }
+
+
 def fetch_raw_items(root: Path, dataset: str, config: str, split: str, count: int) -> list[dict]:
     """Fetch raw row dicts from Hugging Face datasets-server with local SHA-256 caching."""
     from urllib.parse import urlencode

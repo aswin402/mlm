@@ -15,6 +15,7 @@ from mlm.curated_data import (
     _clean_paragraph,
     _first_complete_sentences,
     _make_supervised_chat_record,
+    _make_supervised_think_record,
 )
 from mlm.hfdata import get_json
 
@@ -359,10 +360,7 @@ def build_staged_english_corpora(
             stage2_records.append(stage1_records[idx % len(stage1_records)])
 
     # Stage 3 (`english_chat`): Self-contained Everyday Chat + Supervised Stage 2 Replay
-    stage3_pure = extract_multi_turn_chat_from_parquet(smol_raw, first_turn_only=True)
-    seen_chat = {r["text"].split("\n<|assistant|>\n")[0].lower() for r in stage3_pure}
-
-    # Include any existing curated conversation records if present
+    stage3_pure: list[dict] = []
     curated_conv = root / "conversation" / "train.jsonl"
     if curated_conv.exists():
         for line in curated_conv.read_text(encoding="utf-8").splitlines():
@@ -371,6 +369,8 @@ def build_staged_english_corpora(
             row = json.loads(line)
             if "<|assistant|>\n" in str(row.get("text", "")) and "loss_spans" in row:
                 stage3_pure.append(row)
+    stage3_pure.extend(extract_multi_turn_chat_from_parquet(smol_raw, first_turn_only=True))
+    seen_chat = {r["text"].split("\n<|assistant|>\n")[0].lower() for r in stage3_pure}
 
     for r in dolly_raw:
         if str(r.get("category", "")) not in ("open_qa", "general_qa", "brainstorming"):
@@ -396,12 +396,58 @@ def build_staged_english_corpora(
     # Replay supervised Stage 2 records (`What is X?` + Science QA) in `<|user|>/<|assistant|>`
     stage3_records = list(stage3_pure) + list(wiki_qa) + list(sciq_qa[:600]) + list(squad_qa[:300])
 
+    # Stage 4 (`stage4_reasoning_think`): DeepSeek-R1 `<|think|>...<|/think|>` Cold-Start Reasoning
+    stage4_records: list[dict] = []
+    seen_s4: set[str] = set()
+    sciq_vocab: set[str] = set()
+    for r in sciq_raw:
+        text_blob = (str(r.get("question", "")) + " " + str(r.get("support", ""))).lower()
+        for w in text_blob.replace(".", " ").replace(",", " ").split():
+            if len(w) >= 4 and w.isalpha():
+                sciq_vocab.add(w)
+
+    for r in wiki_raw:
+        title = str(r.get("title", "")).strip()
+        raw_text = str(r.get("text", "")).replace(" ()", "").replace("()", "")
+        if " " in title or len(raw_text) < 2000 or title.lower() not in sciq_vocab:
+            continue
+        first_s = _first_complete_sentences(raw_text, max_chars=120)
+        body = _first_complete_sentences(raw_text, max_chars=220)
+        if title and first_s and body and len(body) >= 40:
+            u = f"What is {title.lower()}?"
+            if u.lower() not in seen_s4:
+                seen_s4.add(u.lower())
+                thought = f"Concept: {title}. {first_s}"
+                stage4_records.append(_make_supervised_think_record(u, thought, body))
+    for rec in stage3_pure:
+        txt = rec.get("text", "")
+        if "\n<|assistant|>\n" not in txt:
+            continue
+        u_part, a_part = txt.split("\n<|assistant|>\n", 1)
+        u_clean = u_part.replace("<|user|>\n", "").strip()
+        a_clean = a_part.strip()
+        if u_clean and a_clean and len(u_clean) <= 45 and u_clean.lower() not in seen_s4:
+            seen_s4.add(u_clean.lower())
+            plan = _first_complete_sentences(a_clean, max_chars=140) or a_clean[:100].strip()
+            stage4_records.append(_make_supervised_think_record(u_clean, plan, a_clean))
+    for r in sciq_raw[:80]:
+        q = " ".join(str(r.get("question", "")).strip().split())
+        ans = " ".join(str(r.get("correct_answer", "")).strip().split())
+        premise = _first_complete_sentences(str(r.get("support", "")), max_chars=140)
+        if q and ans and premise and q.lower() not in seen_s4:
+            seen_s4.add(q.lower())
+            stage4_records.append(
+                _make_supervised_think_record(q, premise, f"{ans.capitalize()}. {premise}")
+            )
+
     s1_counts = _write_split_jsonl(root / "stage1_english_learn", stage1_records)
     s2_counts = _write_split_jsonl(root / "stage2_english_understand", stage2_records)
     s3_counts = _write_split_jsonl(root / "stage3_english_chat", stage3_records)
+    s4_counts = _write_split_jsonl(root / "stage4_reasoning_think", stage4_records)
 
     return {
         "stage1_english_learn": s1_counts,
         "stage2_english_understand": s2_counts,
         "stage3_english_chat": s3_counts,
+        "stage4_reasoning_think": s4_counts,
     }

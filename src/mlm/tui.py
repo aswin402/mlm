@@ -594,12 +594,26 @@ def run_chat_tui_v2(
         prompt = format_chat_prompt_v2(user_text.replace("\\n", "\n"), initial_context)
         p_toks = len(tok_v2.encode(prompt, add_bos=True, add_eos=False))
         t0 = time.perf_counter()
-        reply = generate_v2(
-            params_v2, cfg_v2, tok_v2, prompt, max_new_tokens=max_new_tokens
+        raw_reply = generate_v2(
+            params_v2,
+            cfg_v2,
+            tok_v2,
+            prompt,
+            max_new_tokens=max_new_tokens,
+            include_think=True,
         ).strip()
         elapsed_ms = (time.perf_counter() - t0) * 1000.0
-        r_toks = max(1, len(tok_v2.encode(reply, add_bos=False, add_eos=False)))
+        r_toks = max(1, len(tok_v2.encode(raw_reply, add_bos=False, add_eos=False)))
         tps = r_toks / max(elapsed_ms / 1000.0, 1e-6)
+
+        think_trace = ""
+        reply = raw_reply
+        if "<|/think|>" in raw_reply:
+            t_part, a_part = raw_reply.split("<|/think|>", 1)
+            think_trace = t_part.replace("<|think|>", "").strip()
+            reply = a_part.replace("<|think|>", "").strip()
+        else:
+            reply = raw_reply.replace("<|think|>", "").replace("<|/think|>", "").strip()
 
         if show_thinking:
             hdr = "╭─ 🧠 MLM v2 Hybrid Telemetry (<think>) " + "─" * 30 + "╮"
@@ -610,6 +624,12 @@ def run_chat_tui_v2(
                 + _c("Stack: ", BOLD, use_color)
                 + f"{cfg_v2.n_layers} layers (LFM2 ShortConv + Parallel Gated DeltaNet + GQA)"
             )
+            if think_trace:
+                writeln(
+                    _c("│ ", MAGENTA, use_color)
+                    + _c("Thought: ", BOLD + BRIGHT_CYAN, use_color)
+                    + think_trace
+                )
             writeln(
                 _c("│ ", MAGENTA, use_color)
                 + _c("Subwords: ", BOLD, use_color)

@@ -15,7 +15,12 @@ from mlm.model_v2 import (
     save_checkpoint_v2,
 )
 from mlm.tokenizer import BPETokenizer
-from mlm.train_v2 import build_tokenized_dataset, format_chat_prompt_v2
+from mlm.train_v2 import (
+    build_tokenized_dataset,
+    format_chat_prompt_v2,
+    run_grpo_v2,
+    score_grpo_response_v2,
+)
 
 
 def test_bpe_tokenizer_and_byte_span_mask():
@@ -209,3 +214,27 @@ def test_cli_train_v2_and_chat(tmp_path: Path, capsys):
     main(["chat", str(out_grown / "latest.mlm2"), "--message", "Hi"])
     out = capsys.readouterr().out
     assert len(out.strip()) > 0
+
+    # Test DeepSeek-R1 + Dr. GRPO verifiable reward & RL step on grown checkpoint
+    r_good = score_grpo_response_v2(
+        "What is science?",
+        "<|think|>Science studies the natural world.<|/think>\nScience studies nature.",
+        "Science studies nature.",
+    )
+    r_bad = score_grpo_response_v2(
+        "What is science?",
+        "<|think|>Unclosed tag",
+        "Science studies nature.",
+    )
+    assert r_good > r_bad
+
+    out_grpo = tmp_path / "out_v2_grpo"
+    grpo_res = run_grpo_v2(
+        train_p,
+        out_grpo,
+        out_grown / "latest.mlm2",
+        steps=2,
+        group_size=3,
+    )
+    assert (out_grpo / "latest.mlm2").exists()
+    assert grpo_res["grpo_steps"] == 2
