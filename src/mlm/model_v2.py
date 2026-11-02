@@ -49,6 +49,7 @@ class ConfigV2(BaseModel):
     use_gated_deltanet: bool = True
     use_head_gate: bool = True
     sliding_window: int = Field(default=0, ge=0, le=8192)
+    dsa_top_k: int = Field(default=16, ge=0, le=512)
     sandwich_norm_clip: float = Field(default=0.0, ge=0.0, le=20.0)
     use_mhc: bool = True
     mhc_sinkhorn_iters: int = Field(default=6, ge=1, le=20)
@@ -276,12 +277,20 @@ def parallel_gated_deltanet(
     wv_d: jnp.ndarray,
     w_decay: jnp.ndarray,
     n_heads: int,
+    w_beta: jnp.ndarray | None = None,
+    channel_gate: jnp.ndarray | None = None,
 ) -> jnp.ndarray:
-    """Parallel causal Gated DeltaNet associative fast-weight operator over `(B, T, D)`."""
+    """GLM-5.3-Flash Kimi Delta Attention (`KDA`) / Gated DeltaNet operator over `(B, T, D)`."""
     bsz, t_len, d_model = x.shape
     head_dim = d_model // n_heads
-    q = (x @ wq_d).reshape(bsz, t_len, n_heads, head_dim)
-    k = (x @ wk_d).reshape(bsz, t_len, n_heads, head_dim)
+    q_raw = x @ wq_d
+    k_raw = x @ wk_d
+    if channel_gate is not None:
+        c_mod = jnp.clip(channel_gate.astype(x.dtype), 0.1, 2.5)[None, None, :]
+        q_raw = q_raw * c_mod
+        k_raw = k_raw * c_mod
+    q = q_raw.reshape(bsz, t_len, n_heads, head_dim)
+    k = k_raw.reshape(bsz, t_len, n_heads, head_dim)
     v = (x @ wv_d).reshape(bsz, t_len, n_heads, head_dim)
 
     # L2-normalize keys and queries for stable delta-rule eigen-spectrum
@@ -290,6 +299,12 @@ def parallel_gated_deltanet(
 
     # Log-space cumulative decay mask for parallel causal associative attention
     log_alpha = -jax.nn.softplus(x @ w_decay)  # (B, T, H)
+    if w_beta is not None:
+        beta = 2.0 * jax.nn.sigmoid(x @ w_beta)  # (B, T, H), 1.0 at zero init
+        k_prev = jnp.pad(k[:, :-1, :, :], ((0, 0), (1, 0), (0, 0), (0, 0)))
+        v_prev = jnp.pad(v[:, :-1, :, :], ((0, 0), (1, 0), (0, 0), (0, 0)))
+        k_sim = jax.nn.relu(jnp.sum(k * k_prev, axis=-1)) * jnp.exp(log_alpha)
+        v = beta[..., None] * (v - 0.20 * k_sim[..., None] * v_prev)
     cum_log_alpha = jnp.cumsum(log_alpha, axis=1)  # (B, T, H)
     # Pairwise decay difference: cum_log_alpha[:, i] - cum_log_alpha[:, j] for i >= j
     diff = cum_log_alpha[:, :, None, :] - cum_log_alpha[:, None, :, :]  # (B, T, T, H)
@@ -304,6 +319,41 @@ def parallel_gated_deltanet(
     scores = jnp.matmul(q_h, jnp.swapaxes(k_h, -1, -2)) * decay_matrix  # (B, H, T, T)
     out_h = jnp.matmul(scores, v_h)  # (B, H, T, D_h)
     return jnp.transpose(out_h, (0, 2, 1, 3)).reshape(bsz, t_len, d_model)
+
+
+def dsa_lightning_index_mask(
+    logits: jnp.ndarray,
+    sliding_window: int,
+    dsa_top_k: int = 16,
+    shared_index_scores: jnp.ndarray | None = None,
+) -> tuple[jnp.ndarray, jnp.ndarray]:
+    """GLM-5.3-Flash `DSA` Lightning Indexer + `IndexShare` sparse attention mask."""
+    t_len = logits.shape[-1]
+    n_heads = logits.shape[1]
+    idx = jnp.arange(t_len)
+    dist = idx[:, None] - idx[None, :]  # (T, T)
+    global_causal = (dist >= 0)[None, None, :, :]
+    swa_causal = ((dist >= 0) & (dist < sliding_window))[None, None, :, :]
+
+    causal_logits = jnp.where(global_causal, logits, -1e9)
+    cur_scores = jnp.mean(causal_logits, axis=1)  # (B, T, T)
+    index_scores = (
+        0.5 * shared_index_scores + 0.5 * cur_scores
+        if shared_index_scores is not None
+        else cur_scores
+    )
+    if dsa_top_k > 0:
+        k_sel = min(int(dsa_top_k), t_len)
+        _, top_idx = jax.lax.top_k(index_scores, k_sel)  # (B, T, k_sel)
+        dsa_oh = jnp.any(jax.nn.one_hot(top_idx, t_len, dtype=jnp.bool_), axis=-2)
+        dsa_causal = dsa_oh[:, None, :, :] & global_causal
+        sparse_causal = swa_causal | dsa_causal
+    else:
+        sparse_causal = swa_causal
+
+    is_swa_head = (jnp.arange(n_heads) % 2 == 1)[None, :, None, None]
+    mask = jnp.where(is_swa_head, sparse_causal, global_causal)
+    return mask, index_scores
 
 
 def grouped_query_attention(
@@ -322,8 +372,10 @@ def grouped_query_attention(
     attn_gate_w: jnp.ndarray | None = None,
     attn_gate_b: jnp.ndarray | None = None,
     sliding_window: int = 0,
+    dsa_top_k: int = 16,
+    shared_dsa_scores: jnp.ndarray | None = None,
 ) -> jnp.ndarray:
-    """LFM3 Head-Wise Gated & Tri-Hybrid Grouped-Query Attention (GQA) with QK-RMSNorm + RoPE."""
+    """LFM3 + GLM-5.3-Flash `DSA` Grouped-Query Attention (GQA) with QK-RMSNorm + RoPE."""
     bsz, t_len, d_model = x.shape
     head_dim = d_model // n_heads
     kv_group_size = n_heads // n_kv_heads
@@ -349,12 +401,12 @@ def grouped_query_attention(
     scale = 1.0 / jnp.sqrt(float(head_dim))
     logits = jnp.matmul(q_t, jnp.swapaxes(k_t, -1, -2)) * scale
     if sliding_window > 0:
-        idx = jnp.arange(t_len)
-        dist = idx[:, None] - idx[None, :]  # (T, T)
-        global_causal = (dist >= 0)[None, None, :, :]
-        swa_causal = ((dist >= 0) & (dist < sliding_window))[None, None, :, :]
-        is_swa_head = (jnp.arange(n_heads) % 2 == 1)[None, :, None, None]
-        mask = jnp.where(is_swa_head, swa_causal, global_causal)
+        mask, _ = dsa_lightning_index_mask(
+            logits,
+            sliding_window=sliding_window,
+            dsa_top_k=dsa_top_k,
+            shared_index_scores=shared_dsa_scores,
+        )
     else:
         mask = jnp.tril(jnp.ones((t_len, t_len), dtype=jnp.bool_))[None, None, :, :]
     logits = jnp.where(mask, logits, -1e9)
@@ -393,11 +445,12 @@ def routed_graph_nodes_ffn(
     router_bias: jnp.ndarray | None = None,
     mature_nodes: int = 0,
     new_tier_mask: jnp.ndarray | None = None,
+    node_edge_scale: jnp.ndarray | None = None,
 ) -> jnp.ndarray:
     """Route tokens `(B, T, D)` across `N` specialist Graph-Node SwiGLU experts (top-`k` active).
 
-    Implements DeepSeek-V3 Auxiliary-Loss-Free Load Balancing (`router_bias`) and Tiered
-    Specialist Routing when expanding beyond `mature_nodes` so mature nodes are never evicted.
+    Implements DeepSeek-V3 Auxiliary-Loss-Free Load Balancing (`router_bias`), Tiered
+    Specialist Routing when expanding beyond `mature_nodes`, and Node-Edge Affinity Scaling.
     """
     n_nodes = node_gate.shape[0]
     router_logits = x @ router_w  # (B, T, N)
@@ -444,6 +497,10 @@ def routed_graph_nodes_ffn(
             )
         else:
             gated_probs = probs
+
+    if node_edge_scale is not None:
+        e_mod = jnp.clip(node_edge_scale.astype(gated_probs.dtype), 0.1, 2.5)[None, None, :]
+        gated_probs = gated_probs * e_mod
 
     gate_all = jax.nn.silu(jnp.einsum("btd,ndf->btnf", x, node_gate))
     up_all = jnp.einsum("btd,ndf->btnf", x, node_up)
@@ -536,6 +593,8 @@ def init_params_v2(config: ConfigV2) -> dict[str, jnp.ndarray]:
                 params[f"{p}.deltanet.w_decay.weight"] = jnp.asarray(
                     rng.normal(0.0, 0.02, size=(d, h)).astype(np.float32)
                 )
+                params[f"{p}.deltanet.w_beta.weight"] = jnp.zeros((d, h), dtype=jnp.float32)
+                params[f"{p}.deltanet.channel_gate"] = jnp.ones((d,), dtype=jnp.float32)
                 params[f"{p}.deltanet.scale"] = jnp.full((d,), 0.25, dtype=jnp.float32)
 
         params[f"{p}.ffn_gate.weight"] = jnp.asarray(
@@ -554,6 +613,7 @@ def init_params_v2(config: ConfigV2) -> dict[str, jnp.ndarray]:
                 rng.normal(0.0, 0.02, size=(d, n_exp)).astype(np.float32)
             )
             params[f"{p}.nodes.router_bias"] = jnp.zeros((n_exp,), dtype=jnp.float32)
+            params[f"{p}.nodes.edge_scale"] = jnp.ones((n_exp,), dtype=jnp.float32)
             params[f"{p}.nodes.gate.weight"] = jnp.asarray(
                 rng.normal(0.0, std, size=(n_exp, d, ef)).astype(np.float32)
             )
@@ -608,6 +668,7 @@ def forward_with_hidden_v2(
     ncm_enabled = config.use_ncm and "ncm_phi.conv.weight" in params
     streams = jnp.stack([x, x], axis=-2) if mhc_enabled else None  # (B, T, 2, D)
     schedule = build_layer_execution_schedule(config)
+    shared_dsa_scores: jnp.ndarray | None = None
 
     for i, pass_idx in schedule:
         p = f"blk.{i}"
@@ -631,6 +692,42 @@ def forward_with_hidden_v2(
 
         normed = rms_norm(x_in, params[f"{p}.attn_norm.weight"], config.rms_eps)
         if config.is_attention_layer(i):
+            if config.sliding_window > 0 and config.dsa_top_k > 0:
+                q_idx = apply_rope(
+                    rms_norm(
+                        (normed @ params[f"{p}.attn_q.weight"]).reshape(
+                            bsz, t_len, config.n_heads, config.head_dim
+                        ),
+                        params[f"{p}.attn_q_norm.weight"],
+                        config.rms_eps,
+                    ),
+                    cos,
+                    sin,
+                )
+                k_idx = apply_rope(
+                    rms_norm(
+                        (normed @ params[f"{p}.attn_k.weight"]).reshape(
+                            bsz, t_len, config.n_kv_heads, config.head_dim
+                        ),
+                        params[f"{p}.attn_k_norm.weight"],
+                        config.rms_eps,
+                    ),
+                    cos,
+                    sin,
+                )
+                kv_g = config.n_heads // config.n_kv_heads
+                if kv_g > 1:
+                    k_idx = jnp.repeat(k_idx, kv_g, axis=2)
+                raw_idx_logits = jnp.matmul(
+                    jnp.transpose(q_idx, (0, 2, 1, 3)),
+                    jnp.swapaxes(jnp.transpose(k_idx, (0, 2, 1, 3)), -1, -2),
+                ) / jnp.sqrt(float(config.head_dim))
+                _, shared_dsa_scores = dsa_lightning_index_mask(
+                    raw_idx_logits,
+                    sliding_window=config.sliding_window,
+                    dsa_top_k=config.dsa_top_k,
+                    shared_index_scores=shared_dsa_scores,
+                )
             dx = grouped_query_attention(
                 normed,
                 params[f"{p}.attn_q.weight"],
@@ -647,6 +744,8 @@ def forward_with_hidden_v2(
                 attn_gate_w=params.get(f"{p}.attn_gate.weight") if config.use_head_gate else None,
                 attn_gate_b=params.get(f"{p}.attn_gate.bias") if config.use_head_gate else None,
                 sliding_window=config.sliding_window,
+                dsa_top_k=config.dsa_top_k,
+                shared_dsa_scores=shared_dsa_scores,
             )
         else:
             proj = normed @ params[f"{p}.shortconv.in_proj.weight"]
@@ -662,6 +761,8 @@ def forward_with_hidden_v2(
                     params[f"{p}.deltanet.wv.weight"],
                     params[f"{p}.deltanet.w_decay.weight"],
                     config.n_heads,
+                    w_beta=params.get(f"{p}.deltanet.w_beta.weight"),
+                    channel_gate=params.get(f"{p}.deltanet.channel_gate"),
                 )
                 y_mix = y_mix + delta_out * params[f"{p}.deltanet.scale"][None, None, :]
             dx = y_mix @ params[f"{p}.shortconv.out_proj.weight"]
@@ -713,6 +814,7 @@ def forward_with_hidden_v2(
                 params.get(f"{p}.nodes.router_bias"),
                 mature_nodes=config.mature_experts if use_tiered_reasoning else 0,
                 new_tier_mask=pass_tier_mask,
+                node_edge_scale=params.get(f"{p}.nodes.edge_scale"),
             )
         ffn_out = sandwich_rms_bound(
             ffn_out,
@@ -790,7 +892,7 @@ def compute_mtp_logits_v2(
     next_tokens: jnp.ndarray,
     config: ConfigV2,
 ) -> jnp.ndarray:
-    """DeepSeek-V3 Multi-Token Prediction (`MTP`): predict `t+2` from `h_t` and `e(x_{t+1})`."""
+    """GLM-5.3-Flash Norm-Corrected `MTP`: predict `t+2` from `h_t` and `e(x_{t+1})`."""
     h_cur = hidden_normed[:, :-1, :]  # (B, T-1, D)
     emb_next = rms_norm(
         params["tok_embeddings.weight"][next_tokens],
@@ -804,7 +906,12 @@ def compute_mtp_logits_v2(
         if config.tie_embeddings
         else params["output.weight"]
     )
-    return jnp.matmul(h_mtp, jnp.swapaxes(out_w, 0, 1))
+    return ncm_tied_codebook_logits(
+        h_mtp,
+        out_w,
+        log_scale=params.get("output_head.log_scale") if config.use_ncm else None,
+        norm_alpha=params.get("output_head.norm_alpha") if config.use_ncm else None,
+    )
 
 
 def forward_v2(
@@ -945,6 +1052,13 @@ def make_train_step_v2(
             for k, u in updates.items():
                 if k.endswith(".nodes.router_bias"):
                     scaled_updates[k] = jnp.zeros_like(u)
+                elif k.endswith(".nodes.edge_scale"):
+                    if 0 < config.mature_experts < config.n_experts:
+                        e_mask = np.ones((config.n_experts,), dtype=np.float32)
+                        e_mask[: config.mature_experts] = float(config.mature_lr_scale)
+                        scaled_updates[k] = u * jnp.asarray(e_mask)
+                    else:
+                        scaled_updates[k] = u
                 elif ".nodes." in k and not k.endswith(".router.weight"):
                     if 0 < config.mature_experts < config.n_experts:
                         m_mask = np.ones((config.n_experts, 1, 1), dtype=np.float32)
@@ -1081,6 +1195,14 @@ def grow_model_v2_nodes(
         rb_new = np.full((add_nodes,), 0.0, dtype=np.float32)
         new_params[f"{p}.nodes.router_bias"] = jnp.asarray(
             np.concatenate([rb_old, rb_new], axis=0)
+        )
+        es_old = np.asarray(
+            params.get(f"{p}.nodes.edge_scale", np.ones((n_old,), dtype=np.float32)),
+            dtype=np.float32,
+        )
+        es_new = np.ones((add_nodes,), dtype=np.float32)
+        new_params[f"{p}.nodes.edge_scale"] = jnp.asarray(
+            np.concatenate([es_old, es_new], axis=0)
         )
 
     emb_arr = np.asarray(params["tok_embeddings.weight"], dtype=np.float32).copy()
@@ -1411,10 +1533,22 @@ def load_checkpoint_v2(
                 params[f"{p_key}.attn_gate.bias"] = jnp.zeros(
                     (config.n_heads,), dtype=jnp.float32
                 )
+        if not config.is_attention_layer(i) and config.use_gated_deltanet:
+            if f"{p_key}.deltanet.w_beta.weight" not in params:
+                params[f"{p_key}.deltanet.w_beta.weight"] = jnp.zeros(
+                    (config.d_model, config.n_heads), dtype=jnp.float32
+                )
+            if f"{p_key}.deltanet.channel_gate" not in params:
+                params[f"{p_key}.deltanet.channel_gate"] = jnp.ones(
+                    (config.d_model,), dtype=jnp.float32
+                )
         if config.n_experts > 0:
             b_key = f"{p_key}.nodes.router_bias"
             if b_key not in params:
                 params[b_key] = jnp.zeros((config.n_experts,), dtype=jnp.float32)
+            es_key = f"{p_key}.nodes.edge_scale"
+            if es_key not in params:
+                params[es_key] = jnp.ones((config.n_experts,), dtype=jnp.float32)
     if "mtp_norm.weight" not in params:
         params["mtp_norm.weight"] = jnp.ones((config.d_model,), dtype=jnp.float32)
     if "mtp_proj.weight" not in params:

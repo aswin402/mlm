@@ -9,6 +9,7 @@ from mlm.model_v2 import (
     build_layer_execution_schedule,
     compute_ncm_concept_loss_v2,
     create_state_v2,
+    dsa_lightning_index_mask,
     expand_shortconv_kernel_v2,
     forward_v2,
     forward_with_hidden_v2,
@@ -131,12 +132,29 @@ def test_model_v2_hybrid_train_grow_and_gguf(tmp_path: Path):
     assert float(jnp.max(jnp.abs(jnp.sum(ds_mat, axis=-2) - 1.0))) < 1e-4
 
     loop_cfg = k7_cfg.model_copy(
-        update={"loop_start_layer": 1, "loop_end_layer": 5, "loop_repeats": 2}
+        update={
+            "loop_start_layer": 1,
+            "loop_end_layer": 5,
+            "loop_repeats": 2,
+            "sliding_window": 8,
+            "dsa_top_k": 4,
+        }
     )
     sched = build_layer_execution_schedule(loop_cfg)
     assert len(sched) == 10  # 6 physical layers + 4 looped passes = 10 effective layer passes
     logits_loop, hidden_loop = forward_with_hidden_v2(k7_params, ds["inputs"][:2], loop_cfg)
     assert logits_loop.shape == logits_k7.shape
+
+    # GLM-5.3-Flash DSA Lightning Indexer + IndexShare mask test
+    dummy_logits = jnp.ones((2, 4, 16, 16), dtype=jnp.float32)
+    dsa_m1, dsa_s1 = dsa_lightning_index_mask(dummy_logits, sliding_window=4, dsa_top_k=4)
+    dsa_m2, _ = dsa_lightning_index_mask(
+        dummy_logits, sliding_window=4, dsa_top_k=4, shared_index_scores=dsa_s1
+    )
+    assert dsa_m1.shape == (2, 4, 16, 16)
+    assert dsa_m2.shape == (2, 4, 16, 16)
+    assert "blk.0.deltanet.w_beta.weight" in k7_params
+    assert "blk.0.deltanet.channel_gate" in k7_params
 
     # HazyResearch/ncm Next-Concept Horizon Loss & Tied Codebook Head
     ncm_loss = float(

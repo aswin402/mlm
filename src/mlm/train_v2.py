@@ -458,8 +458,9 @@ def score_grpo_response_v2(
 
     reward = 0.0
     ans_part = generated_text.strip()
+    thought_part = ""
 
-    # 1. DeepSeek-R1 `<|think|>...<|/think|>` structural format reward
+    # 1. DeepSeek-R1 + GLM-5.3-Flash `<|think|>...<|/think|>` structural format reward
     if "<|think|>" in generated_text or "<|/think|>" in generated_text:
         i_open = generated_text.find("<|think|>")
         i_close = generated_text.find("<|/think|>")
@@ -468,9 +469,9 @@ def score_grpo_response_v2(
             and generated_text.count("<|think|>") == 1
             and generated_text.count("<|/think|>") == 1
         ):
-            thought = generated_text[i_open + len("<|think|>") : i_close].strip()
+            thought_part = generated_text[i_open + len("<|think|>") : i_close].strip()
             ans_part = generated_text[i_close + len("<|/think|>") :].strip()
-            if len(thought) >= 8 and len(ans_part) >= 4:
+            if len(thought_part) >= 8 and len(ans_part) >= 4:
                 reward += 0.5
             else:
                 reward -= 0.2
@@ -480,7 +481,7 @@ def score_grpo_response_v2(
     if ans_part and ans_part[-1] in ".!?":
         reward += 0.2
 
-    # 2. Verifiable answer F1 & anti-hallucination topic-grounding reward
+    # 2. Verifiable answer F1, GLM-5.3-Flash SAO thought-bridge, & anti-hallucination reward
     ref_clean = reference_answer
     if "<|/think|>" in ref_clean:
         ref_clean = ref_clean.split("<|/think|>", 1)[1].strip()
@@ -489,6 +490,10 @@ def score_grpo_response_v2(
     ref_words = _content_words(ref_clean)
     prompt_words = _content_words(prompt_text)
     allowed_words = ref_words | prompt_words
+    if thought_part:
+        thought_words = _content_words(thought_part)
+        if thought_words and (thought_words & allowed_words):
+            reward += 0.20
 
     if ref_words and gen_words:
         overlap = len(gen_words & ref_words)
@@ -572,6 +577,13 @@ def make_grpo_step_v2(
         for k, u in updates.items():
             if k.endswith(".nodes.router_bias"):
                 scaled_updates[k] = jnp.zeros_like(u)
+            elif k.endswith(".nodes.edge_scale"):
+                if 0 < config.mature_experts < config.n_experts:
+                    e_mask = np.ones((config.n_experts,), dtype=np.float32)
+                    e_mask[: config.mature_experts] = float(config.mature_lr_scale)
+                    scaled_updates[k] = u * jnp.asarray(e_mask)
+                else:
+                    scaled_updates[k] = u
             elif config.mature_experts > 0 and ".nodes." in k and not k.endswith(".router.weight"):
                 if 0 < config.mature_experts < config.n_experts:
                     m_mask = np.ones((config.n_experts, 1, 1), dtype=np.float32)
