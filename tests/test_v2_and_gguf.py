@@ -336,8 +336,17 @@ def test_cli_train_v2_and_chat(tmp_path: Path, capsys):
     assert (out_grpo / "latest.mlm2").exists()
     assert grpo_res["grpo_steps"] == 2
 
-    # Test Multi-Node Specialist Cluster (Main Core Router -> English Node + Math Node)
+    # Test Multi-Node Specialist Cluster & 2-Bank Hierarchical Domain Growth (10 -> 14 Nodes)
+    from mlm.model_v2 import grow_model_v2_nodes
     from mlm.node_cluster import MLMNodeCluster
+
+    p_base, c_base, _, _ = load_checkpoint_v2(out_grown / "latest.mlm2")
+    p_10, c_10 = grow_model_v2_nodes(p_base, c_base, add_nodes=4)
+    p_14, c_14 = grow_model_v2_nodes(p_10, c_10, add_nodes=4)
+    assert c_14.n_experts == 14
+    assert c_14.mature_experts == 10
+    logits_14 = forward_v2(p_14, jnp.array([[1, 2, 3, 4]], dtype=jnp.int32), c_14)
+    assert logits_14.shape == (1, 4, c_14.vocab_size)
 
     cluster = MLMNodeCluster.from_checkpoints(
         [

@@ -629,6 +629,8 @@ def make_grpo_step_v2(
                 if 0 < config.mature_experts < config.n_experts:
                     e_mask = np.ones((config.n_experts,), dtype=np.float32)
                     e_mask[: config.mature_experts] = float(config.mature_lr_scale)
+                    if config.n_experts > 10:
+                        e_mask[:10] = 0.0
                     scaled_updates[k] = u * jnp.asarray(e_mask)
                 else:
                     scaled_updates[k] = u
@@ -636,6 +638,8 @@ def make_grpo_step_v2(
                 if 0 < config.mature_experts < config.n_experts:
                     m_mask = np.ones((config.n_experts, 1, 1), dtype=np.float32)
                     m_mask[: config.mature_experts] = float(config.mature_lr_scale)
+                    if config.n_experts > 10:
+                        m_mask[:10] = 0.0
                     scaled_updates[k] = u * jnp.asarray(m_mask)
                 else:
                     scaled_updates[k] = u
@@ -643,6 +647,8 @@ def make_grpo_step_v2(
                 if 0 < config.mature_experts < config.n_experts:
                     r_mask = np.ones((1, config.n_experts), dtype=np.float32)
                     r_mask[:, : config.mature_experts] = float(config.mature_lr_scale)
+                    if config.n_experts > 10:
+                        r_mask[:, :10] = 0.0
                     scaled_updates[k] = u * jnp.asarray(r_mask)
                 else:
                     scaled_updates[k] = u

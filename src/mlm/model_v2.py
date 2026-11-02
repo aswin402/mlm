@@ -435,6 +435,45 @@ def swiglu_ffn(
     return (gate * up) @ w_down
 
 
+def _route_single_bank(
+    bank_logits: jnp.ndarray,
+    bank_bias: jnp.ndarray | None,
+    top_k: int,
+    new_tier_mask: jnp.ndarray | None = None,
+) -> jnp.ndarray:
+    """Route tokens within a single 10-node Specialist Macro-Bank (Nodes 0..7 base + 8..9 think)."""
+    b_nodes = bank_logits.shape[-1]
+    base_n = min(b_nodes, 8)
+    m_logits = bank_logits[..., :base_n]
+    m_probs = jax.nn.softmax(m_logits, axis=-1)
+    k_eff = min(top_k, base_n)
+    if k_eff < base_n:
+        m_scores = (
+            m_probs + jax.lax.stop_gradient(bank_bias[:base_n])[None, None, :]
+            if bank_bias is not None
+            else m_probs
+        )
+        _, top_idx = jax.lax.top_k(m_scores, k_eff)
+        m_mask = jnp.sum(jax.nn.one_hot(top_idx, base_n, dtype=m_probs.dtype), axis=-2)
+        m_gated = m_probs * m_mask
+        m_gated = m_gated / jnp.maximum(jnp.sum(m_gated, axis=-1, keepdims=True), 1e-6)
+    else:
+        m_gated = m_probs
+
+    if b_nodes <= 8:
+        return m_gated
+
+    think_logits = bank_logits[..., 8:b_nodes]
+    if bank_bias is not None:
+        think_logits = think_logits + jax.lax.stop_gradient(bank_bias[8:b_nodes])[None, None, :]
+    think_gated = jax.nn.sigmoid(think_logits)
+    if new_tier_mask is not None:
+        think_gated = think_gated * new_tier_mask
+    else:
+        think_gated = jnp.zeros_like(think_gated)
+    return jnp.concatenate([m_gated, think_gated], axis=-1)
+
+
 def routed_graph_nodes_ffn(
     x: jnp.ndarray,
     router_w: jnp.ndarray,
@@ -447,56 +486,55 @@ def routed_graph_nodes_ffn(
     new_tier_mask: jnp.ndarray | None = None,
     node_edge_scale: jnp.ndarray | None = None,
 ) -> jnp.ndarray:
-    """Route tokens `(B, T, D)` across `N` specialist Graph-Node SwiGLU experts (top-`k` active).
+    """Route tokens `(B, T, D)` across Specialist Graph-Node Banks (Hierarchical Domain Routing).
 
-    Implements DeepSeek-V3 Auxiliary-Loss-Free Load Balancing (`router_bias`), Tiered
-    Specialist Routing when expanding beyond `mature_nodes`, and Node-Edge Affinity Scaling.
+    - Bank 0 (`Nodes 0..9`): 10M English/Science/Chat Macro-Node (`0..7` base + `8..9` `<|think|>`).
+    - Bank 1 (`Nodes 10..19`): 10M Mathematics Macro-Node (`10..17` base + `18..19` `<|think|>`).
+    When `n_nodes > 10`, a learned sequence-pooled Domain Gate `p_math = sigmoid(2*(e_m - e_e))`
+    routes smoothly between Bank 0 and Bank 1 with zero hardcoded rules.
     """
+    del mature_nodes
     n_nodes = node_gate.shape[0]
     router_logits = x @ router_w  # (B, T, N)
-    if 0 < mature_nodes < n_nodes:
-        m_logits = router_logits[..., :mature_nodes]
-        m_probs = jax.nn.softmax(m_logits, axis=-1)
-        k_eff = min(top_k, mature_nodes)
-        if k_eff < mature_nodes:
-            m_scores = (
-                m_probs + jax.lax.stop_gradient(router_bias[:mature_nodes])[None, None, :]
-                if router_bias is not None
-                else m_probs
-            )
-            _, top_idx = jax.lax.top_k(m_scores, k_eff)
-            m_mask = jnp.sum(jax.nn.one_hot(top_idx, mature_nodes, dtype=m_probs.dtype), axis=-2)
-            m_gated = m_probs * m_mask
-            m_gated = m_gated / jnp.maximum(jnp.sum(m_gated, axis=-1, keepdims=True), 1e-6)
-        else:
-            m_gated = m_probs
 
-        new_logits = router_logits[..., mature_nodes:]
-        if router_bias is not None:
-            new_logits = new_logits + jax.lax.stop_gradient(router_bias[mature_nodes:])[
-                None, None, :
-            ]
-        new_gated = jax.nn.sigmoid(new_logits)
-        if new_tier_mask is not None:
-            new_gated = new_gated * new_tier_mask
-        gated_probs = jnp.concatenate([m_gated, new_gated], axis=-1)
+    if n_nodes <= 10:
+        gated_probs = _route_single_bank(
+            router_logits,
+            router_bias,
+            top_k=top_k,
+            new_tier_mask=new_tier_mask,
+        )
     else:
-        k_eff = min(top_k, n_nodes)
-        probs = jax.nn.softmax(router_logits, axis=-1)
-        if k_eff < n_nodes:
-            sel_scores = (
-                probs + jax.lax.stop_gradient(router_bias)[None, None, :]
-                if router_bias is not None
-                else probs
-            )
-            _, top_idx = jax.lax.top_k(sel_scores, k_eff)
-            mask = jnp.sum(jax.nn.one_hot(top_idx, n_nodes, dtype=probs.dtype), axis=-2)
-            gated_probs = probs * mask
-            gated_probs = gated_probs / jnp.maximum(
-                jnp.sum(gated_probs, axis=-1, keepdims=True), 1e-6
-            )
-        else:
-            gated_probs = probs
+        eng_bias = router_bias[:10] if router_bias is not None else None
+        math_bias = router_bias[10:] if router_bias is not None else None
+        eng_probs = _route_single_bank(
+            router_logits[..., :10],
+            eng_bias,
+            top_k=top_k,
+            new_tier_mask=new_tier_mask,
+        )
+        math_probs = _route_single_bank(
+            router_logits[..., 10:],
+            math_bias,
+            top_k=top_k,
+            new_tier_mask=new_tier_mask,
+        )
+        math_base_end = min(n_nodes, 18)
+        e_eng = jnp.mean(
+            jax.scipy.special.logsumexp(router_logits[..., :8], axis=-1, keepdims=True),
+            axis=1,
+            keepdims=True,
+        )
+        e_math = jnp.mean(
+            jax.scipy.special.logsumexp(
+                router_logits[..., 10:math_base_end], axis=-1, keepdims=True
+            ),
+            axis=1,
+            keepdims=True,
+        )
+        p_math = jax.nn.sigmoid(2.0 * (e_math - e_eng))
+        p_eng = 1.0 - p_math
+        gated_probs = jnp.concatenate([p_eng * eng_probs, p_math * math_probs], axis=-1)
 
     if node_edge_scale is not None:
         e_mod = jnp.clip(node_edge_scale.astype(gated_probs.dtype), 0.1, 2.5)[None, None, :]
@@ -1071,6 +1109,8 @@ def make_train_step_v2(
                     if 0 < config.mature_experts < config.n_experts:
                         e_mask = np.ones((config.n_experts,), dtype=np.float32)
                         e_mask[: config.mature_experts] = float(config.mature_lr_scale)
+                        if config.n_experts > 10:
+                            e_mask[:10] = 0.0
                         scaled_updates[k] = u * jnp.asarray(e_mask)
                     else:
                         scaled_updates[k] = u
@@ -1078,6 +1118,8 @@ def make_train_step_v2(
                     if 0 < config.mature_experts < config.n_experts:
                         m_mask = np.ones((config.n_experts, 1, 1), dtype=np.float32)
                         m_mask[: config.mature_experts] = float(config.mature_lr_scale)
+                        if config.n_experts > 10:
+                            m_mask[:10] = 0.0
                         scaled_updates[k] = u * jnp.asarray(m_mask)
                     else:
                         scaled_updates[k] = u
@@ -1085,6 +1127,10 @@ def make_train_step_v2(
                     if 0 < config.mature_experts < config.n_experts:
                         r_mask = np.ones((1, config.n_experts), dtype=np.float32)
                         r_mask[:, : config.mature_experts] = float(config.mature_lr_scale)
+                        if config.n_experts > 10:
+                            r_mask[:, :10] = 0.0
+                            if config.n_experts <= 18:
+                                r_mask[:, 10:] = 1.0
                         scaled_updates[k] = u * jnp.asarray(r_mask)
                     else:
                         scaled_updates[k] = u
@@ -1173,15 +1219,22 @@ def grow_model_v2_nodes(
     for i in range(config.n_layers):
         p = f"blk.{i}"
         down_w = np.asarray(params[f"{p}.nodes.down.weight"], dtype=np.float32)
-        norms = np.linalg.norm(down_w, axis=(1, 2))
-        order = np.argsort(-norms)
+        if n_old == 10:
+            pool_idx = np.arange(0, 8)
+        elif n_old > 10:
+            pool_idx = np.arange(10, min(n_old, 18))
+        else:
+            pool_idx = np.arange(0, min(n_old, 8))
+        norms = np.linalg.norm(down_w[pool_idx], axis=(1, 2))
+        order = pool_idx[np.argsort(-norms)]
+        n_pool = len(order)
 
         for suffix in ("gate", "up", "down"):
             arr = np.asarray(params[f"{p}.nodes.{suffix}.weight"], dtype=np.float32)
             children = []
             for j in range(add_nodes):
-                p1 = arr[order[(2 * j) % n_old]]
-                p2 = arr[order[(2 * j + 1) % n_old]]
+                p1 = arr[order[(2 * j) % n_pool]]
+                p2 = arr[order[(2 * j + 1) % n_pool]]
                 child = 0.85 * p1 + 0.15 * p2
                 noise = rng.normal(0.0, 0.005 * (float(np.std(child)) + 1e-6), size=child.shape)
                 child = (child + noise).astype(np.float32)
@@ -1195,7 +1248,7 @@ def grow_model_v2_nodes(
         rw = np.asarray(params[f"{p}.nodes.router.weight"], dtype=np.float32)
         extra_rw = np.stack(
             [
-                0.85 * rw[:, order[(2 * j) % n_old]] + 0.15 * rw[:, order[(2 * j + 1) % n_old]]
+                0.85 * rw[:, order[(2 * j) % n_pool]] + 0.15 * rw[:, order[(2 * j + 1) % n_pool]]
                 for j in range(add_nodes)
             ],
             axis=-1,

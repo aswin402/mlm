@@ -51,7 +51,12 @@ class BPETokenizer:
     ) -> BPETokenizer:
         """Train a Byte-Level BPE tokenizer in Rust on an iterator of UTF-8 strings."""
         tok = Tokenizer(models.BPE())
-        tok.pre_tokenizer = pre_tokenizers.ByteLevel(add_prefix_space=False)
+        tok.pre_tokenizer = pre_tokenizers.Sequence(
+            [
+                pre_tokenizers.Digits(individual_digits=True),
+                pre_tokenizers.ByteLevel(add_prefix_space=False),
+            ]
+        )
         tok.decoder = decoders.ByteLevel()
         trainer = trainers.BpeTrainer(
             vocab_size=int(vocab_size),
