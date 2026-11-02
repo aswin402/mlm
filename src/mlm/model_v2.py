@@ -1419,7 +1419,7 @@ def generate_v2(
         if config.think_close_id >= 0
         else int(tokenizer.encode("<|think|>", add_bos=False, add_eos=False)[-1])
     )
-    step_limit = min(max_new_tokens, 36) if is_tiered_think else max_new_tokens
+    step_limit = min(max_new_tokens, 48) if is_tiered_think else max_new_tokens
     for _ in range(step_limit):
         ctx = (prompt_ids + generated)[-seq_len:]
         cur_len = len(ctx)
@@ -1476,9 +1476,14 @@ def generate_v2(
                 out.replace("<|think|>", "")
                 .replace("<|/think|>", "")
                 .replace("<|/think>", "")
+                .replace("nominthink", "")
+                .replace("think|>", "")
+                .replace("\ufffd", "")
                 .strip(" |>")
                 .strip()
             )
+            if thought_body.endswith(" think"):
+                thought_body = thought_body[:-6].strip()
             clean_ans = generate_v2(
                 params,
                 config,

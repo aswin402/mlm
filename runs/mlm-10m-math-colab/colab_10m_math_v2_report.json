@@ -1,207 +1,228 @@
 {
   "stage1": {
     "arch_version": "v2_hybrid",
-    "parameters": 7991312,
+    "parameters": 16854192,
     "vocab_size": 4096,
     "n_layers": 8,
     "effective_layer_passes": 12,
     "use_mhc": true,
     "use_ncm": true,
     "d_model": 192,
-    "n_experts": 4,
-    "mature_experts": 0,
+    "n_experts": 14,
+    "mature_experts": 10,
     "steps": 800,
-    "elapsed_seconds": 287.474361866,
-    "tokens_per_second": 8109.1857544034865,
-    "best_val_loss": 3.0483546929071412,
+    "elapsed_seconds": 433.5311256160003,
+    "tokens_per_second": 3355.2492867338315,
+    "best_val_loss": 0.5336375124125369,
     "checkpoint": "/content/mlm/runs/mlm-10m-math-colab/stage1_foundations/best.mlm2",
     "latest_checkpoint": "/content/mlm/runs/mlm-10m-math-colab/stage1_foundations/latest.mlm2",
     "gguf": null,
     "samples": [
       {
         "prompt": "Hi",
-        "reply": "Solutionile all theth ice created by squaring 24, 3 lily and 4 cartons of peanuts were used to manag.E. gave away 2 liters of its four he has:(."
+        "reply": "Hamburg, or in full Free and Hanseatic City of Hamburg (, Low German: Friee un Hansestadt Hamborg), is a"
       },
       {
         "prompt": "How are you?",
-        "reply": "Solution: If two characo has P, we need to find the combined work rate of 30*2 = n be 11 band. We are given that total * 12 gallons = 180 cm So"
+        "reply": "Solution: There are 7 different blue balloons. Therefore, 15/2 of 12, 6 is 13."
       },
       {
         "prompt": "What is science?",
-        "reply": "Solution: Last year, we need to find the average age for first's then 9 - 3 = 18. The average score is 4 * 12 = 54 years old. Final answer: 180."
+        "reply": "Science is the science of humans: The wording or group, which is part of an advancement. It uses both how words are counted, and? instead they are given to"
       }
     ]
   },
   "stage2": {
     "arch_version": "v2_hybrid",
-    "parameters": 9763888,
+    "parameters": 18626768,
     "vocab_size": 4096,
     "n_layers": 8,
     "effective_layer_passes": 12,
     "use_mhc": true,
     "use_ncm": true,
     "d_model": 192,
-    "n_experts": 6,
-    "mature_experts": 4,
+    "n_experts": 16,
+    "mature_experts": 14,
     "steps": 1000,
-    "elapsed_seconds": 512.349671296,
-    "tokens_per_second": 3025.6621343754196,
-    "best_val_loss": 3.2193051444484957,
+    "elapsed_seconds": 790.7017366019991,
+    "tokens_per_second": 1545.491736557431,
+    "best_val_loss": 2.461076157308375,
     "checkpoint": "/content/mlm/runs/mlm-10m-math-colab/stage2_arithmetic_word/best.mlm2",
     "latest_checkpoint": "/content/mlm/runs/mlm-10m-math-colab/stage2_arithmetic_word/latest.mlm2",
     "gguf": null,
     "samples": [
       {
         "prompt": "Hi",
-        "reply": "E estimai chap rais to 3 stos, we can deduce the following sequence: Case 1. Fruy crossed: Boo 3.5 = 4."
+        "reply": "Hello: A classas (2 * 1) is a favorite organized holy telled, blue. It is a Gment who allows God as a boat"
       },
       {
         "prompt": "How are you?",
-        "reply": "A number that can be made by conner out of the number cards: Number and then have a number that is divisible by 4. 2."
+        "reply": "A full of a cube. The sun and the universe in the universe after Earth is putted on on Earth. Noffday and small are not only about 180%."
       },
       {
         "prompt": "What is science?",
-        "reply": "S's house is 16. Since 80 is younger than Jimin, we can expressed by subtracting both sides of the equation: 80 - 16 = 94 Dereow + 80% = 90 He to"
+        "reply": "Science is what we do to find outation. The followingization of their matter, and these things are normally not. In fact, a number can be formed by natural science. During"
       }
     ]
   },
   "stage3": {
     "arch_version": "v2_hybrid",
-    "parameters": 11536464,
+    "parameters": 20399344,
     "vocab_size": 4096,
     "n_layers": 8,
     "effective_layer_passes": 12,
     "use_mhc": true,
     "use_ncm": true,
     "d_model": 192,
-    "n_experts": 8,
-    "mature_experts": 6,
+    "n_experts": 18,
+    "mature_experts": 16,
     "steps": 1000,
-    "elapsed_seconds": 597.712107222,
-    "tokens_per_second": 3247.178661012343,
-    "best_val_loss": 2.66365966796875,
+    "elapsed_seconds": 865.4702593080001,
+    "tokens_per_second": 1617.687014594169,
+    "best_val_loss": 2.289328496008461,
     "checkpoint": "/content/mlm/runs/mlm-10m-math-colab/stage3_algebra_geometry/best.mlm2",
     "latest_checkpoint": "/content/mlm/runs/mlm-10m-math-colab/stage3_algebra_geometry/latest.mlm2",
     "gguf": null,
     "samples": [
       {
         "prompt": "Hi",
-        "reply": "Eics closets a number by 6, we can use the formula for right: In this case, each place in the units place is 6th."
+        "reply": "Hello! How can I help you today?"
       },
       {
         "prompt": "How are you?",
-        "reply": "The answer is 20. If you removey 200 to make one pair of 90, then the answer is 250 - 12 = 24 lessons. Therefore, the total number of everything that they"
+        "reply": "A65 is Sex. If you cannot calculate the number, you can find the value, you would divide 18 by 17. 64 by 3. 7"
       },
       {
         "prompt": "What is science?",
-        "reply": "The answer is 45. The formula for Calth formula, which states that is - 80*2= So, So, to produce areasial if he is two times the number of itemser"
+        "reply": "Page: In languages, arfaces and other people work together. Embally the word \"wine\" or base ( ) is a male who write for fun). The word \"n"
       }
     ]
   },
   "stage4_reasoning": {
     "arch_version": "v2_hybrid",
-    "parameters": 13309040,
+    "parameters": 22171920,
     "vocab_size": 4096,
     "n_layers": 8,
     "effective_layer_passes": 12,
     "use_mhc": true,
     "use_ncm": true,
     "d_model": 192,
-    "n_experts": 10,
-    "mature_experts": 8,
+    "n_experts": 20,
+    "mature_experts": 18,
     "steps": 420,
-    "elapsed_seconds": 276.33964354900013,
-    "tokens_per_second": 2223.553566577014,
-    "best_val_loss": 3.9324558142459756,
+    "elapsed_seconds": 385.56886860300074,
+    "tokens_per_second": 851.5832753553501,
+    "best_val_loss": 3.505799692929898,
     "checkpoint": "/content/mlm/runs/mlm-10m-math-colab/stage4_math_reasoning/best.mlm2",
     "latest_checkpoint": "/content/mlm/runs/mlm-10m-math-colab/stage4_math_reasoning/latest.mlm2",
     "gguf": null,
     "samples": [
       {
         "prompt": "Hi",
-        "reply": "Eics closets a number by 6, we can use the formula for right: In this case, each place in the units place is 6th."
+        "reply": "Hello! How can I help you today?"
       },
       {
         "prompt": "How are you?",
-        "reply": "The answer is 20. If you removey 200 to make one pair of 90, then the answer is 250 - 12 = 24 lessons. Therefore, the total number of everything that they"
+        "reply": "A65 is Sex. If you cannot calculate the number, you can find the value, you would divide 18 by 17. 64 by 3. 7"
       },
       {
         "prompt": "What is science?",
-        "reply": "The answer is 45. The formula for Calth formula, which states that is - 80*2= So, So, to produce areasial if he is two times the number of itemser"
+        "reply": "Page: In languages, arfaces and other people work together. Embally the word \"wine\" or base ( ) is a male who write for fun). The word \"n"
       }
     ]
   },
   "stage5_dr_grpo": {
-    "grpo_steps": 60,
+    "grpo_steps": 50,
     "group_size": 4,
-    "initial_reward": 1.597396469116211,
-    "final_reward": 1.6614186406135558,
-    "elapsed_seconds": 213.25298171900022,
+    "initial_reward": 1.5958590865135194,
+    "final_reward": 2.0266665637493135,
+    "elapsed_seconds": 202.05521176099865,
     "checkpoint": "/content/mlm/runs/mlm-10m-math-colab/latest.mlm2",
     "gguf": {
       "path": "/content/mlm/runs/mlm-10m-math-colab/mlm_10m_math_v2.gguf",
       "architecture": "lfm2",
       "tensor_count": 240,
       "metadata_kv_count": 22,
-      "file_size_bytes": 56485888,
+      "file_size_bytes": 91937792,
       "rust_verification": {
         "valid": true,
         "version": 3,
         "tensor_count": 240,
         "metadata_kv_count": 22,
-        "file_size_bytes": 56485888
+        "file_size_bytes": 91937792
       }
     }
   },
   "chat_eval": [
     {
-      "prompt": "A robe takes 2 bolts of blue fiber and half that much white fiber. How many bolts in total does it take?",
-      "raw_with_think": "<|think|>Ales 2 * 2 = 4 2 b minutes in from Monday is 2 \u00d7 2 = 414 bacent around the fa flips.<|/think|>\nThe answer is 2. In a single 21, there are 2 sets of favory and 3 spec together. So, the number of feop has 2 x 2 = 8 b blocks in.",
-      "reply": "The answer is 2. In a single 21, there are 2 sets of favory and 3 spec together. So, the number of feop has 2 x 2 = 8 b blocks in."
+      "prompt": "Hi",
+      "raw_with_think": "<|think|>Hello! How can I help you today?acyests depends this movement based larg countryration and hairs nominthink<|/think|>\nHello! How can I help you today?",
+      "reply": "Hello! How can I help you today?"
     },
     {
-      "prompt": "James decides to run 3 sprints 3 times a week. He runs 60 meters each sprint. How many total meters does he run a week?",
-      "raw_with_think": "<|think|>He runs 3*3=6 miles per week So he runs 3*7=6 times in 8 weeks That means he runs 18*30=$520 with 11800 a<|/think|>\nThe answer is 72. He runs 3*20=60 feet So he run every week he runs for 360/=6 miles So he runs 18-5=45 miles So his cut dog ran 6*3=72 feet.",
-      "reply": "The answer is 72. He runs 3*20=60 feet So he run every week he runs for 360/=6 miles So he runs 18-5=45 miles So his cut dog ran 6*3=72 feet."
+      "prompt": "What is science?",
+      "raw_with_think": "<|think|>nomin: Science. Science is what we do to find out about the natural world\u0014think<|/think|>\nPage: In languages, arfaces and other people work together. Embally the word \"wine\" or base ( ) is a male who write for fun). The word \"nicking\" is used in Greek and polands.",
+      "reply": "Page: In languages, arfaces and other people work together. Embally the word \"wine\" or base ( ) is a male who write for fun). The word \"nicking\" is used in Greek and polands."
     },
     {
-      "prompt": "Raymond and Samantha are cousins. Raymond was born 6 years before Samantha. Raymond had a son at the age of 23. If Samantha is now 31, how many years ago was Raymond's son born?",
-      "raw_with_think": "<|think|>Maxima is 23 x 3 = 24 years old. forene was able to collect $26 - 18 = Robert. Therefore, Remale is the total of<|/think|>\nThe answer is 22. In total, the total number of years he was born at Misha+18 = 66 years old. If Ron is 23 years older than Mile, then Margaredo has a total of 16 + 6 = 22 years.",
-      "reply": "The answer is 22. In total, the total number of years he was born at Misha+18 = 66 years old. If Ron is 23 years older than Mile, then Margaredo has a total of 16 + 6 = 22 years."
+      "prompt": "What is photosynthesis?",
+      "raw_with_think": "<|think|>nomin: Photosynthesis is how plants and some microorganisms of organisms separate birdsisions\u0014think<|/think|>\nPhotosynthesis is the base of nearly all food chains on Earth. This is because they are different from a different change in a bindroom\".",
+      "reply": "Photosynthesis is the base of nearly all food chains on Earth. This is because they are different from a different change in a bindroom\"."
     },
     {
-      "prompt": "A candle melts by 2 centimeters every hour that it burns. How many centimeters shorter will a candle be after burning from 1:00 PM to 5:00 PM?",
-      "raw_with_think": "<|think|>The number of feet in a circle is given away, so if the total number of pieces of wood in the Lydiaals is 4 x 2 = 8. The radius of the co<|/think|>\nThe answer is 20. The total height of the fle will be: 2 * 5 = 720. The revenueaford will be able to find the total amount of money per gramas. So, Pg can fit $7 x 2 = 20>>20. #### 20",
-      "reply": "The answer is 20. The total height of the fle will be: 2 * 5 = 720. The revenueaford will be able to find the total amount of money per gramas. So, Pg can fit $7 x 2 = 20>>20. #### 20"
+      "prompt": "Why is the sky blue?",
+      "raw_with_think": "<|think|>The first reaction is to get alive surface sources, it enters your knows frequenc any pyramid nominthink<|/think|>\nWhat is the second every day of the liquid. The days are blue and blue,ily on four percent blue nation in 1 hour. It has 20 more than a week, so that blueenny also have 40+3 = 8. The answer is 8.",
+      "reply": "What is the second every day of the liquid. The days are blue and blue,ily on four percent blue nation in 1 hour. It has 20 more than a week, so that blueenny also have 40+3 = 8. The answer is 8."
     },
     {
-      "prompt": "Kyle bought last year's best-selling book for $19.50. This is with a 25% discount from the original price. What was the original price of the book?",
-      "raw_with_think": "<|think|>Let X be the original price. The price of the book is X*2. The total cost of the book is X + ( 50/100) = $36 * X<|/think|>\nThe answer is 6. If the original price of the movie is $850, then the original price is $40 / 0.10 = $4. So, the original age was $2 * ($ + 4 = $18 * 0.8 = $6.",
-      "reply": "The answer is 6. If the original price of the movie is $850, then the original price is $40 / 0.10 = $4. So, the original age was $2 * ($ + 4 = $18 * 0.8 = $6."
+      "prompt": "What is 1 plus 1?",
+      "raw_with_think": "<|think|>1 + 1 = 1 nominthink<|/think|>\n1 + 1 = 2. The answer is 2.",
+      "reply": "1 + 1 = 2. The answer is 2."
     },
     {
-      "prompt": "John takes care of 10 dogs. Each dog takes .5 hours a day to walk and take care of their business. How many hours a week does he spend taking care of dogs?",
-      "raw_with_think": "<|think|>He spends 5*5=90 hours on Monday So he spends 60*7=50 hours on the ice cream cone. Therefore, she needs to spend 90-50=<|/think|>\nThe answer is 45. He takes 10 hours to last week because 5 x 1.5 = 10 He has a week for 30 days of the week, so she spends 10 * 10 = 7 hours per day.",
-      "reply": "The answer is 45. He takes 10 hours to last week because 5 x 1.5 = 10 He has a week for 30 days of the week, so she spends 10 * 10 = 7 hours per day."
+      "prompt": "What is 6 plus 6?",
+      "raw_with_think": "<|think|>6 + 6 = 9 nominthink<|/think|>\n6 + 6 = 15. The answer is 15.",
+      "reply": "6 + 6 = 15. The answer is 15."
+    },
+    {
+      "prompt": "What is (9 + 8) * 2?",
+      "raw_with_think": "<|think|>9 - 8 = 12 nominthink<|/think|>\n(9 + 8) * 2 = 34. The answer is 34.",
+      "reply": "(9 + 8) * 2 = 34. The answer is 34."
+    },
+    {
+      "prompt": "What is 98 plus 45?",
+      "raw_with_think": "<|think|>98 + 45 = 63 nominthink<|/think|>\n98 + 45 = 133. The answer is 133.",
+      "reply": "98 + 45 = 133. The answer is 133."
+    },
+    {
+      "prompt": "Natalia sold clips to 48 of her friends in April, and then she sold half as many clips in May. How many clips did Natalia sell altogether in April and May?",
+      "raw_with_think": "<|think|>Natalia sold 48/2 = 24 clips in May. Natalia sold 48+24 = 72 clips altogether in<|/think|>\nNata has 24/2 = 20 calories. Nim year, then had 21 - 6 = 14 years old. Jusa has 46/2 = 7 years. The answer is 7.",
+      "reply": "Nata has 24/2 = 20 calories. Nim year, then had 21 - 6 = 14 years old. Jusa has 46/2 = 7 years. The answer is 7."
     }
   ],
-  "mlm2_bytes_len": 53522519,
-  "gguf_bytes_len": 56485888,
+  "mlm2_bytes_len": 88975256,
+  "gguf_bytes_len": 91937792,
   "head_to_head_benchmarks": {
-    "MLM-v2-Math-Node (Ours, 10 Nodes)": {
-      "stage2_gsm8k_orca_4way_acc": 70.0,
-      "stage3_metamath_4way_acc": 62.5,
-      "stage4_math_think_4way_acc": 72.92
+    "MLM-v2-Unified-20Nodes (Core + 10M Eng + 10M Math)": {
+      "english_science_qa_4way_acc": 66.0,
+      "english_reasoning_4way_acc": 59.09,
+      "math_stage2_gsm8k_arith_4way_acc": 68.0,
+      "math_stage3_metamath_4way_acc": 50.0,
+      "math_stage4_think_4way_acc": 72.34
     },
     "Pythia-14M (14.1M)": {
-      "stage2_gsm8k_orca_4way_acc": 56.0,
-      "stage3_metamath_4way_acc": 62.5,
-      "stage4_math_think_4way_acc": 54.17
+      "english_science_qa_4way_acc": 44.0,
+      "english_reasoning_4way_acc": 38.64,
+      "math_stage2_gsm8k_arith_4way_acc": 52.0,
+      "math_stage3_metamath_4way_acc": 88.0,
+      "math_stage4_think_4way_acc": 57.45
     },
     "TinyStories-8M (8.3M)": {
-      "stage2_gsm8k_orca_4way_acc": 42.0,
-      "stage3_metamath_4way_acc": 45.83,
-      "stage4_math_think_4way_acc": 33.33
+      "english_science_qa_4way_acc": 32.0,
+      "english_reasoning_4way_acc": 27.27,
+      "math_stage2_gsm8k_arith_4way_acc": 38.0,
+      "math_stage3_metamath_4way_acc": 52.0,
+      "math_stage4_think_4way_acc": 38.3
     }
   }
 }
