@@ -104,17 +104,17 @@ class MLMNodeCluster:
         return cls(loaded)
 
     def route_prompt(self, message: str, context: str = "") -> dict[str, Any]:
-        """Select the best specialist node purely from neural log-likelihood & confidence."""
-        prompt = format_chat_prompt_v2(message, context=context)
+        """Select the best specialist node purely from neural log-likelihood on `message`."""
+        query_text = f"{context.strip()}\n{message.strip()}".strip() if context else message.strip()
 
         raw_metrics: dict[str, dict[str, float]] = {}
         scores: dict[str, float] = {}
         for name in self.node_order:
             node = self.nodes[name]
-            m = score_node_prompt_affinity_v2(node, prompt)
+            m = score_node_prompt_affinity_v2(node, query_text)
             raw_metrics[name] = m
-            # Pure neural routing score: sequence log-likelihood + assistant boundary confidence
-            scores[name] = float(m["mean_log_likelihood"] + 0.50 * m["next_token_confidence"])
+            # Pure neural routing score: unmasked domain log-likelihood
+            scores[name] = float(m["mean_log_likelihood"])
 
         selected_name = max(self.node_order, key=lambda n: scores[n])
         return {

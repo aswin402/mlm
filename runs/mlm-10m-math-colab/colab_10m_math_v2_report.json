@@ -1,0 +1,207 @@
+{
+  "stage1": {
+    "arch_version": "v2_hybrid",
+    "parameters": 7991312,
+    "vocab_size": 4096,
+    "n_layers": 8,
+    "effective_layer_passes": 12,
+    "use_mhc": true,
+    "use_ncm": true,
+    "d_model": 192,
+    "n_experts": 4,
+    "mature_experts": 0,
+    "steps": 800,
+    "elapsed_seconds": 287.474361866,
+    "tokens_per_second": 8109.1857544034865,
+    "best_val_loss": 3.0483546929071412,
+    "checkpoint": "/content/mlm/runs/mlm-10m-math-colab/stage1_foundations/best.mlm2",
+    "latest_checkpoint": "/content/mlm/runs/mlm-10m-math-colab/stage1_foundations/latest.mlm2",
+    "gguf": null,
+    "samples": [
+      {
+        "prompt": "Hi",
+        "reply": "Solutionile all theth ice created by squaring 24, 3 lily and 4 cartons of peanuts were used to manag.E. gave away 2 liters of its four he has:(."
+      },
+      {
+        "prompt": "How are you?",
+        "reply": "Solution: If two characo has P, we need to find the combined work rate of 30*2 = n be 11 band. We are given that total * 12 gallons = 180 cm So"
+      },
+      {
+        "prompt": "What is science?",
+        "reply": "Solution: Last year, we need to find the average age for first's then 9 - 3 = 18. The average score is 4 * 12 = 54 years old. Final answer: 180."
+      }
+    ]
+  },
+  "stage2": {
+    "arch_version": "v2_hybrid",
+    "parameters": 9763888,
+    "vocab_size": 4096,
+    "n_layers": 8,
+    "effective_layer_passes": 12,
+    "use_mhc": true,
+    "use_ncm": true,
+    "d_model": 192,
+    "n_experts": 6,
+    "mature_experts": 4,
+    "steps": 1000,
+    "elapsed_seconds": 512.349671296,
+    "tokens_per_second": 3025.6621343754196,
+    "best_val_loss": 3.2193051444484957,
+    "checkpoint": "/content/mlm/runs/mlm-10m-math-colab/stage2_arithmetic_word/best.mlm2",
+    "latest_checkpoint": "/content/mlm/runs/mlm-10m-math-colab/stage2_arithmetic_word/latest.mlm2",
+    "gguf": null,
+    "samples": [
+      {
+        "prompt": "Hi",
+        "reply": "E estimai chap rais to 3 stos, we can deduce the following sequence: Case 1. Fruy crossed: Boo 3.5 = 4."
+      },
+      {
+        "prompt": "How are you?",
+        "reply": "A number that can be made by conner out of the number cards: Number and then have a number that is divisible by 4. 2."
+      },
+      {
+        "prompt": "What is science?",
+        "reply": "S's house is 16. Since 80 is younger than Jimin, we can expressed by subtracting both sides of the equation: 80 - 16 = 94 Dereow + 80% = 90 He to"
+      }
+    ]
+  },
+  "stage3": {
+    "arch_version": "v2_hybrid",
+    "parameters": 11536464,
+    "vocab_size": 4096,
+    "n_layers": 8,
+    "effective_layer_passes": 12,
+    "use_mhc": true,
+    "use_ncm": true,
+    "d_model": 192,
+    "n_experts": 8,
+    "mature_experts": 6,
+    "steps": 1000,
+    "elapsed_seconds": 597.712107222,
+    "tokens_per_second": 3247.178661012343,
+    "best_val_loss": 2.66365966796875,
+    "checkpoint": "/content/mlm/runs/mlm-10m-math-colab/stage3_algebra_geometry/best.mlm2",
+    "latest_checkpoint": "/content/mlm/runs/mlm-10m-math-colab/stage3_algebra_geometry/latest.mlm2",
+    "gguf": null,
+    "samples": [
+      {
+        "prompt": "Hi",
+        "reply": "Eics closets a number by 6, we can use the formula for right: In this case, each place in the units place is 6th."
+      },
+      {
+        "prompt": "How are you?",
+        "reply": "The answer is 20. If you removey 200 to make one pair of 90, then the answer is 250 - 12 = 24 lessons. Therefore, the total number of everything that they"
+      },
+      {
+        "prompt": "What is science?",
+        "reply": "The answer is 45. The formula for Calth formula, which states that is - 80*2= So, So, to produce areasial if he is two times the number of itemser"
+      }
+    ]
+  },
+  "stage4_reasoning": {
+    "arch_version": "v2_hybrid",
+    "parameters": 13309040,
+    "vocab_size": 4096,
+    "n_layers": 8,
+    "effective_layer_passes": 12,
+    "use_mhc": true,
+    "use_ncm": true,
+    "d_model": 192,
+    "n_experts": 10,
+    "mature_experts": 8,
+    "steps": 420,
+    "elapsed_seconds": 276.33964354900013,
+    "tokens_per_second": 2223.553566577014,
+    "best_val_loss": 3.9324558142459756,
+    "checkpoint": "/content/mlm/runs/mlm-10m-math-colab/stage4_math_reasoning/best.mlm2",
+    "latest_checkpoint": "/content/mlm/runs/mlm-10m-math-colab/stage4_math_reasoning/latest.mlm2",
+    "gguf": null,
+    "samples": [
+      {
+        "prompt": "Hi",
+        "reply": "Eics closets a number by 6, we can use the formula for right: In this case, each place in the units place is 6th."
+      },
+      {
+        "prompt": "How are you?",
+        "reply": "The answer is 20. If you removey 200 to make one pair of 90, then the answer is 250 - 12 = 24 lessons. Therefore, the total number of everything that they"
+      },
+      {
+        "prompt": "What is science?",
+        "reply": "The answer is 45. The formula for Calth formula, which states that is - 80*2= So, So, to produce areasial if he is two times the number of itemser"
+      }
+    ]
+  },
+  "stage5_dr_grpo": {
+    "grpo_steps": 60,
+    "group_size": 4,
+    "initial_reward": 1.597396469116211,
+    "final_reward": 1.6614186406135558,
+    "elapsed_seconds": 213.25298171900022,
+    "checkpoint": "/content/mlm/runs/mlm-10m-math-colab/latest.mlm2",
+    "gguf": {
+      "path": "/content/mlm/runs/mlm-10m-math-colab/mlm_10m_math_v2.gguf",
+      "architecture": "lfm2",
+      "tensor_count": 240,
+      "metadata_kv_count": 22,
+      "file_size_bytes": 56485888,
+      "rust_verification": {
+        "valid": true,
+        "version": 3,
+        "tensor_count": 240,
+        "metadata_kv_count": 22,
+        "file_size_bytes": 56485888
+      }
+    }
+  },
+  "chat_eval": [
+    {
+      "prompt": "A robe takes 2 bolts of blue fiber and half that much white fiber. How many bolts in total does it take?",
+      "raw_with_think": "<|think|>Ales 2 * 2 = 4 2 b minutes in from Monday is 2 \u00d7 2 = 414 bacent around the fa flips.<|/think|>\nThe answer is 2. In a single 21, there are 2 sets of favory and 3 spec together. So, the number of feop has 2 x 2 = 8 b blocks in.",
+      "reply": "The answer is 2. In a single 21, there are 2 sets of favory and 3 spec together. So, the number of feop has 2 x 2 = 8 b blocks in."
+    },
+    {
+      "prompt": "James decides to run 3 sprints 3 times a week. He runs 60 meters each sprint. How many total meters does he run a week?",
+      "raw_with_think": "<|think|>He runs 3*3=6 miles per week So he runs 3*7=6 times in 8 weeks That means he runs 18*30=$520 with 11800 a<|/think|>\nThe answer is 72. He runs 3*20=60 feet So he run every week he runs for 360/=6 miles So he runs 18-5=45 miles So his cut dog ran 6*3=72 feet.",
+      "reply": "The answer is 72. He runs 3*20=60 feet So he run every week he runs for 360/=6 miles So he runs 18-5=45 miles So his cut dog ran 6*3=72 feet."
+    },
+    {
+      "prompt": "Raymond and Samantha are cousins. Raymond was born 6 years before Samantha. Raymond had a son at the age of 23. If Samantha is now 31, how many years ago was Raymond's son born?",
+      "raw_with_think": "<|think|>Maxima is 23 x 3 = 24 years old. forene was able to collect $26 - 18 = Robert. Therefore, Remale is the total of<|/think|>\nThe answer is 22. In total, the total number of years he was born at Misha+18 = 66 years old. If Ron is 23 years older than Mile, then Margaredo has a total of 16 + 6 = 22 years.",
+      "reply": "The answer is 22. In total, the total number of years he was born at Misha+18 = 66 years old. If Ron is 23 years older than Mile, then Margaredo has a total of 16 + 6 = 22 years."
+    },
+    {
+      "prompt": "A candle melts by 2 centimeters every hour that it burns. How many centimeters shorter will a candle be after burning from 1:00 PM to 5:00 PM?",
+      "raw_with_think": "<|think|>The number of feet in a circle is given away, so if the total number of pieces of wood in the Lydiaals is 4 x 2 = 8. The radius of the co<|/think|>\nThe answer is 20. The total height of the fle will be: 2 * 5 = 720. The revenueaford will be able to find the total amount of money per gramas. So, Pg can fit $7 x 2 = 20>>20. #### 20",
+      "reply": "The answer is 20. The total height of the fle will be: 2 * 5 = 720. The revenueaford will be able to find the total amount of money per gramas. So, Pg can fit $7 x 2 = 20>>20. #### 20"
+    },
+    {
+      "prompt": "Kyle bought last year's best-selling book for $19.50. This is with a 25% discount from the original price. What was the original price of the book?",
+      "raw_with_think": "<|think|>Let X be the original price. The price of the book is X*2. The total cost of the book is X + ( 50/100) = $36 * X<|/think|>\nThe answer is 6. If the original price of the movie is $850, then the original price is $40 / 0.10 = $4. So, the original age was $2 * ($ + 4 = $18 * 0.8 = $6.",
+      "reply": "The answer is 6. If the original price of the movie is $850, then the original price is $40 / 0.10 = $4. So, the original age was $2 * ($ + 4 = $18 * 0.8 = $6."
+    },
+    {
+      "prompt": "John takes care of 10 dogs. Each dog takes .5 hours a day to walk and take care of their business. How many hours a week does he spend taking care of dogs?",
+      "raw_with_think": "<|think|>He spends 5*5=90 hours on Monday So he spends 60*7=50 hours on the ice cream cone. Therefore, she needs to spend 90-50=<|/think|>\nThe answer is 45. He takes 10 hours to last week because 5 x 1.5 = 10 He has a week for 30 days of the week, so she spends 10 * 10 = 7 hours per day.",
+      "reply": "The answer is 45. He takes 10 hours to last week because 5 x 1.5 = 10 He has a week for 30 days of the week, so she spends 10 * 10 = 7 hours per day."
+    }
+  ],
+  "mlm2_bytes_len": 53522519,
+  "gguf_bytes_len": 56485888,
+  "head_to_head_benchmarks": {
+    "MLM-v2-Math-Node (Ours, 10 Nodes)": {
+      "stage2_gsm8k_orca_4way_acc": 70.0,
+      "stage3_metamath_4way_acc": 62.5,
+      "stage4_math_think_4way_acc": 72.92
+    },
+    "Pythia-14M (14.1M)": {
+      "stage2_gsm8k_orca_4way_acc": 56.0,
+      "stage3_metamath_4way_acc": 62.5,
+      "stage4_math_think_4way_acc": 54.17
+    },
+    "TinyStories-8M (8.3M)": {
+      "stage2_gsm8k_orca_4way_acc": 42.0,
+      "stage3_metamath_4way_acc": 45.83,
+      "stage4_math_think_4way_acc": 33.33
+    }
+  }
+}
