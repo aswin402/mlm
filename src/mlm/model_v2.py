@@ -520,18 +520,20 @@ def routed_graph_nodes_ffn(
             new_tier_mask=new_tier_mask,
         )
         math_base_end = min(n_nodes, 18)
-        e_eng = jnp.mean(
-            jax.scipy.special.logsumexp(router_logits[..., :8], axis=-1, keepdims=True),
-            axis=1,
-            keepdims=True,
+        n_math_base = max(1, math_base_end - 10)
+        e_eng_tok = (
+            jax.scipy.special.logsumexp(router_logits[..., :8], axis=-1, keepdims=True)
+            - jnp.log(8.0)
         )
-        e_math = jnp.mean(
+        e_math_tok = (
             jax.scipy.special.logsumexp(
                 router_logits[..., 10:math_base_end], axis=-1, keepdims=True
-            ),
-            axis=1,
-            keepdims=True,
+            )
+            - jnp.log(float(n_math_base))
         )
+        steps = jnp.arange(1, x.shape[1] + 1, dtype=x.dtype)[None, :, None]
+        e_eng = 0.5 * e_eng_tok + 0.5 * (jnp.cumsum(e_eng_tok, axis=1) / steps)
+        e_math = 0.5 * e_math_tok + 0.5 * (jnp.cumsum(e_math_tok, axis=1) / steps)
         p_math = jax.nn.sigmoid(2.0 * (e_math - e_eng))
         p_eng = 1.0 - p_math
         gated_probs = jnp.concatenate([p_eng * eng_probs, p_math * math_probs], axis=-1)
@@ -1276,7 +1278,7 @@ def grow_model_v2_nodes(
     emb_arr = np.asarray(params["tok_embeddings.weight"], dtype=np.float32).copy()
     t_open = new_cfg.think_open_id
     t_close = new_cfg.think_close_id
-    if n_old >= 8 and 0 <= t_open < emb_arr.shape[0] and 0 <= t_close < emb_arr.shape[0]:
+    if n_old == 8 and 0 <= t_open < emb_arr.shape[0] and 0 <= t_close < emb_arr.shape[0]:
         mean_norm = float(np.mean(np.linalg.norm(emb_arr, axis=-1)))
         v_base = emb_arr[t_open] / max(float(np.linalg.norm(emb_arr[t_open])), 1e-6)
         ortho_raw = rng.normal(0.0, 1.0, size=v_base.shape).astype(np.float32)
