@@ -447,12 +447,35 @@ def _content_words(text: str) -> set[str]:
     return {w for w in words if w not in stop}
 
 
+def compute_ornith_task_weights_v2(
+    emp_pass_rates: np.ndarray,
+    novelty_scores: np.ndarray,
+    validity_flags: np.ndarray | None = None,
+    p_star: float = 0.35,
+    sigma: float = 0.30,
+) -> np.ndarray:
+    """Ornith-1.5 (`ornith.ai/ornith_1_5.html`) Task Frontier & Novelty Curriculum `V * D * N`."""
+    p = np.asarray(emp_pass_rates, dtype=np.float64)
+    n_vec = np.clip(np.asarray(novelty_scores, dtype=np.float64), 0.15, 1.0)
+    v_vec = (
+        np.ones_like(p)
+        if validity_flags is None
+        else np.clip(np.asarray(validity_flags, dtype=np.float64), 0.0, 1.0)
+    )
+    diff_term = np.exp(-np.square(p - float(p_star)) / (2.0 * float(sigma) ** 2))
+    raw = v_vec * diff_term * n_vec
+    total = float(np.sum(raw))
+    if total <= 1e-12:
+        return np.full_like(p, 1.0 / max(len(p), 1))
+    return raw / total
+
+
 def score_grpo_response_v2(
     prompt_text: str,
     generated_text: str,
     reference_answer: str,
 ) -> float:
-    """Compute DeepSeek-R1 + Dr. GRPO verifiable format, grounding, and accuracy reward."""
+    """Compute Ornith-1.5 + DeepSeek-R1 + Dr. GRPO verifiable format, validity gate, & F1 reward."""
     if not generated_text.strip():
         return -1.0
 
@@ -460,7 +483,7 @@ def score_grpo_response_v2(
     ans_part = generated_text.strip()
     thought_part = ""
 
-    # 1. DeepSeek-R1 + GLM-5.3-Flash `<|think|>...<|/think|>` structural format reward
+    # 1. Ornith-1.5 Hard Scaffold Validity Gate V(q, s) & `<|think|>...<|/think|>` check
     if "<|think|>" in generated_text or "<|/think|>" in generated_text:
         i_open = generated_text.find("<|think|>")
         i_close = generated_text.find("<|/think|>")
@@ -474,17 +497,28 @@ def score_grpo_response_v2(
             if len(thought_part) >= 8 and len(ans_part) >= 4:
                 reward += 0.5
             else:
-                reward -= 0.2
+                return -0.4
         else:
-            reward -= 0.5
+            # Ornith-1.5 Hard Gate: V(q, s) = 0 => malformed scaffold cannot earn positive reward
+            return -0.6
 
     if ans_part and ans_part[-1] in ".!?":
         reward += 0.2
 
-    # 2. Verifiable answer F1, GLM-5.3-Flash SAO thought-bridge, & anti-hallucination reward
+    # 2. Verifiable answer F1, GLM-5.3-Flash SAO thought-bridge, & Ornith-1.5 Hack Resistance H(h)
     ref_clean = reference_answer
     if "<|/think|>" in ref_clean:
         ref_clean = ref_clean.split("<|/think|>", 1)[1].strip()
+
+    norm_ans = " ".join(ans_part.lower().split())
+    norm_ref = " ".join(ref_clean.lower().split())
+    norm_prompt = " ".join(prompt_text.lower().split())
+    # Ornith-1.5 Anti-Reward-Hacking check: reject answers that merely parrot the user question
+    is_prompt_parrot = bool(
+        norm_prompt and norm_ans == norm_prompt and norm_ans != norm_ref
+    )
+    if is_prompt_parrot:
+        return -0.5
 
     gen_words = _content_words(ans_part)
     ref_words = _content_words(ref_clean)
@@ -508,8 +542,6 @@ def score_grpo_response_v2(
     elif not gen_words:
         reward -= 0.4
 
-    norm_ans = " ".join(ans_part.lower().split())
-    norm_ref = " ".join(ref_clean.lower().split())
     if norm_ref and (norm_ans == norm_ref or norm_ans.startswith(norm_ref[:24])):
         reward += 0.4
 
@@ -521,7 +553,7 @@ def make_grpo_step_v2(
     total_steps: int = 200,
     kl_beta: float = 0.04,
 ):
-    """Compile Dr. GRPO (`arXiv:2503.20783`) critic-free policy optimization step for MLM v2."""
+    """Compile Ornith-1.5 + Dr. GRPO (`arXiv:2503.20783`) critic-free policy optimization step."""
     warmup = min(config.warmup_steps, max(1, total_steps // 5))
     decay_steps = max(total_steps, warmup + 1)
     schedule = optax.warmup_cosine_decay_schedule(
@@ -552,17 +584,33 @@ def make_grpo_step_v2(
         ref_logits = jax.lax.stop_gradient(forward_v2(ref_params, inputs, config))
         ref_lps_all = jax.nn.log_softmax(ref_logits, axis=-1)
         ref_tok_lps = jnp.take_along_axis(ref_lps_all, targets[..., None], axis=-1)[..., 0]
+        old_logits = jax.lax.stop_gradient(forward_v2(params, inputs, config))
+        old_lps_all = jax.nn.log_softmax(old_logits, axis=-1)
+        old_tok_lps = jnp.take_along_axis(old_lps_all, targets[..., None], axis=-1)[..., 0]
+
+        # Ornith-1.0 / 1.5 Horizon Staleness Weighting w(d_t) (K1=36, K2=96, lambda=0.025)
+        d_t = jnp.cumsum(mask, axis=-1)
+        w_dt = jnp.where(
+            d_t <= 36.0,
+            1.0,
+            jnp.where(d_t <= 96.0, jnp.exp(-0.025 * (d_t - 36.0)), 0.0),
+        )
 
         def loss_fn(p):
             logits = forward_v2(p, inputs, config)
             lps_all = jax.nn.log_softmax(logits, axis=-1)
             tok_lps = jnp.take_along_axis(lps_all, targets[..., None], axis=-1)[..., 0]
 
-            ratio = jnp.exp(tok_lps - jax.lax.stop_gradient(tok_lps))
+            ratio = jnp.exp(jnp.clip(tok_lps - old_tok_lps, -4.0, 4.0))
+            adv = advantages[:, None]
+            surr1 = ratio * adv
+            surr2 = jnp.clip(ratio, 1.0 - 0.20, 1.0 + 0.28) * adv
+            clipped_obj = jnp.minimum(surr1, surr2) * w_dt
+
             log_diff = ref_tok_lps - tok_lps
             kl_per_tok = jnp.exp(log_diff) - log_diff - 1.0
 
-            per_tok_obj = advantages[:, None] * ratio - float(kl_beta) * kl_per_tok
+            per_tok_obj = clipped_obj - float(kl_beta) * kl_per_tok
             # Normalize by fixed horizon constant `max_seq_len` per Dr. GRPO (Eq. 5)
             norm_const = float(inputs.shape[0] * config.max_seq_len)
             return -jnp.sum(per_tok_obj * mask) / jnp.maximum(norm_const, 1.0)
@@ -683,9 +731,18 @@ def run_grpo_v2(
     rng = np.random.default_rng(cfg.seed + 77)
     t0 = time.perf_counter()
     reward_history: list[float] = []
+    n_items = max(len(qa_items), 1)
+    emp_pass_rates = np.full((n_items,), 0.35, dtype=np.float64)
+    novelty_scores = np.ones((n_items,), dtype=np.float64)
+    validity_flags = np.ones((n_items,), dtype=np.float64)
+    prompt_word_sets = [_content_words(u) for u, _ in qa_items]
 
     for s in range(1, steps + 1):
-        u_prompt, ref_ans = qa_items[int(rng.integers(0, len(qa_items)))]
+        task_probs = compute_ornith_task_weights_v2(
+            emp_pass_rates, novelty_scores, validity_flags, p_star=0.35, sigma=0.30
+        )
+        q_idx = int(rng.choice(len(qa_items), p=task_probs))
+        u_prompt, ref_ans = qa_items[q_idx]
         formatted_prompt = format_chat_prompt_v2(u_prompt)
 
         group_records: list[dict] = []
@@ -706,6 +763,20 @@ def run_grpo_v2(
             r_val = score_grpo_response_v2(u_prompt, gen_reply, ref_ans)
             group_records.append(_make_grpo_rollout_record(u_prompt, gen_reply))
             group_rewards.append(r_val)
+
+        # Update Ornith-1.5 empirical pass rate p_i and novelty N(q)
+        sample_rewards = np.asarray(group_rewards, dtype=np.float64)
+        cur_pass = float(np.mean(sample_rewards >= 0.75))
+        emp_pass_rates[q_idx] = 0.6 * emp_pass_rates[q_idx] + 0.4 * cur_pass
+        cur_words = prompt_word_sets[q_idx]
+        novelty_scores = np.minimum(1.0, novelty_scores + 0.03)
+        novelty_scores[q_idx] = 0.35
+        if cur_words:
+            for j_idx, w_set in enumerate(prompt_word_sets):
+                if j_idx != q_idx and w_set:
+                    sim = len(cur_words & w_set) / max(len(cur_words | w_set), 1)
+                    if sim > 0.5:
+                        novelty_scores[j_idx] = min(novelty_scores[j_idx], 1.0 - 0.5 * sim)
 
         # Include verified reference trajectory as anchor in group to prevent zero-variance collapse
         ref_r_val = score_grpo_response_v2(u_prompt, ref_ans, ref_ans)

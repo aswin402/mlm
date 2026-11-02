@@ -642,6 +642,23 @@ def init_params_v2(config: ConfigV2) -> dict[str, jnp.ndarray]:
     return params
 
 
+def compute_ornith_scaffold_mask(
+    tokens: jnp.ndarray,
+    think_open_id: int,
+    k1: int = 28,
+    decay_lambda: float = 0.025,
+) -> jnp.ndarray:
+    """Ornith-1.5 Self-Scaffold Horizon Mask `w(d_t)` for Tiered `<|think|>` Graph Nodes."""
+    has_opened = jnp.maximum.accumulate((tokens == think_open_id).astype(jnp.float32), axis=-1)
+    d_t = jnp.cumsum(has_opened, axis=-1)
+    decay = jnp.where(
+        d_t <= float(k1),
+        1.0,
+        jnp.maximum(0.35, jnp.exp(-float(decay_lambda) * (d_t - float(k1)))),
+    )
+    return (has_opened * decay)[..., None]
+
+
 def forward_with_hidden_v2(
     params: dict[str, jnp.ndarray],
     tokens: jnp.ndarray,
@@ -657,9 +674,7 @@ def forward_with_hidden_v2(
         and config.think_open_id >= 0
     )
     think_tier_mask = (
-        jnp.maximum.accumulate((tokens == config.think_open_id).astype(jnp.float32), axis=-1)[
-            ..., None
-        ]
+        compute_ornith_scaffold_mask(tokens, config.think_open_id)
         if use_tiered_reasoning
         else None
     )

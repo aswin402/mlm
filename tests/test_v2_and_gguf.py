@@ -8,6 +8,7 @@ from mlm.model_v2 import (
     ConfigV2,
     build_layer_execution_schedule,
     compute_ncm_concept_loss_v2,
+    compute_ornith_scaffold_mask,
     create_state_v2,
     dsa_lightning_index_mask,
     expand_shortconv_kernel_v2,
@@ -26,6 +27,7 @@ from mlm.model_v2 import (
 from mlm.tokenizer import BPETokenizer
 from mlm.train_v2 import (
     build_tokenized_dataset,
+    compute_ornith_task_weights_v2,
     format_chat_prompt_v2,
     run_grpo_v2,
     score_grpo_response_v2,
@@ -288,7 +290,9 @@ def test_cli_train_v2_and_chat(tmp_path: Path, capsys):
     out = capsys.readouterr().out
     assert len(out.strip()) > 0
 
-    # Test DeepSeek-R1 + Dr. GRPO verifiable reward & RL step on grown checkpoint
+    # Test DeepSeek-R1 + Ornith-1.5 verifiable reward, validity gate, & frontier weights
+    import numpy as np
+
     r_good = score_grpo_response_v2(
         "What is science?",
         "<|think|>Science studies the natural world.<|/think|>\nScience studies nature.",
@@ -299,7 +303,27 @@ def test_cli_train_v2_and_chat(tmp_path: Path, capsys):
         "<|think|>Unclosed tag",
         "Science studies nature.",
     )
+    r_parrot = score_grpo_response_v2(
+        "What is science?",
+        "What is science?",
+        "Science studies nature.",
+    )
     assert r_good > r_bad
+    assert r_bad < 0.0
+    assert r_parrot < 0.0
+
+    t_weights = compute_ornith_task_weights_v2(
+        np.array([0.35, 1.0, 0.0]),
+        np.array([1.0, 1.0, 1.0]),
+        p_star=0.35,
+    )
+    assert t_weights[0] > t_weights[1]
+
+    import jax.numpy as jnp
+
+    s_mask = compute_ornith_scaffold_mask(jnp.array([[10, 283, 12, 13]], dtype=jnp.int32), 283)
+    assert float(s_mask[0, 0, 0]) == 0.0
+    assert float(s_mask[0, 1, 0]) == 1.0
 
     out_grpo = tmp_path / "out_v2_grpo"
     grpo_res = run_grpo_v2(
