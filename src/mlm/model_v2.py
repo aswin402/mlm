@@ -1240,8 +1240,11 @@ def generate_v2(
         )
         next_logits[tokenizer.pad_id] = -1e9
         next_logits[tokenizer.bos_id] = -1e9
-        if prefilled_think and config.think_open_id >= 0:
-            next_logits[config.think_open_id] = -1e9
+        if prefilled_think:
+            if config.think_open_id >= 0:
+                next_logits[config.think_open_id] = -1e9
+            if len(generated) < 5 and close_id >= 0:
+                next_logits[close_id] = -1e9
 
         if repetition_penalty > 1.0 and generated:
             for prev_id in set(generated[-32:]):
@@ -1281,6 +1284,7 @@ def generate_v2(
                 out.replace("<|think|>", "")
                 .replace("<|/think|>", "")
                 .replace("<|/think>", "")
+                .strip(" |>")
                 .strip()
             )
             clean_ans = generate_v2(
