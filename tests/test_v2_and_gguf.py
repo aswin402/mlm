@@ -7,14 +7,17 @@ from mlm.gguf_export import export_gguf_v2, verify_gguf_with_rust
 from mlm.model_v2 import (
     ConfigV2,
     build_layer_execution_schedule,
+    compute_ncm_concept_loss_v2,
     create_state_v2,
     expand_shortconv_kernel_v2,
     forward_v2,
+    forward_with_hidden_v2,
     generate_v2,
     grow_model_v2_depth,
     load_checkpoint_v2,
     make_train_step_v2,
     merge_checkpoints_v2,
+    ncm_tied_codebook_logits,
     save_checkpoint_v2,
     sinkhorn_knopp_2x2,
     tempered_topk_kd_loss_v2,
@@ -132,8 +135,24 @@ def test_model_v2_hybrid_train_grow_and_gguf(tmp_path: Path):
     )
     sched = build_layer_execution_schedule(loop_cfg)
     assert len(sched) == 10  # 6 physical layers + 4 looped passes = 10 effective layer passes
-    logits_loop = forward_v2(k7_params, ds["inputs"][:2], loop_cfg)
+    logits_loop, hidden_loop = forward_with_hidden_v2(k7_params, ds["inputs"][:2], loop_cfg)
     assert logits_loop.shape == logits_k7.shape
+
+    # HazyResearch/ncm Next-Concept Horizon Loss & Tied Codebook Head
+    ncm_loss = float(
+        compute_ncm_concept_loss_v2(
+            k7_params, hidden_loop, ds["targets"][:2], ds["mask"][:2], loop_cfg
+        )
+    )
+    assert 0.0 <= ncm_loss <= 2.0
+    tied_id = ncm_tied_codebook_logits(
+        hidden_loop,
+        k7_params["tok_embeddings.weight"],
+        log_scale=jnp.zeros((1,), dtype=jnp.float32),
+        norm_alpha=jnp.zeros((1,), dtype=jnp.float32),
+    )
+    raw_id = jnp.matmul(hidden_loop, jnp.swapaxes(k7_params["tok_embeddings.weight"], 0, 1))
+    assert float(jnp.max(jnp.abs(tied_id - raw_id))) < 1e-6
 
     # Save & load checkpoint with SafeTensors + Rust BPE
     ckpt_path = tmp_path / "model.mlm2"

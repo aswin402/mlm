@@ -160,6 +160,9 @@ def run_train_v2(
                 "loop_start_layer": config.loop_start_layer,
                 "loop_end_layer": config.loop_end_layer,
                 "loop_repeats": config.loop_repeats,
+                "use_ncm": config.use_ncm,
+                "ncm_weight": config.ncm_weight,
+                "ncm_window": config.ncm_window,
             }
         )
         if expand_conv_kernel > config.conv_kernel:
@@ -275,6 +278,7 @@ def run_train_v2(
         "n_layers": config.n_layers,
         "effective_layer_passes": len(build_layer_execution_schedule(config)),
         "use_mhc": config.use_mhc,
+        "use_ncm": config.use_ncm,
         "d_model": config.d_model,
         "n_experts": config.n_experts,
         "mature_experts": config.mature_experts,

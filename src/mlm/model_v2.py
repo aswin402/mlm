@@ -55,6 +55,9 @@ class ConfigV2(BaseModel):
     loop_start_layer: int = Field(default=0, ge=0, le=64)
     loop_end_layer: int = Field(default=0, ge=0, le=64)
     loop_repeats: int = Field(default=1, ge=1, le=4)
+    use_ncm: bool = True
+    ncm_weight: float = Field(default=0.15, ge=0.0, le=2.0)
+    ncm_window: int = Field(default=4, ge=2, le=16)
     kd_weight: float = Field(default=0.0, ge=0.0, le=5.0)
     kd_top_k: int = Field(default=16, ge=2, le=128)
     kd_temperature: float = Field(default=2.0, gt=0.1, le=10.0)
@@ -232,6 +235,38 @@ def causal_short_conv(x: jnp.ndarray, conv_weight: jnp.ndarray) -> jnp.ndarray:
     for k in range(k_size):
         acc = acc + padded[:, k : k + t_len, :] * conv_weight[k][None, None, :]
     return acc
+
+
+def ncm_phi_bridge(
+    x_in: jnp.ndarray,
+    wle_vec: jnp.ndarray,
+    phi_conv_w: jnp.ndarray,
+    phi_ratio_logit: jnp.ndarray,
+) -> jnp.ndarray:
+    """NCM (`arXiv:2610.14162`) Coarse-to-Fine `Phi` Concept Bridge & Scale Embedding `wle`."""
+    pooled = causal_short_conv(x_in, phi_conv_w) + wle_vec[None, None, :]
+    r = (0.25 * jax.nn.sigmoid(phi_ratio_logit.astype(jnp.float32)))[None, None, :].astype(
+        x_in.dtype
+    )
+    return (1.0 - r) * x_in + r * pooled
+
+
+def ncm_tied_codebook_logits(
+    hidden_normed: jnp.ndarray,
+    out_w: jnp.ndarray,
+    log_scale: jnp.ndarray | None = None,
+    norm_alpha: jnp.ndarray | None = None,
+) -> jnp.ndarray:
+    """NCM (`arXiv:2610.14162`) Norm-Corrected Tied Codebook Head (`_TiedCodebookHead`)."""
+    raw_logits = jnp.matmul(hidden_normed, jnp.swapaxes(out_w, 0, 1))
+    if log_scale is None or norm_alpha is None:
+        return raw_logits
+    e_sq = jnp.sum(jnp.square(out_w.astype(jnp.float32)), axis=-1)  # (V,)
+    d_scale = jnp.maximum(jnp.mean(e_sq), 1e-6)
+    alpha = 0.25 * jnp.tanh(norm_alpha.astype(jnp.float32))[0]
+    inv_temp = jnp.exp(jnp.clip(log_scale.astype(jnp.float32)[0], -0.5, 0.5))
+    debiased = raw_logits.astype(jnp.float32) - alpha * (e_sq / d_scale)[None, None, :]
+    return (debiased * inv_temp).astype(raw_logits.dtype)
 
 
 def parallel_gated_deltanet(
@@ -532,6 +567,18 @@ def init_params_v2(config: ConfigV2) -> dict[str, jnp.ndarray]:
     params["mtp_proj.weight"] = jnp.asarray(
         rng.normal(0.0, 0.01, size=(2 * d, d)).astype(np.float32)
     )
+    if config.use_ncm:
+        params["ncm_wle.weight"] = jnp.zeros((max_passes, d), dtype=jnp.float32)
+        phi_w = np.full(
+            (config.ncm_window, d), 1.0 / float(config.ncm_window), dtype=np.float32
+        )
+        params["ncm_phi.conv.weight"] = jnp.asarray(phi_w)
+        params["ncm_phi.ratio_logit"] = jnp.full((d,), -1.5, dtype=jnp.float32)
+        params["ncm_concept_proj.weight"] = jnp.asarray(
+            rng.normal(0.0, 0.01, size=(d, d)).astype(np.float32)
+        )
+        params["output_head.log_scale"] = jnp.zeros((1,), dtype=jnp.float32)
+        params["output_head.norm_alpha"] = jnp.zeros((1,), dtype=jnp.float32)
     return params
 
 
@@ -558,6 +605,7 @@ def forward_with_hidden_v2(
     )
 
     mhc_enabled = config.use_mhc and "blk.0.attn_mhc.res" in params
+    ncm_enabled = config.use_ncm and "ncm_phi.conv.weight" in params
     streams = jnp.stack([x, x], axis=-2) if mhc_enabled else None  # (B, T, 2, D)
     schedule = build_layer_execution_schedule(config)
 
@@ -570,6 +618,16 @@ def forward_with_hidden_v2(
         else:
             p_slot = 0
             x_in = x
+
+        if ncm_enabled and pass_idx > 0 and i == config.loop_start_layer:
+            wle_w = params["ncm_wle.weight"]
+            w_slot = min(pass_idx, wle_w.shape[0] - 1)
+            x_in = ncm_phi_bridge(
+                x_in,
+                wle_w[w_slot],
+                params["ncm_phi.conv.weight"],
+                params["ncm_phi.ratio_logit"],
+            )
 
         normed = rms_norm(x_in, params[f"{p}.attn_norm.weight"], config.rms_eps)
         if config.is_attention_layer(i):
@@ -641,11 +699,9 @@ def forward_with_hidden_v2(
                 config.loop_repeats > 1
                 and config.loop_start_layer <= i < config.loop_end_layer
             )
-            is_final_pass = (pass_idx == config.loop_repeats - 1) if in_loop else True
+            pass_scale = 0.75 if (in_loop and pass_idx == 0) else 1.0
             pass_tier_mask = (
-                think_tier_mask if (think_tier_mask is not None and is_final_pass) else (
-                    jnp.zeros_like(think_tier_mask) if think_tier_mask is not None else None
-                )
+                think_tier_mask * pass_scale if think_tier_mask is not None else None
             )
             ffn_out = ffn_out + routed_graph_nodes_ffn(
                 ffn_normed,
@@ -685,8 +741,47 @@ def forward_with_hidden_v2(
         if config.tie_embeddings
         else params["output.weight"]
     )
-    logits = jnp.matmul(hidden_normed, jnp.swapaxes(out_w, 0, 1))
+    logits = ncm_tied_codebook_logits(
+        hidden_normed,
+        out_w,
+        log_scale=params.get("output_head.log_scale") if config.use_ncm else None,
+        norm_alpha=params.get("output_head.norm_alpha") if config.use_ncm else None,
+    )
     return logits.reshape(bsz, t_len, config.vocab_size), hidden_normed
+
+
+def compute_ncm_concept_loss_v2(
+    params: dict[str, jnp.ndarray],
+    hidden_normed: jnp.ndarray,
+    targets: jnp.ndarray,
+    mask: jnp.ndarray,
+    config: ConfigV2,
+) -> jnp.ndarray:
+    """NCM (`arXiv:2610.14162`) Next-Concept Horizon Loss over upcoming W-token centroid."""
+    w_win = max(2, min(int(config.ncm_window), targets.shape[1]))
+    target_embs = jax.lax.stop_gradient(
+        params["tok_embeddings.weight"][targets].astype(jnp.float32)
+    )  # (B, T, D)
+    t_len = targets.shape[1]
+    padded = jnp.pad(target_embs, ((0, 0), (0, w_win - 1), (0, 0)))
+    concept_sum = jnp.zeros_like(target_embs)
+    for k in range(w_win):
+        concept_sum = concept_sum + padded[:, k : k + t_len, :]
+    concept_target = concept_sum / float(w_win)
+    concept_target = concept_target * jax.lax.rsqrt(
+        jnp.sum(jnp.square(concept_target), axis=-1, keepdims=True) + 1e-6
+    )
+
+    h_f32 = hidden_normed.astype(jnp.float32)
+    proj_w = params["ncm_concept_proj.weight"].astype(jnp.float32)
+    pred_concept = h_f32 + jax.nn.silu(h_f32 @ proj_w)
+    pred_concept = pred_concept * jax.lax.rsqrt(
+        jnp.sum(jnp.square(pred_concept), axis=-1, keepdims=True) + 1e-6
+    )
+    cos_sim = jnp.sum(pred_concept * concept_target, axis=-1)  # (B, T)
+    concept_loss = 1.0 - cos_sim
+    denom = jnp.maximum(jnp.sum(mask), 1.0)
+    return jnp.sum(concept_loss * mask) / denom
 
 
 def compute_mtp_logits_v2(
@@ -813,6 +908,15 @@ def make_train_step_v2(
                 mtp_denom = jnp.maximum(jnp.sum(mtp_mask), 1.0)
                 mtp_loss = jnp.sum(mtp_tok_loss * mtp_mask) / mtp_denom
                 total_loss = total_loss + float(config.mtp_weight) * mtp_loss
+            if (
+                config.use_ncm
+                and config.ncm_weight > 0.0
+                and "ncm_concept_proj.weight" in p
+            ):
+                ncm_loss = compute_ncm_concept_loss_v2(
+                    p, hidden_normed, targets, mask, config
+                )
+                total_loss = total_loss + float(config.ncm_weight) * ncm_loss
             if config.kd_weight > 0.0 and teacher_params is not None:
                 t_logits, _ = forward_with_hidden_v2(teacher_params, inputs, eff_teacher_cfg)
                 kd_loss = tempered_topk_kd_loss_v2(
@@ -1136,6 +1240,8 @@ def generate_v2(
         )
         next_logits[tokenizer.pad_id] = -1e9
         next_logits[tokenizer.bos_id] = -1e9
+        if prefilled_think and config.think_open_id >= 0:
+            next_logits[config.think_open_id] = -1e9
 
         if repetition_penalty > 1.0 and generated:
             for prev_id in set(generated[-32:]):
@@ -1312,4 +1418,24 @@ def load_checkpoint_v2(
         params["mtp_proj.weight"] = jnp.asarray(
             rng.normal(0.0, 0.01, size=(2 * config.d_model, config.d_model)).astype(np.float32)
         )
+    if config.use_ncm:
+        d = config.d_model
+        if "ncm_wle.weight" not in params:
+            params["ncm_wle.weight"] = jnp.zeros((max_passes, d), dtype=jnp.float32)
+        if "ncm_phi.conv.weight" not in params:
+            phi_w = np.full(
+                (config.ncm_window, d), 1.0 / float(config.ncm_window), dtype=np.float32
+            )
+            params["ncm_phi.conv.weight"] = jnp.asarray(phi_w)
+        if "ncm_phi.ratio_logit" not in params:
+            params["ncm_phi.ratio_logit"] = jnp.full((d,), -1.5, dtype=jnp.float32)
+        if "ncm_concept_proj.weight" not in params:
+            rng = np.random.default_rng(config.seed + 1001)
+            params["ncm_concept_proj.weight"] = jnp.asarray(
+                rng.normal(0.0, 0.01, size=(d, d)).astype(np.float32)
+            )
+        if "output_head.log_scale" not in params:
+            params["output_head.log_scale"] = jnp.zeros((1,), dtype=jnp.float32)
+        if "output_head.norm_alpha" not in params:
+            params["output_head.norm_alpha"] = jnp.zeros((1,), dtype=jnp.float32)
     return params, config, tokenizer, manifest
