@@ -322,6 +322,25 @@ def main(argv=None):
     )
     parquet_p.add_argument("--root", type=Path, default=Path("data/curated-english-v1"))
     parquet_p.add_argument("--max-rows", type=int, default=2000)
+    cluster_p = commands.add_parser(
+        "cluster-chat",
+        help="Route prompts across multiple 10M MLM v2 Specialist Nodes (English/Science + Math)",
+    )
+    cluster_p.add_argument(
+        "--english-node",
+        type=Path,
+        default=Path("runs/mlm-10m-colab/mlm_10m_v2.mlm2"),
+    )
+    cluster_p.add_argument(
+        "--math-node",
+        type=Path,
+        default=Path("runs/mlm-10m-math-colab/mlm_10m_math_v2.mlm2"),
+    )
+    cluster_p.add_argument("--message", type=str, required=True)
+    cluster_p.add_argument("--context", type=str, default="")
+    cluster_p.add_argument("--max-tokens", type=int, default=96)
+    cluster_p.add_argument("--force-node", type=str, default=None)
+    cluster_p.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
     if args.command == "train":
         run_train(args)
@@ -388,6 +407,30 @@ def main(argv=None):
             wiki_rows=args.max_rows // 2,
         )
         print(json.dumps(info, indent=2), flush=True)
+    elif args.command == "cluster-chat":
+        from mlm.node_cluster import MLMNodeCluster
+
+        specs = []
+        if args.english_node and args.english_node.exists():
+            specs.append(("node_0_english_science", "general", args.english_node))
+        if args.math_node and args.math_node.exists():
+            specs.append(("node_1_mathematics", "math", args.math_node))
+        if not specs:
+            raise FileNotFoundError("No specialist node checkpoints found for cluster-chat")
+        cluster = MLMNodeCluster.from_checkpoints(specs)
+        res = cluster.generate(
+            args.message.replace("\\n", "\n"),
+            context=args.context,
+            max_new_tokens=args.max_tokens,
+            force_node=args.force_node,
+        )
+        if args.json:
+            print(json.dumps(res, indent=2), flush=True)
+        else:
+            print(
+                f"[{res['selected_node']} ({res['selected_domain']})]\n{res['reply']}",
+                flush=True,
+            )
     elif args.command == "stream-train":
         from mlm.streamrun import run
 

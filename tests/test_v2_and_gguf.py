@@ -335,3 +335,18 @@ def test_cli_train_v2_and_chat(tmp_path: Path, capsys):
     )
     assert (out_grpo / "latest.mlm2").exists()
     assert grpo_res["grpo_steps"] == 2
+
+    # Test Multi-Node Specialist Cluster (Main Core Router -> English Node + Math Node)
+    from mlm.node_cluster import MLMNodeCluster
+
+    cluster = MLMNodeCluster.from_checkpoints(
+        [
+            ("node_0_english_science", "general", out_dir / "best.mlm2"),
+            ("node_1_mathematics", "math", out_grown / "latest.mlm2"),
+        ]
+    )
+    route_res = cluster.route_prompt("Hi")
+    assert route_res["selected_node"] in ("node_0_english_science", "node_1_mathematics")
+    cluster_reply = cluster.generate("Hi", max_new_tokens=8)
+    assert len(cluster_reply["reply"]) > 0
+
