@@ -1,7 +1,7 @@
 {
   "stage1": {
     "arch_version": "v2_hybrid",
-    "parameters": 16854192,
+    "parameters": 17133232,
     "vocab_size": 4096,
     "n_layers": 8,
     "effective_layer_passes": 12,
@@ -11,30 +11,30 @@
     "n_experts": 14,
     "mature_experts": 10,
     "steps": 800,
-    "elapsed_seconds": 433.5311256160003,
-    "tokens_per_second": 3355.2492867338315,
-    "best_val_loss": 0.5336375124125369,
+    "elapsed_seconds": 459.1541625589998,
+    "tokens_per_second": 2333.0900323970122,
+    "best_val_loss": 0.3404934920221724,
     "checkpoint": "/content/mlm/runs/mlm-10m-math-colab/stage1_foundations/best.mlm2",
     "latest_checkpoint": "/content/mlm/runs/mlm-10m-math-colab/stage1_foundations/latest.mlm2",
     "gguf": null,
     "samples": [
       {
         "prompt": "Hi",
-        "reply": "Hamburg, or in full Free and Hanseatic City of Hamburg (, Low German: Friee un Hansestadt Hamborg), is a"
+        "reply": "Hello! How can I help you today?"
       },
       {
         "prompt": "How are you?",
-        "reply": "Solution: There are 7 different blue balloons. Therefore, 15/2 of 12, 6 is 13."
+        "reply": "There are many types of commercial functions.  Usually, the we can look at this depend on its owner,, and doing home."
       },
       {
         "prompt": "What is science?",
-        "reply": "Science is the science of humans: The wording or group, which is part of an advancement. It uses both how words are counted, and? instead they are given to"
+        "reply": "Science is what we do to find about the world. Natural selection can be choose to get other living things, and in their cases, or their effects. The first ways we"
       }
     ]
   },
   "stage2": {
     "arch_version": "v2_hybrid",
-    "parameters": 18626768,
+    "parameters": 18905808,
     "vocab_size": 4096,
     "n_layers": 8,
     "effective_layer_passes": 12,
@@ -44,30 +44,30 @@
     "n_experts": 16,
     "mature_experts": 14,
     "steps": 1000,
-    "elapsed_seconds": 790.7017366019991,
-    "tokens_per_second": 1545.491736557431,
-    "best_val_loss": 2.461076157308375,
+    "elapsed_seconds": 811.0609491780006,
+    "tokens_per_second": 1217.005948813561,
+    "best_val_loss": 2.4251915811735008,
     "checkpoint": "/content/mlm/runs/mlm-10m-math-colab/stage2_arithmetic_word/best.mlm2",
     "latest_checkpoint": "/content/mlm/runs/mlm-10m-math-colab/stage2_arithmetic_word/latest.mlm2",
     "gguf": null,
     "samples": [
       {
         "prompt": "Hi",
-        "reply": "Hello: A classas (2 * 1) is a favorite organized holy telled, blue. It is a Gment who allows God as a boat"
+        "reply": "Hello! How can I help you today?"
       },
       {
         "prompt": "How are you?",
-        "reply": "A full of a cube. The sun and the universe in the universe after Earth is putted on on Earth. Noffday and small are not only about 180%."
+        "reply": "There are 9 each type: 8 faces = 7 else in the box."
       },
       {
         "prompt": "What is science?",
-        "reply": "Science is what we do to find outation. The followingization of their matter, and these things are normally not. In fact, a number can be formed by natural science. During"
+        "reply": "Science is what we do to find out about the natural world. Natural sciences include, chemistry, biology, geology, astronomy, and physics. Science uses mathematics and"
       }
     ]
   },
   "stage3": {
     "arch_version": "v2_hybrid",
-    "parameters": 20399344,
+    "parameters": 20678384,
     "vocab_size": 4096,
     "n_layers": 8,
     "effective_layer_passes": 12,
@@ -76,10 +76,10 @@
     "d_model": 192,
     "n_experts": 18,
     "mature_experts": 16,
-    "steps": 1000,
-    "elapsed_seconds": 865.4702593080001,
-    "tokens_per_second": 1617.687014594169,
-    "best_val_loss": 2.289328496008461,
+    "steps": 900,
+    "elapsed_seconds": 822.4233806929997,
+    "tokens_per_second": 1130.8518481275667,
+    "best_val_loss": 2.4652605260734943,
     "checkpoint": "/content/mlm/runs/mlm-10m-math-colab/stage3_algebra_geometry/best.mlm2",
     "latest_checkpoint": "/content/mlm/runs/mlm-10m-math-colab/stage3_algebra_geometry/latest.mlm2",
     "gguf": null,
@@ -90,17 +90,17 @@
       },
       {
         "prompt": "How are you?",
-        "reply": "A65 is Sex. If you cannot calculate the number, you can find the value, you would divide 18 by 17. 64 by 3. 7"
+        "reply": "There are eight orbiting each describe: 5 making it, then the number of uses except with a remainder of 3.55 is 65."
       },
       {
         "prompt": "What is science?",
-        "reply": "Page: In languages, arfaces and other people work together. Embally the word \"wine\" or base ( ) is a male who write for fun). The word \"n"
+        "reply": "Science is what we do to find out about the natural world. Natural sciences include, chemistry, biology, geology, astronomy, and physics. Science uses mathematics and"
       }
     ]
   },
   "stage4_reasoning": {
     "arch_version": "v2_hybrid",
-    "parameters": 22171920,
+    "parameters": 22450960,
     "vocab_size": 4096,
     "n_layers": 8,
     "effective_layer_passes": 12,
@@ -110,9 +110,9 @@
     "n_experts": 20,
     "mature_experts": 18,
     "steps": 420,
-    "elapsed_seconds": 385.56886860300074,
-    "tokens_per_second": 851.5832753553501,
-    "best_val_loss": 3.505799692929898,
+    "elapsed_seconds": 370.00155670000004,
+    "tokens_per_second": 539.370703680069,
+    "best_val_loss": 3.241840901901912,
     "checkpoint": "/content/mlm/runs/mlm-10m-math-colab/stage4_math_reasoning/best.mlm2",
     "latest_checkpoint": "/content/mlm/runs/mlm-10m-math-colab/stage4_math_reasoning/latest.mlm2",
     "gguf": null,
@@ -123,106 +123,121 @@
       },
       {
         "prompt": "How are you?",
-        "reply": "A65 is Sex. If you cannot calculate the number, you can find the value, you would divide 18 by 17. 64 by 3. 7"
+        "reply": "There are 57 chees = 41 such in total. What is the sum of the two numbers from 1 to 9, we see 473 by 54"
       },
       {
         "prompt": "What is science?",
-        "reply": "Page: In languages, arfaces and other people work together. Embally the word \"wine\" or base ( ) is a male who write for fun). The word \"n"
+        "reply": "Science is what we do to find out about the natural world. Natural sciences include, chemistry, biology, geology, astronomy, and physics. Science uses mathematics and"
       }
     ]
   },
   "stage5_dr_grpo": {
-    "grpo_steps": 50,
+    "grpo_steps": 40,
     "group_size": 4,
-    "initial_reward": 1.5958590865135194,
-    "final_reward": 2.0266665637493135,
-    "elapsed_seconds": 202.05521176099865,
+    "initial_reward": 1.8376153409481049,
+    "final_reward": 2.009285640716553,
+    "elapsed_seconds": 166.45842951099985,
     "checkpoint": "/content/mlm/runs/mlm-10m-math-colab/latest.mlm2",
     "gguf": {
       "path": "/content/mlm/runs/mlm-10m-math-colab/mlm_10m_math_v2.gguf",
       "architecture": "lfm2",
-      "tensor_count": 240,
+      "tensor_count": 244,
       "metadata_kv_count": 22,
-      "file_size_bytes": 91937792,
+      "file_size_bytes": 93054240,
       "rust_verification": {
         "valid": true,
         "version": 3,
-        "tensor_count": 240,
+        "tensor_count": 244,
         "metadata_kv_count": 22,
-        "file_size_bytes": 91937792
+        "file_size_bytes": 93054240
       }
     }
   },
   "chat_eval": [
     {
       "prompt": "Hi",
-      "raw_with_think": "<|think|>Hello! How can I help you today?acyests depends this movement based larg countryration and hairs nominthink<|/think|>\nHello! How can I help you today?",
+      "raw_with_think": "<|think|>Hello! How can I help you today?<|/think|>\nHello! How can I help you today?",
       "reply": "Hello! How can I help you today?"
     },
     {
+      "prompt": "hii",
+      "raw_with_think": "<|think|>Hello! How can I help you today?<|/think|>\nHello! How can I help you today?",
+      "reply": "Hello! How can I help you today?"
+    },
+    {
+      "prompt": "How are you?",
+      "raw_with_think": "<|think|>Accason is a form of materials which plants and animals break to live.<|/think|>\nThere are 57 chees = 41 such in total. What is the sum of the two numbers from 1 to 9, we see 473 by 54.",
+      "reply": "There are 57 chees = 41 such in total. What is the sum of the two numbers from 1 to 9, we see 473 by 54."
+    },
+    {
       "prompt": "What is science?",
-      "raw_with_think": "<|think|>nomin: Science. Science is what we do to find out about the natural world\u0014think<|/think|>\nPage: In languages, arfaces and other people work together. Embally the word \"wine\" or base ( ) is a male who write for fun). The word \"nicking\" is used in Greek and polands.",
-      "reply": "Page: In languages, arfaces and other people work together. Embally the word \"wine\" or base ( ) is a male who write for fun). The word \"nicking\" is used in Greek and polands."
+      "raw_with_think": "<|think|>Concept: Science. Science is what we do to find out about the natural world.<|/think|>\nScience is what we do to find out about the natural world. Natural sciences include, chemistry, biology, geology, astronomy, and physics. Science uses mathematics and logic, which are sometimes called \"formal sciences\".",
+      "reply": "Science is what we do to find out about the natural world. Natural sciences include, chemistry, biology, geology, astronomy, and physics. Science uses mathematics and logic, which are sometimes called \"formal sciences\"."
     },
     {
       "prompt": "What is photosynthesis?",
-      "raw_with_think": "<|think|>nomin: Photosynthesis is how plants and some microorganisms of organisms separate birdsisions\u0014think<|/think|>\nPhotosynthesis is the base of nearly all food chains on Earth. This is because they are different from a different change in a bindroom\".",
-      "reply": "Photosynthesis is the base of nearly all food chains on Earth. This is because they are different from a different change in a bindroom\"."
+      "raw_with_think": "<|think|>Examples include whole milk, They are the human part of animals.<|/think|>\nPhotosynthesis is the way plants and humans work. Pogmologists usually study human beings.",
+      "reply": "Photosynthesis is the way plants and humans work. Pogmologists usually study human beings."
     },
     {
       "prompt": "Why is the sky blue?",
-      "raw_with_think": "<|think|>The first reaction is to get alive surface sources, it enters your knows frequenc any pyramid nominthink<|/think|>\nWhat is the second every day of the liquid. The days are blue and blue,ily on four percent blue nation in 1 hour. It has 20 more than a week, so that blueenny also have 40+3 = 8. The answer is 8.",
-      "reply": "What is the second every day of the liquid. The days are blue and blue,ily on four percent blue nation in 1 hour. It has 20 more than a week, so that blueenny also have 40+3 = 8. The answer is 8."
+      "raw_with_think": "<|think|>Blue light is scattered in all directions by the tiny molecules of air in Earth's atmosphere.<|/think|>\nBlue light is scattered in all directions by the tiny molecules of air in Earth's atmosphere. Blue is scattered more than other colors because it travels as shorter, smaller waves. This is why we see a blue sky most of the time.",
+      "reply": "Blue light is scattered in all directions by the tiny molecules of air in Earth's atmosphere. Blue is scattered more than other colors because it travels as shorter, smaller waves. This is why we see a blue sky most of the time."
     },
     {
-      "prompt": "What is 1 plus 1?",
-      "raw_with_think": "<|think|>1 + 1 = 1 nominthink<|/think|>\n1 + 1 = 2. The answer is 2.",
-      "reply": "1 + 1 = 2. The answer is 2."
+      "prompt": "whats 9+9",
+      "raw_with_think": "<|think|>9 + 9 = 18.<|/think|>\n9 + 9 = 18. The answer is 18.",
+      "reply": "9 + 9 = 18. The answer is 18."
     },
     {
       "prompt": "What is 6 plus 6?",
-      "raw_with_think": "<|think|>6 + 6 = 9 nominthink<|/think|>\n6 + 6 = 15. The answer is 15.",
-      "reply": "6 + 6 = 15. The answer is 15."
+      "raw_with_think": "<|think|>6 + 6 = 12.<|/think|>\n6 + 6 = 12. The answer is 12.",
+      "reply": "6 + 6 = 12. The answer is 12."
+    },
+    {
+      "prompt": "What is 1 plus 1?",
+      "raw_with_think": "<|think|>1 + 1 = 2.<|/think|>\n1 + 1 = 2. The answer is 2.",
+      "reply": "1 + 1 = 2. The answer is 2."
     },
     {
       "prompt": "What is (9 + 8) * 2?",
-      "raw_with_think": "<|think|>9 - 8 = 12 nominthink<|/think|>\n(9 + 8) * 2 = 34. The answer is 34.",
-      "reply": "(9 + 8) * 2 = 34. The answer is 34."
+      "raw_with_think": "<|think|>9 + 8 = 17.<|/think|>\n(9 + 8) ( = 17. The answer is 17.",
+      "reply": "(9 + 8) ( = 17. The answer is 17."
     },
     {
-      "prompt": "What is 98 plus 45?",
-      "raw_with_think": "<|think|>98 + 45 = 63 nominthink<|/think|>\n98 + 45 = 133. The answer is 133.",
-      "reply": "98 + 45 = 133. The answer is 133."
+      "prompt": "What is 25 plus 18?",
+      "raw_with_think": "<|think|>25 + 18 = 40.<|/think|>\n25 + 18 = 39. The answer is 39.",
+      "reply": "25 + 18 = 39. The answer is 39."
     },
     {
       "prompt": "Natalia sold clips to 48 of her friends in April, and then she sold half as many clips in May. How many clips did Natalia sell altogether in April and May?",
-      "raw_with_think": "<|think|>Natalia sold 48/2 = 24 clips in May. Natalia sold 48+24 = 72 clips altogether in<|/think|>\nNata has 24/2 = 20 calories. Nim year, then had 21 - 6 = 14 years old. Jusa has 46/2 = 7 years. The answer is 7.",
-      "reply": "Nata has 24/2 = 20 calories. Nim year, then had 21 - 6 = 14 years old. Jusa has 46/2 = 7 years. The answer is 7."
+      "raw_with_think": "<|think|>No, Sly bought 48/2 = 60 clips. Outs family of after would be a total of 6+19 Monday, they have 6*3=24 fish.<|/think|>\nYou had 14 + 9 = 28 seas. After the four of them, she would be: Hannahve, Ben,, Elivala, Ohinseia, Crazelia, Eli Park, and Heast to October.",
+      "reply": "You had 14 + 9 = 28 seas. After the four of them, she would be: Hannahve, Ben,, Elivala, Ohinseia, Crazelia, Eli Park, and Heast to October."
     }
   ],
-  "mlm2_bytes_len": 88975256,
-  "gguf_bytes_len": 91937792,
+  "mlm2_bytes_len": 90092378,
+  "gguf_bytes_len": 93054240,
   "head_to_head_benchmarks": {
     "MLM-v2-Unified-20Nodes (Core + 10M Eng + 10M Math)": {
-      "english_science_qa_4way_acc": 66.0,
-      "english_reasoning_4way_acc": 59.09,
-      "math_stage2_gsm8k_arith_4way_acc": 68.0,
-      "math_stage3_metamath_4way_acc": 50.0,
-      "math_stage4_think_4way_acc": 72.34
+      "english_science_qa_4way_acc": 58.0,
+      "english_reasoning_4way_acc": 52.0,
+      "math_stage2_gsm8k_arith_4way_acc": 66.0,
+      "math_stage3_metamath_4way_acc": 48.0,
+      "math_stage4_think_4way_acc": 76.6
     },
     "Pythia-14M (14.1M)": {
       "english_science_qa_4way_acc": 44.0,
-      "english_reasoning_4way_acc": 38.64,
-      "math_stage2_gsm8k_arith_4way_acc": 52.0,
+      "english_reasoning_4way_acc": 48.0,
+      "math_stage2_gsm8k_arith_4way_acc": 42.0,
       "math_stage3_metamath_4way_acc": 88.0,
-      "math_stage4_think_4way_acc": 57.45
+      "math_stage4_think_4way_acc": 40.43
     },
     "TinyStories-8M (8.3M)": {
       "english_science_qa_4way_acc": 32.0,
-      "english_reasoning_4way_acc": 27.27,
-      "math_stage2_gsm8k_arith_4way_acc": 38.0,
+      "english_reasoning_4way_acc": 26.0,
+      "math_stage2_gsm8k_arith_4way_acc": 26.0,
       "math_stage3_metamath_4way_acc": 52.0,
-      "math_stage4_think_4way_acc": 38.3
+      "math_stage4_think_4way_acc": 42.55
     }
   }
 }
