@@ -88,11 +88,12 @@ def extract_multi_turn_chat_from_parquet(
     """Extract clean self-contained supervised `(user, assistant)` chat pairs from Parquet rows."""
     records: list[dict] = []
     seen: set[str] = set()
+    greeting_count = 0
     for r in rows:
         msgs = r.get("messages")
         if not isinstance(msgs, list) or len(msgs) < 2:
             continue
-        max_idx = 1 if first_turn_only else len(msgs) - 1
+        max_idx = min(len(msgs) - 1, 3 if first_turn_only else len(msgs) - 1)
         for i in range(0, max_idx, 2):
             m_u = msgs[i] if isinstance(msgs[i], dict) else {}
             m_a = msgs[i + 1] if isinstance(msgs[i + 1], dict) else {}
@@ -102,6 +103,22 @@ def extract_multi_turn_chat_from_parquet(
                     str(m_a.get("content", "")), max_chars=max_assistant_chars
                 )
                 if not u or not a or len(u) > max_user_chars:
+                    continue
+                is_short_opener = i == 0 and len(u) <= 22
+                if is_short_opener and greeting_count < 120:
+                    base_word = u.rstrip(".!?").strip()
+                    variants = [u, base_word, base_word.lower(), u.lower()]
+                    if base_word and base_word[-1].isalpha():
+                        low = base_word.lower()
+                        variants.extend([low + low[-1], low + (low[-1] * 2)])
+                    for v in variants:
+                        if not v:
+                            continue
+                        rec_v = _make_supervised_chat_record(v, a)
+                        if len(rec_v["text"].encode("utf-8")) <= max_total_bytes:
+                            records.append(rec_v)
+                            greeting_count += 1
+                            seen.add(v)
                     continue
                 key = u.lower()
                 if key in seen:
@@ -315,6 +332,17 @@ def build_staged_english_corpora(
         if len(ctx) >= 60 and ctx not in seen_p:
             seen_p.add(ctx)
             stage1_records.append({"text": ctx})
+    for a_val in range(1, 13):
+        for b_val in range(1, 13):
+            stage1_records.append(
+                {
+                    "text": (
+                        f"Question: What is {a_val} + {b_val}? "
+                        f"Solution: {a_val} + {b_val} = {a_val + b_val}. "
+                        f"The answer is {a_val + b_val}."
+                    )
+                }
+            )
 
     # Stage 2 (`english_understand`): Grounded Reading Comprehension & Science QA + 25% Stage 1
     wiki_qa: list[dict] = []
@@ -367,8 +395,21 @@ def build_staged_english_corpora(
             if not line.strip():
                 continue
             row = json.loads(line)
-            if "<|assistant|>\n" in str(row.get("text", "")) and "loss_spans" in row:
+            txt = str(row.get("text", ""))
+            if "<|assistant|>\n" in txt and "loss_spans" in row:
                 stage3_pure.append(row)
+                u_p, a_p = txt.split("\n<|assistant|>\n", 1)
+                u_c = u_p.replace("<|user|>\n", "").strip()
+                a_c = a_p.strip()
+                if u_c and a_c and len(u_c) <= 22:
+                    base_w = u_c.rstrip(".!?").strip()
+                    vars_u = [base_w, base_w.lower(), u_c.lower()]
+                    if base_w and base_w[-1].isalpha():
+                        low_w = base_w.lower()
+                        vars_u.extend([low_w + low_w[-1], low_w + (low_w[-1] * 2)])
+                    for v_u in vars_u:
+                        if v_u and v_u != u_c:
+                            stage3_pure.append(_make_supervised_chat_record(v_u, a_c))
     stage3_pure.extend(extract_multi_turn_chat_from_parquet(smol_raw, first_turn_only=True))
     seen_chat = {r["text"].split("\n<|assistant|>\n")[0].lower() for r in stage3_pure}
 
@@ -426,8 +467,8 @@ def build_staged_english_corpora(
         u_part, a_part = txt.split("\n<|assistant|>\n", 1)
         u_clean = u_part.replace("<|user|>\n", "").strip()
         a_clean = a_part.strip()
-        if u_clean and a_clean and len(u_clean) <= 45 and u_clean.lower() not in seen_s4:
-            seen_s4.add(u_clean.lower())
+        if u_clean and a_clean and len(u_clean) <= 45 and u_clean not in seen_s4:
+            seen_s4.add(u_clean)
             plan = _first_complete_sentences(a_clean, max_chars=140) or a_clean[:100].strip()
             stage4_records.append(_make_supervised_think_record(u_clean, plan, a_clean))
     for r in sciq_raw[:80]:

@@ -321,9 +321,14 @@ def test_cli_train_v2_and_chat(tmp_path: Path, capsys):
 
     import jax.numpy as jnp
 
-    s_mask = compute_ornith_scaffold_mask(jnp.array([[10, 283, 12, 13]], dtype=jnp.int32), 283)
+    s_mask = compute_ornith_scaffold_mask(
+        jnp.array([[10, 6, 12, 7, 13]], dtype=jnp.int32), 6, think_close_id=7
+    )
     assert float(s_mask[0, 0, 0]) == 0.0
     assert float(s_mask[0, 1, 0]) == 1.0
+    assert float(s_mask[0, 2, 0]) == 1.0
+    assert float(s_mask[0, 3, 0]) == 0.0
+    assert float(s_mask[0, 4, 0]) == 0.0
 
     out_grpo = tmp_path / "out_v2_grpo"
     grpo_res = run_grpo_v2(
@@ -337,10 +342,23 @@ def test_cli_train_v2_and_chat(tmp_path: Path, capsys):
     assert grpo_res["grpo_steps"] == 2
 
     # Test Multi-Node Specialist Cluster & 2-Bank Hierarchical Domain Growth (10 -> 14 Nodes)
-    from mlm.model_v2 import grow_model_v2_nodes
+    from mlm.model_v2 import compute_fone_abacus_embeddings, grow_model_v2_nodes
     from mlm.node_cluster import MLMNodeCluster
 
-    p_base, c_base, _, _ = load_checkpoint_v2(out_grown / "latest.mlm2")
+    p_base, c_base, tok_loaded, _ = load_checkpoint_v2(out_grown / "latest.mlm2")
+    assert tok_loaded.think_open_id == 6
+    assert tok_loaded.think_close_id == 7
+    assert len(tok_loaded.get_digit_token_ids()) == 10
+    blt_tbl = tok_loaded.compute_blt_ngram_table(64)
+    assert blt_tbl.shape == (c_base.vocab_size, 64)
+    d_ids = tok_loaded.get_digit_token_ids()
+    fone_out = compute_fone_abacus_embeddings(
+        jnp.array([[d_ids[9], d_ids[8]]], dtype=jnp.int32),
+        p_base,
+        c_base,
+    )
+    assert fone_out.shape == (1, 2, c_base.d_model)
+
     p_10, c_10 = grow_model_v2_nodes(p_base, c_base, add_nodes=4)
     p_14, c_14 = grow_model_v2_nodes(p_10, c_10, add_nodes=4)
     assert c_14.n_experts == 14

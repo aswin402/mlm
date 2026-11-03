@@ -70,8 +70,12 @@ class ConfigV2(BaseModel):
     shared_lr_scale: float = Field(default=1.0, ge=0.0, le=1.0)
     router_bias_gamma: float = Field(default=1e-3, ge=0.0, le=0.1)
     mtp_weight: float = Field(default=0.25, ge=0.0, le=2.0)
-    think_open_id: int = Field(default=-1, ge=-1, le=65536)
-    think_close_id: int = Field(default=-1, ge=-1, le=65536)
+    think_open_id: int = Field(default=6, ge=-1, le=65536)
+    think_close_id: int = Field(default=7, ge=-1, le=65536)
+    digit_token_ids: tuple[int, ...] = ()
+    blt_ngram_dim: int = Field(default=64, ge=0, le=256)
+    use_fone_abacus: bool = True
+    domain_gate_weight: float = Field(default=0.35, ge=0.0, le=2.0)
     tie_embeddings: bool = True
     rope_theta: float = Field(default=10000.0, gt=100.0)
     rms_eps: float = Field(default=1e-5, gt=0.0)
@@ -485,17 +489,23 @@ def routed_graph_nodes_ffn(
     mature_nodes: int = 0,
     new_tier_mask: jnp.ndarray | None = None,
     node_edge_scale: jnp.ndarray | None = None,
-) -> jnp.ndarray:
-    """Route tokens `(B, T, D)` across Specialist Graph-Node Banks (Hierarchical Domain Routing).
+    return_domain_logit: bool = False,
+) -> jnp.ndarray | tuple[jnp.ndarray, jnp.ndarray]:
+    """Route tokens `(B, T, D)` across Specialist Graph-Node Banks (FlexOlmo Cosine Routing).
 
     - Bank 0 (`Nodes 0..9`): 10M English/Science/Chat Macro-Node (`0..7` base + `8..9` `<|think|>`).
     - Bank 1 (`Nodes 10..19`): 10M Mathematics Macro-Node (`10..17` base + `18..19` `<|think|>`).
-    When `n_nodes > 10`, a learned sequence-pooled Domain Gate `p_math = sigmoid(2*(e_m - e_e))`
-    routes smoothly between Bank 0 and Bank 1 with zero hardcoded rules.
+    Uses L2-normalized cosine similarity `8.0 * (x_unit @ w_unit)` so newly grown specialist banks
+    cannot overpower frozen banks via norm inflation.
     """
     del mature_nodes
     n_nodes = node_gate.shape[0]
-    router_logits = x @ router_w  # (B, T, N)
+    x_unit = x * jax.lax.rsqrt(jnp.sum(jnp.square(x), axis=-1, keepdims=True) + 1e-6)
+    w_unit = router_w * jax.lax.rsqrt(
+        jnp.sum(jnp.square(router_w), axis=0, keepdims=True) + 1e-6
+    )
+    router_logits = 8.0 * jnp.matmul(x_unit, w_unit)  # (B, T, N)
+    domain_logit = jnp.zeros((x.shape[0], x.shape[1]), dtype=x.dtype)
 
     if n_nodes <= 10:
         gated_probs = _route_single_bank(
@@ -534,7 +544,9 @@ def routed_graph_nodes_ffn(
         steps = jnp.arange(1, x.shape[1] + 1, dtype=x.dtype)[None, :, None]
         e_eng = 0.5 * e_eng_tok + 0.5 * (jnp.cumsum(e_eng_tok, axis=1) / steps)
         e_math = 0.5 * e_math_tok + 0.5 * (jnp.cumsum(e_math_tok, axis=1) / steps)
-        p_math = jax.nn.sigmoid(2.0 * (e_math - e_eng))
+        domain_logit_3d = 2.0 * (e_math - e_eng)
+        domain_logit = domain_logit_3d[..., 0]
+        p_math = jax.nn.sigmoid(domain_logit_3d)
         p_eng = 1.0 - p_math
         gated_probs = jnp.concatenate([p_eng * eng_probs, p_math * math_probs], axis=-1)
 
@@ -546,7 +558,10 @@ def routed_graph_nodes_ffn(
     up_all = jnp.einsum("btd,ndf->btnf", x, node_up)
     hidden = gate_all * up_all
     node_outs = jnp.einsum("btnf,nfd->btnd", hidden, node_down)
-    return jnp.einsum("btn,btnd->btd", gated_probs, node_outs)
+    out = jnp.einsum("btn,btnd->btd", gated_probs, node_outs)
+    if return_domain_logit:
+        return out, domain_logit
+    return out
 
 
 def init_params_v2(config: ConfigV2) -> dict[str, jnp.ndarray]:
@@ -568,6 +583,20 @@ def init_params_v2(config: ConfigV2) -> dict[str, jnp.ndarray]:
     if not config.tie_embeddings:
         params["output.weight"] = jnp.asarray(
             rng.normal(0.0, std, size=(config.vocab_size, d)).astype(np.float32)
+        )
+    if config.blt_ngram_dim > 0:
+        params["blt_token_ngrams"] = jnp.zeros(
+            (config.vocab_size, config.blt_ngram_dim), dtype=jnp.float32
+        )
+        params["blt_proj.weight"] = jnp.asarray(
+            rng.normal(0.0, 0.01, size=(config.blt_ngram_dim, d)).astype(np.float32)
+        )
+    if config.use_fone_abacus:
+        params["fone_proj.weight"] = jnp.asarray(
+            rng.normal(0.0, 0.02, size=(16, d)).astype(np.float32)
+        )
+        params["abacus_pos.weight"] = jnp.asarray(
+            rng.normal(0.0, 0.02, size=(8, d)).astype(np.float32)
         )
 
     layer_scale = float(std / np.sqrt(2.0 * config.n_layers))
@@ -685,28 +714,91 @@ def init_params_v2(config: ConfigV2) -> dict[str, jnp.ndarray]:
 def compute_ornith_scaffold_mask(
     tokens: jnp.ndarray,
     think_open_id: int,
+    think_close_id: int = -1,
     k1: int = 28,
     decay_lambda: float = 0.025,
 ) -> jnp.ndarray:
     """Ornith-1.5 Self-Scaffold Horizon Mask `w(d_t)` for Tiered `<|think|>` Graph Nodes."""
     has_opened = jnp.maximum.accumulate((tokens == think_open_id).astype(jnp.float32), axis=-1)
-    d_t = jnp.cumsum(has_opened, axis=-1)
+    has_closed = (
+        jnp.maximum.accumulate((tokens == think_close_id).astype(jnp.float32), axis=-1)
+        if think_close_id >= 0
+        else jnp.zeros_like(has_opened)
+    )
+    is_active = jnp.clip(has_opened - has_closed, 0.0, 1.0)
+    d_t = jnp.cumsum(is_active, axis=-1)
     decay = jnp.where(
         d_t <= float(k1),
         1.0,
         jnp.maximum(0.35, jnp.exp(-float(decay_lambda) * (d_t - float(k1)))),
     )
-    return (has_opened * decay)[..., None]
+    return (is_active * decay)[..., None]
 
 
-def forward_with_hidden_v2(
+def compute_fone_abacus_embeddings(
+    tokens: jnp.ndarray,
+    params: dict[str, jnp.ndarray],
+    config: ConfigV2,
+) -> jnp.ndarray:
+    """FoNE (Fourier Number Embeddings) + Causal Abacus Place-Value Embeddings (NeurIPS 2024/2025).
+
+    Injects periodic harmonic sine/cosine features `(sin(2*pi*d*k/10), cos(2*pi*d*k/10))`
+    and causal contiguous digit-run place indices (`0..7`) for digit tokens `'0'..'9'`.
+    """
+    t_len = tokens.shape[1]
+    digit_ids = jnp.asarray(config.digit_token_ids, dtype=tokens.dtype)
+    matches = tokens[..., None] == digit_ids[None, None, :]  # (B, T, 10)
+    is_digit = jnp.any(matches, axis=-1)  # (B, T)
+    digit_val = jnp.argmax(matches.astype(jnp.int32), axis=-1).astype(jnp.float32)
+    harmonics = jnp.arange(1, 9, dtype=jnp.float32)[None, None, :]  # (1, 1, 8)
+    angles = 2.0 * jnp.pi * digit_val[..., None] * harmonics / 10.0
+    fourier_feat = jnp.concatenate([jnp.sin(angles), jnp.cos(angles)], axis=-1)  # (B, T, 16)
+    fone_emb = fourier_feat @ params["fone_proj.weight"]
+
+    padded_digit = jnp.pad(is_digit, ((0, 0), (7, 0)), constant_values=False)
+    run_alive = is_digit
+    place_idx = jnp.zeros_like(tokens, dtype=jnp.int32)
+    for offset in range(1, 8):
+        run_alive = run_alive & padded_digit[:, 7 - offset : 7 - offset + t_len]
+        place_idx = place_idx + run_alive.astype(jnp.int32)
+    abacus_emb = params["abacus_pos.weight"][place_idx]
+    mask_f = is_digit[..., None].astype(jnp.float32)
+    return ((fone_emb + abacus_emb) * mask_f).astype(params["tok_embeddings.weight"].dtype)
+
+
+def _forward_core_v2(
     params: dict[str, jnp.ndarray],
     tokens: jnp.ndarray,
     config: ConfigV2,
-) -> tuple[jnp.ndarray, jnp.ndarray]:
-    """Compute next-token logits `(B, T, V)` and final normalized hidden states `(B, T, D)`."""
+) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+    """Compute `(logits, hidden_normed, mean_domain_logit)` across sequence length `T`."""
     bsz, t_len = tokens.shape
     x = params["tok_embeddings.weight"][tokens]  # (B, T, D)
+    if (
+        config.blt_ngram_dim > 0
+        and "blt_token_ngrams" in params
+        and "blt_proj.weight" in params
+    ):
+        ng_table = jax.lax.stop_gradient(params["blt_token_ngrams"])
+        ng_cur = ng_table[tokens]  # (B, T, G)
+        ng_pad = jnp.pad(ng_cur, ((0, 0), (2, 0), (0, 0)))
+        ng_mix = (
+            0.60 * ng_cur
+            + 0.25 * ng_pad[:, 1 : 1 + t_len, :]
+            + 0.15 * ng_pad[:, :t_len, :]
+        )
+        ng_norm = ng_mix * jax.lax.rsqrt(
+            jnp.sum(jnp.square(ng_mix), axis=-1, keepdims=True) + 1e-6
+        )
+        x = x + (ng_norm @ params["blt_proj.weight"]).astype(x.dtype)
+    if (
+        config.use_fone_abacus
+        and len(config.digit_token_ids) == 10
+        and "fone_proj.weight" in params
+        and "abacus_pos.weight" in params
+    ):
+        x = x + compute_fone_abacus_embeddings(tokens, params, config)
+
     cos, sin = precompute_rope_freqs(t_len, config.head_dim, config.rope_theta)
     use_tiered_reasoning = (
         config.mature_experts >= 8
@@ -714,7 +806,9 @@ def forward_with_hidden_v2(
         and config.think_open_id >= 0
     )
     think_tier_mask = (
-        compute_ornith_scaffold_mask(tokens, config.think_open_id)
+        compute_ornith_scaffold_mask(
+            tokens, config.think_open_id, think_close_id=config.think_close_id
+        )
         if use_tiered_reasoning
         else None
     )
@@ -724,6 +818,8 @@ def forward_with_hidden_v2(
     streams = jnp.stack([x, x], axis=-2) if mhc_enabled else None  # (B, T, 2, D)
     schedule = build_layer_execution_schedule(config)
     shared_dsa_scores: jnp.ndarray | None = None
+    domain_logit_sum = jnp.zeros((bsz, t_len), dtype=jnp.float32)
+    domain_logit_count = 0
 
     for i, pass_idx in schedule:
         p = f"blk.{i}"
@@ -859,7 +955,7 @@ def forward_with_hidden_v2(
             pass_tier_mask = (
                 think_tier_mask * pass_scale if think_tier_mask is not None else None
             )
-            ffn_out = ffn_out + routed_graph_nodes_ffn(
+            routed_out, d_logit = routed_graph_nodes_ffn(
                 ffn_normed,
                 params[f"{p}.nodes.router.weight"],
                 params[f"{p}.nodes.gate.weight"],
@@ -870,7 +966,11 @@ def forward_with_hidden_v2(
                 mature_nodes=config.mature_experts if use_tiered_reasoning else 0,
                 new_tier_mask=pass_tier_mask,
                 node_edge_scale=params.get(f"{p}.nodes.edge_scale"),
+                return_domain_logit=True,
             )
+            ffn_out = ffn_out + routed_out
+            domain_logit_sum = domain_logit_sum + d_logit.astype(jnp.float32)
+            domain_logit_count += 1
         ffn_out = sandwich_rms_bound(
             ffn_out,
             params.get(f"{p}.ffn_post_scale"),
@@ -904,7 +1004,18 @@ def forward_with_hidden_v2(
         log_scale=params.get("output_head.log_scale") if config.use_ncm else None,
         norm_alpha=params.get("output_head.norm_alpha") if config.use_ncm else None,
     )
-    return logits.reshape(bsz, t_len, config.vocab_size), hidden_normed
+    mean_domain_logit = domain_logit_sum / float(max(domain_logit_count, 1))
+    return logits.reshape(bsz, t_len, config.vocab_size), hidden_normed, mean_domain_logit
+
+
+def forward_with_hidden_v2(
+    params: dict[str, jnp.ndarray],
+    tokens: jnp.ndarray,
+    config: ConfigV2,
+) -> tuple[jnp.ndarray, jnp.ndarray]:
+    """Compute next-token logits `(B, T, V)` and final normalized hidden states `(B, T, D)`."""
+    logits, hidden_normed, _ = _forward_core_v2(params, tokens, config)
+    return logits, hidden_normed
 
 
 def compute_ncm_concept_loss_v2(
@@ -1055,11 +1166,30 @@ def make_train_step_v2(
         mask: jnp.ndarray,
     ):
         def loss_fn(p):
-            logits, hidden_normed = forward_with_hidden_v2(p, inputs, config)
+            logits, hidden_normed, mean_domain_logit = _forward_core_v2(p, inputs, config)
             log_probs = jax.nn.log_softmax(logits, axis=-1)
             tok_loss = -jnp.take_along_axis(log_probs, targets[..., None], axis=-1)[..., 0]
             denom = jnp.maximum(jnp.sum(mask), 1.0)
             total_loss = jnp.sum(tok_loss * mask) / denom
+            if (
+                config.n_experts > 10
+                and config.domain_gate_weight > 0.0
+                and len(config.digit_token_ids) > 0
+            ):
+                digit_ids = jnp.asarray(config.digit_token_ids, dtype=targets.dtype)
+                tgt_has_digit = jnp.any(
+                    targets[..., None] == digit_ids[None, None, :], axis=-1
+                ) & (mask > 0)
+                seq_is_math = jnp.any(tgt_has_digit, axis=-1, keepdims=True).astype(jnp.float32)
+                valid_tok = (inputs != 0).astype(jnp.float32)
+                bce_tok = optax.sigmoid_binary_cross_entropy(
+                    mean_domain_logit,
+                    jnp.broadcast_to(seq_is_math, mean_domain_logit.shape),
+                )
+                domain_loss = jnp.sum(bce_tok * valid_tok) / jnp.maximum(
+                    jnp.sum(valid_tok), 1.0
+                )
+                total_loss = total_loss + float(config.domain_gate_weight) * domain_loss
             if config.mtp_weight > 0.0 and "mtp_proj.weight" in p:
                 mtp_logits = compute_mtp_logits_v2(p, hidden_normed, targets[:, :-1], config)
                 mtp_lps = jax.nn.log_softmax(mtp_logits, axis=-1)
@@ -1093,7 +1223,11 @@ def make_train_step_v2(
 
         loss, grads = jax.value_and_grad(loss_fn)(params)
         clean_grads = {
-            k: (jnp.zeros_like(g) if k.endswith(".nodes.router_bias") else g)
+            k: (
+                jnp.zeros_like(g)
+                if (k.endswith(".nodes.router_bias") or k == "blt_token_ngrams")
+                else g
+            )
             for k, g in grads.items()
         }
         grad_norm = optax.tree.norm(clean_grads)
@@ -1105,7 +1239,7 @@ def make_train_step_v2(
         ):
             scaled_updates = {}
             for k, u in updates.items():
-                if k.endswith(".nodes.router_bias"):
+                if k.endswith(".nodes.router_bias") or k == "blt_token_ngrams":
                     scaled_updates[k] = jnp.zeros_like(u)
                 elif k.endswith(".nodes.edge_scale"):
                     if 0 < config.mature_experts < config.n_experts:
@@ -1133,6 +1267,8 @@ def make_train_step_v2(
                             r_mask[:, :10] = 0.0
                             if config.n_experts <= 18:
                                 r_mask[:, 10:] = 1.0
+                            else:
+                                r_mask[:, 10:18] = max(float(config.mature_lr_scale), 0.35)
                         scaled_updates[k] = u * jnp.asarray(r_mask)
                     else:
                         scaled_updates[k] = u
@@ -1151,12 +1287,16 @@ def make_train_step_v2(
             updates = scaled_updates
         else:
             updates = {
-                k: (jnp.zeros_like(u) if k.endswith(".nodes.router_bias") else u)
+                k: (
+                    jnp.zeros_like(u)
+                    if (k.endswith(".nodes.router_bias") or k == "blt_token_ngrams")
+                    else u
+                )
                 for k, u in updates.items()
             }
         new_params = optax.apply_updates(params, updates)
 
-        # DeepSeek-V3 Auxiliary-Loss-Free Router Bias Update
+        # DeepSeek-V3 Auxiliary-Loss-Free Router Bias Update (with Cosine Routing)
         if config.n_experts > 1 and config.router_bias_gamma > 0.0:
             tok_emb = new_params["tok_embeddings.weight"][inputs]
             k_eff = min(config.top_k_experts, config.n_experts)
@@ -1168,9 +1308,14 @@ def make_train_step_v2(
                     normed = rms_norm(
                         tok_emb, new_params[f"{p_key}.ffn_norm.weight"], config.rms_eps
                     )
-                    r_probs = jax.nn.softmax(
-                        normed @ new_params[f"{p_key}.nodes.router.weight"], axis=-1
+                    rw = new_params[f"{p_key}.nodes.router.weight"]
+                    x_u = normed * jax.lax.rsqrt(
+                        jnp.sum(jnp.square(normed), axis=-1, keepdims=True) + 1e-6
                     )
+                    w_u = rw * jax.lax.rsqrt(
+                        jnp.sum(jnp.square(rw), axis=0, keepdims=True) + 1e-6
+                    )
+                    r_probs = jax.nn.softmax(8.0 * jnp.matmul(x_u, w_u), axis=-1)
                     sel_scores = r_probs + new_params[b_key][None, None, :]
                     _, top_idx = jax.lax.top_k(sel_scores, k_eff)
                     sel_mask = jnp.sum(
@@ -1414,10 +1559,13 @@ def generate_v2(
         and config.mature_experts >= 8
         and config.n_experts > config.mature_experts
     )
+    open_id = (
+        config.think_open_id if config.think_open_id >= 0 else tokenizer.think_open_id
+    )
     close_id = (
         config.think_close_id
         if config.think_close_id >= 0
-        else int(tokenizer.encode("<|think|>", add_bos=False, add_eos=False)[-1])
+        else int(tokenizer.encode("<|/think|>", add_bos=False, add_eos=False)[-1])
     )
     step_limit = min(max_new_tokens, 48) if is_tiered_think else max_new_tokens
     for _ in range(step_limit):
@@ -1433,9 +1581,14 @@ def generate_v2(
         next_logits[tokenizer.pad_id] = -1e9
         next_logits[tokenizer.bos_id] = -1e9
         if prefilled_think:
-            if config.think_open_id >= 0:
-                next_logits[config.think_open_id] = -1e9
-            if len(generated) < 5 and close_id >= 0:
+            if 0 <= open_id < len(next_logits):
+                next_logits[open_id] = -1e9
+            if len(generated) < 4 and 0 <= close_id < len(next_logits):
+                next_logits[close_id] = -1e9
+        else:
+            if 0 <= open_id < len(next_logits):
+                next_logits[open_id] = -1e9
+            if 0 <= close_id < len(next_logits):
                 next_logits[close_id] = -1e9
 
         if repetition_penalty > 1.0 and generated:
@@ -1457,7 +1610,7 @@ def generate_v2(
         if next_id == tokenizer.eos_id:
             break
         generated.append(next_id)
-        if prefilled_think and len(generated) >= 5 and next_id == close_id:
+        if prefilled_think and len(generated) >= 4 and next_id == close_id:
             break
 
     raw_decoded = tokenizer.decode(generated, skip_special_tokens=False)
@@ -1564,17 +1717,40 @@ def load_checkpoint_v2(
         tok_tmp.unlink(missing_ok=True)
         if config.think_open_id < 0 or config.think_close_id < 0:
             think_ids = tokenizer.encode("<|think|>", add_bos=False, add_eos=False)
-            if len(think_ids) >= 2:
+            close_ids = tokenizer.encode("<|/think|>", add_bos=False, add_eos=False)
+            if len(think_ids) >= 1 and len(close_ids) >= 1:
                 config = config.model_copy(
                     update={
                         "think_open_id": int(think_ids[0]),
-                        "think_close_id": int(think_ids[-1]),
+                        "think_close_id": int(close_ids[-1]),
                     }
                 )
+        if not config.digit_token_ids:
+            config = config.model_copy(
+                update={"digit_token_ids": tokenizer.get_digit_token_ids()}
+            )
 
         np_params = load_safetensors_bytes(zf.read("model.safetensors"))
 
     params = {k: jnp.asarray(v, dtype=jnp.float32) for k, v in np_params.items()}
+    if config.blt_ngram_dim > 0:
+        if (
+            "blt_token_ngrams" not in params
+            or params["blt_token_ngrams"].shape != (config.vocab_size, config.blt_ngram_dim)
+        ):
+            params["blt_token_ngrams"] = jnp.asarray(
+                tokenizer.compute_blt_ngram_table(config.blt_ngram_dim),
+                dtype=jnp.float32,
+            )
+        if "blt_proj.weight" not in params:
+            params["blt_proj.weight"] = jnp.zeros(
+                (config.blt_ngram_dim, config.d_model), dtype=jnp.float32
+            )
+    if config.use_fone_abacus:
+        if "fone_proj.weight" not in params:
+            params["fone_proj.weight"] = jnp.zeros((16, config.d_model), dtype=jnp.float32)
+        if "abacus_pos.weight" not in params:
+            params["abacus_pos.weight"] = jnp.zeros((8, config.d_model), dtype=jnp.float32)
     # Backward compatibility for checkpoints saved before DeepSeek-V3 / LFM3 / SenseNova-Loop
     max_passes = max(2, int(config.loop_repeats))
     mhc_res_id, mhc_pre_id, mhc_post_id = _default_mhc_tensors(max_passes, symmetry_break=False)

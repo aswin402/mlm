@@ -15,11 +15,15 @@ SPECIAL_TOKENS = [
     "<|user|>",
     "<|assistant|>",
     "<|system|>",
+    "<|think|>",
+    "<|/think|>",
 ]
 
 BOS_TOKEN = "<|bos|>"
 EOS_TOKEN = "<|eos|>"
 PAD_TOKEN = "<|pad|>"
+THINK_OPEN_TOKEN = "<|think|>"
+THINK_CLOSE_TOKEN = "<|/think|>"
 
 BOS_ID = 0
 EOS_ID = 1
@@ -27,6 +31,8 @@ PAD_ID = 2
 USER_ID = 3
 ASSISTANT_ID = 4
 SYSTEM_ID = 5
+THINK_OPEN_ID = 6
+THINK_CLOSE_ID = 7
 
 
 class BPETokenizer:
@@ -37,6 +43,57 @@ class BPETokenizer:
         self.bos_id: int = self._tokenizer.token_to_id(BOS_TOKEN) or BOS_ID
         self.eos_id: int = self._tokenizer.token_to_id(EOS_TOKEN) or EOS_ID
         self.pad_id: int = self._tokenizer.token_to_id(PAD_TOKEN) or PAD_ID
+        t_open = self._tokenizer.token_to_id(THINK_OPEN_TOKEN)
+        t_close = self._tokenizer.token_to_id(THINK_CLOSE_TOKEN)
+        self.think_open_id: int = int(t_open) if t_open is not None else -1
+        self.think_close_id: int = int(t_close) if t_close is not None else -1
+
+    def get_digit_token_ids(self) -> tuple[int, ...]:
+        """Return the 10 BPE token IDs corresponding to single digits `'0'` through `'9'`."""
+        ids: list[int] = []
+        for d in range(10):
+            tid = self._tokenizer.token_to_id(str(d))
+            if tid is None:
+                enc = self.encode(str(d), add_bos=False, add_eos=False)
+                tid = int(enc[0]) if len(enc) > 0 else -1
+            ids.append(int(tid))
+        return tuple(ids)
+
+    def compute_blt_ngram_table(self, ngram_dim: int = 64) -> np.ndarray:
+        """Compute Meta BLT-style case-folded & run-collapsed byte n-gram table `(V, ngram_dim)`."""
+        size = self.vocab_size
+        table = np.zeros((size, ngram_dim), dtype=np.float32)
+        special_set = set(SPECIAL_TOKENS)
+        for tid in range(size):
+            raw_tok = self._tokenizer.id_to_token(tid) or ""
+            if raw_tok in special_set:
+                continue
+            decoded = self._tokenizer.decode([tid], skip_special_tokens=True).lower().strip()
+            if not decoded:
+                continue
+            # Collapse consecutive duplicate letters ("hii" -> "hi", "hellooo" -> "helo")
+            dedup_chars: list[str] = []
+            for ch in decoded:
+                if not dedup_chars or dedup_chars[-1] != ch or ch.isdigit():
+                    dedup_chars.append(ch)
+            dedup = "".join(dedup_chars)
+            padded = f"<{dedup}>"
+            feats: list[str] = [f"u:{ch}" for ch in set(dedup)]
+            for i in range(len(padded) - 1):
+                feats.append(f"b:{padded[i : i + 2]}")
+            for i in range(len(padded) - 2):
+                feats.append(f"t:{padded[i : i + 3]}")
+            for f_str in feats:
+                h = 2166136261
+                for b in f_str.encode("utf-8"):
+                    h = ((h ^ b) * 16777619) & 0xFFFFFFFF
+                idx = h % ngram_dim
+                sign = 1.0 if ((h >> 16) & 1) == 0 else -1.0
+                table[tid, idx] += sign
+            norm = float(np.linalg.norm(table[tid]))
+            if norm > 1e-6:
+                table[tid] /= norm
+        return table
 
     @property
     def vocab_size(self) -> int:

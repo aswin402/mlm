@@ -163,6 +163,11 @@ def run_train_v2(
                 "use_ncm": config.use_ncm,
                 "ncm_weight": config.ncm_weight,
                 "ncm_window": config.ncm_window,
+                "domain_gate_weight": config.domain_gate_weight,
+                "use_fone_abacus": config.use_fone_abacus,
+                "digit_token_ids": tokenizer.get_digit_token_ids(),
+                "think_open_id": tokenizer.think_open_id,
+                "think_close_id": tokenizer.think_close_id,
             }
         )
         if expand_conv_kernel > config.conv_kernel:
@@ -183,9 +188,20 @@ def run_train_v2(
                 min_frequency=2,
             )
         actual_vocab = tokenizer.vocab_size
-        if actual_vocab != config.vocab_size:
-            config = config.model_copy(update={"vocab_size": actual_vocab})
+        config = config.model_copy(
+            update={
+                "vocab_size": actual_vocab,
+                "digit_token_ids": tokenizer.get_digit_token_ids(),
+                "think_open_id": tokenizer.think_open_id,
+                "think_close_id": tokenizer.think_close_id,
+            }
+        )
         state = create_state_v2(config, total_steps=steps)
+        if config.blt_ngram_dim > 0:
+            state.params["blt_token_ngrams"] = jnp.asarray(
+                tokenizer.compute_blt_ngram_table(config.blt_ngram_dim),
+                dtype=jnp.float32,
+            )
 
     train_ds = build_tokenized_dataset(train_records, tokenizer, config.max_seq_len)
     val_ds = build_tokenized_dataset(val_records, tokenizer, config.max_seq_len)
@@ -617,13 +633,17 @@ def make_grpo_step_v2(
 
         loss, grads = jax.value_and_grad(loss_fn)(params)
         clean_grads = {
-            k: (jnp.zeros_like(g) if k.endswith(".nodes.router_bias") else g)
+            k: (
+                jnp.zeros_like(g)
+                if (k.endswith(".nodes.router_bias") or k == "blt_token_ngrams")
+                else g
+            )
             for k, g in grads.items()
         }
         updates, new_opt_state = tx.update(clean_grads, opt_state, params)
         scaled_updates = {}
         for k, u in updates.items():
-            if k.endswith(".nodes.router_bias"):
+            if k.endswith(".nodes.router_bias") or k == "blt_token_ngrams":
                 scaled_updates[k] = jnp.zeros_like(u)
             elif k.endswith(".nodes.edge_scale"):
                 if 0 < config.mature_experts < config.n_experts:

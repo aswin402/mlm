@@ -106,6 +106,86 @@ def _parse_eleuther_arithmetic(row: dict) -> tuple[str, str] | None:
     return q, ans
 
 
+def _build_complete_arithmetic_foundation() -> list[tuple[str, str]]:
+    """Build complete base arithmetic tables (`0..15` & 2-digit `+`, `-`, `*`, `/`).
+
+    Following Lee et al. (ICLR 2024) & SmolLM2/Phi-4 math curricula: small transformers require
+    complete single-digit and carry-table coverage across both word (`plus`, `minus`, `times`)
+    and operator (`+`, `-`, `*`, `/`) phrasings to generalize reliably without parenthetical bias.
+    """
+    pairs: list[tuple[str, str]] = []
+    # 1. Complete 0..15 addition & subtraction tables across natural phrasings
+    for a in range(0, 16):
+        for b in range(0, 16):
+            s = a + b
+            ans_add = f"{a} + {b} = {s}. The answer is {s}."
+            for q_add in (
+                f"What is {a} plus {b}?",
+                f"whats {a}+{b}",
+                f"what is {a}+{b}",
+                f"What is {a} + {b}?",
+                f"{a}+{b}",
+                f"{a} + {b}",
+                f"solve {a}+{b}",
+            ):
+                pairs.append((q_add, ans_add))
+            if a >= b:
+                d = a - b
+                ans_sub = f"{a} - {b} = {d}. The answer is {d}."
+                for q_sub in (
+                    f"What is {a} minus {b}?",
+                    f"whats {a}-{b}",
+                    f"What is {a} - {b}?",
+                    f"{a}-{b}",
+                ):
+                    pairs.append((q_sub, ans_sub))
+
+    # 2. Complete 0..12 multiplication & exact division tables
+    for a in range(0, 13):
+        for b in range(0, 13):
+            p = a * b
+            ans_mul = f"{a} * {b} = {p}. The answer is {p}."
+            for q_mul in (
+                f"What is {a} times {b}?",
+                f"whats {a}*{b}",
+                f"What is {a} * {b}?",
+                f"{a}*{b}",
+            ):
+                pairs.append((q_mul, ans_mul))
+            if a >= 1 and b >= 1:
+                ans_div = f"{p} / {a} = {b}. The answer is {b}."
+                pairs.append((f"What is {p} divided by {a}?", ans_div))
+                pairs.append((f"whats {p}/{a}", ans_div))
+
+    # 3. Two-digit addition & subtraction carry/borrow grid (10..50)
+    for a in range(10, 50, 3):
+        for b in range(4, 45, 3):
+            s = a + b
+            ans_add = f"{a} + {b} = {s}. The answer is {s}."
+            pairs.append((f"What is {a} plus {b}?", ans_add))
+            pairs.append((f"whats {a}+{b}", ans_add))
+            if a >= b:
+                d = a - b
+                ans_sub = f"{a} - {b} = {d}. The answer is {d}."
+                pairs.append((f"What is {a} minus {b}?", ans_sub))
+                pairs.append((f"whats {a}-{b}", ans_sub))
+    return pairs
+
+
+def _filter_pure_english_replay(records: list[dict], limit: int) -> list[dict]:
+    """Select digit-free English/Chat replay records so Domain-Gate supervision is 100% exact."""
+    clean = [
+        r for r in records if not any(ch.isdigit() for ch in str(r.get("text", "")))
+    ]
+    short_greetings = [
+        r for r in clean if len(str(r.get("text", "")).split("\n<|assistant|>\n")[0]) <= 36
+    ]
+    longer = [
+        r for r in clean if len(str(r.get("text", "")).split("\n<|assistant|>\n")[0]) > 36
+    ]
+    return (short_greetings[: limit // 2] + longer[:limit])[:limit]
+
+
 def prepare_curated_math(
     root: Path = Path("data/curated-math-v1"),
     hf_cache: Path = Path("data/hf"),
@@ -115,8 +195,9 @@ def prepare_curated_math(
     root = Path(root)
     root.mkdir(parents=True, exist_ok=True)
 
-    # 1. Load `EleutherAI/arithmetic` splits (1D composite, 2D add/sub/mul, 3D add/sub)
-    arith_pairs: list[tuple[str, str]] = []
+    # 1. Load complete base arithmetic foundation + `EleutherAI/arithmetic` splits
+    base_arith = _build_complete_arithmetic_foundation()
+    arith_pairs: list[tuple[str, str]] = list(base_arith)
     for cfg_name in (
         "arithmetic_1dc",
         "arithmetic_2da",
@@ -130,7 +211,7 @@ def prepare_curated_math(
         )
         # Prioritize shorter 1-digit and 2-digit questions first
         rows_sorted = sorted(rows, key=lambda r: len(str(r.get("context", ""))))
-        for r in rows_sorted[:450]:
+        for r in rows_sorted[:350]:
             parsed = _parse_eleuther_arithmetic(r)
             if parsed is not None:
                 arith_pairs.append(parsed)
@@ -196,9 +277,9 @@ def prepare_curated_math(
     s1_train: list[dict] = []
     s1_val: list[dict] = []
 
-    for idx, (q, ans) in enumerate(arith_pairs[:1200]):
+    for idx, (q, ans) in enumerate(arith_pairs[:3200]):
         rec = {"text": f"Question: {q}\nSolution: {ans}"}
-        if idx % 20 == 0 and len(s1_val) < 64:
+        if idx % 45 == 0 and len(s1_val) < 64:
             s1_val.append(rec)
         else:
             s1_train.append(rec)
@@ -206,7 +287,7 @@ def prepare_curated_math(
     for idx, r in enumerate(orca_short[:800]):
         q = " ".join(str(r.get("question", "")).strip().split())
         a = _first_complete_sentences(str(r.get("answer", "")), max_chars=240)
-        if q and a and not _has_latex(q + a):
+        if q and a and not _has_latex(q + a) and any(ch.isdigit() for ch in a):
             rec = {"text": f"Problem: {q}\nSolution: {a}"}
             if idx % 25 == 0 and len(s1_val) < 64:
                 s1_val.append(rec)
@@ -228,9 +309,11 @@ def prepare_curated_math(
                 {"text": f"Problem: {q}\nSolution: {steps_clean} The answer is {num_clean}."}
             )
 
-    # Interleave 15% Stage 1 English replay for Domain-Bank Router calibration
-    eng_s1 = _read_jsonl(english_root / "stage1_english_learn" / "train.jsonl", max_rows=350)
-    s1_train.extend(eng_s1)
+    # Interleave digit-free Stage 1 & Stage 3 English replay for Domain-Bank Router calibration
+    eng_s1_raw = _read_jsonl(english_root / "stage1_english_learn" / "train.jsonl", max_rows=800)
+    eng_s3_raw = _read_jsonl(english_root / "stage3_english_chat" / "train.jsonl", max_rows=1200)
+    s1_train.extend(_filter_pure_english_replay(eng_s1_raw, 400))
+    s1_train.extend(_filter_pure_english_replay(eng_s3_raw, 400))
 
     # =========================================================================
     # STAGE 2: Arithmetic & Word Problems (Nodes 10..15 — 6 Math Nodes)
@@ -241,7 +324,7 @@ def prepare_curated_math(
 
     for idx, (q, ans) in enumerate(arith_pairs):
         rec = _make_supervised_chat_record(q, ans)
-        if idx % 35 == 0 and len(s2_val) < 32:
+        if idx % 85 == 0 and len(s2_val) < 32:
             s2_val.append(rec)
         else:
             s2_train.append(rec)
@@ -281,13 +364,16 @@ def prepare_curated_math(
     for r in orca_short:
         q = " ".join(str(r.get("question", "")).strip().split())
         a = _first_complete_sentences(str(r.get("answer", "")), max_chars=240)
-        if q and a and len(q) <= 180 and not _has_latex(q + a):
+        if q and a and len(q) <= 180 and not _has_latex(q + a) and any(ch.isdigit() for ch in a):
             rec = _make_supervised_chat_record(q, a)
             if len(rec["text"].encode("utf-8")) <= 460:
                 s2_train.append(rec)
 
-    eng_s2 = _read_jsonl(english_root / "stage2_english_understand" / "train.jsonl", max_rows=600)
-    s2_train.extend(eng_s2)
+    eng_s2_raw = _read_jsonl(
+        english_root / "stage2_english_understand" / "train.jsonl", max_rows=1200
+    )
+    s2_train.extend(_filter_pure_english_replay(eng_s3_raw, 600))
+    s2_train.extend(_filter_pure_english_replay(eng_s2_raw, 500))
 
     # =========================================================================
     # STAGE 3: Multi-Step Math & Equations (Nodes 10..17 — 8 Math Nodes)
@@ -312,18 +398,18 @@ def prepare_curated_math(
             else:
                 s3_train.append(rec)
 
-    # Replay arithmetic & Orca short equations in Stage 3
-    for q, ans in arith_pairs[:900]:
+    # Replay complete base arithmetic & Orca short equations in Stage 3
+    for q, ans in arith_pairs[:3200]:
         s3_train.append(_make_supervised_chat_record(q, ans))
     for r in orca_short[:600]:
         q = " ".join(str(r.get("question", "")).strip().split())
         a = _first_complete_sentences(str(r.get("answer", "")), max_chars=240)
-        if q and a and len(q) <= 160 and not _has_latex(q + a):
+        if q and a and len(q) <= 160 and not _has_latex(q + a) and any(ch.isdigit() for ch in a):
             s3_train.append(_make_supervised_chat_record(q, a))
 
-    # Replay 15% English Chat + Science so Bank 0 vs Bank 1 routing stays sharp
-    eng_s3 = _read_jsonl(english_root / "stage3_english_chat" / "train.jsonl", max_rows=500)
-    s3_train.extend(eng_s3)
+    # Replay digit-free English Chat + Science so Bank 0 vs Bank 1 routing stays sharp
+    s3_train.extend(_filter_pure_english_replay(eng_s3_raw, 800))
+    s3_train.extend(_filter_pure_english_replay(eng_s2_raw, 300))
 
     # =========================================================================
     # STAGE 4: Ornith-1.5 `<|think|>` Math Reasoning (Nodes 18..19 — 10 Math Nodes)
@@ -332,10 +418,10 @@ def prepare_curated_math(
     s4_train: list[dict] = []
     s4_val: list[dict] = []
 
-    for idx, (q, ans) in enumerate(arith_pairs[:600]):
+    for idx, (q, ans) in enumerate(arith_pairs[:2800]):
         calc_part = ans.split(". The answer is")[0].strip() + "."
         rec = _make_supervised_think_record(q, calc_part, ans)
-        if idx % 25 == 0 and len(s4_val) < 20:
+        if idx % 95 == 0 and len(s4_val) < 20:
             s4_val.append(rec)
         else:
             s4_train.append(rec)
@@ -372,8 +458,10 @@ def prepare_curated_math(
             if len(rec["text"].encode("utf-8")) <= 480 and len(s4_val) < 48:
                 s4_val.append(rec)
 
-    eng_s4 = _read_jsonl(english_root / "stage4_reasoning_think" / "train.jsonl", max_rows=200)
-    s4_train.extend(eng_s4)
+    eng_s4_raw = _read_jsonl(
+        english_root / "stage4_reasoning_think" / "train.jsonl", max_rows=800
+    )
+    s4_train.extend(_filter_pure_english_replay(eng_s4_raw, 450))
 
     s1_dir = root / "stage1_math_foundations"
     s2_dir = root / "stage2_math_arithmetic_word"
