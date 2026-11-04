@@ -267,6 +267,17 @@ def main(argv=None):
         choices=[0, 1, 2, 4, 8],
         help="TurboQuant KV cache bitwidth (4, 2, or 1 for 4-bit/2-bit/1-bit KV cache)",
     )
+    chat.add_argument(
+        "--memory-file",
+        type=Path,
+        default=None,
+        help="Persistent 3-tier memory sidecar path (default: <checkpoint>.memory)",
+    )
+    chat.add_argument(
+        "--reset-memory",
+        action="store_true",
+        help="Clear persistent Tier-3 episodic memory before starting",
+    )
     chat.add_argument("--save-out", type=Path, help="Optional path to save updated checkpoint")
     continual = commands.add_parser(
         "continual",
@@ -489,7 +500,7 @@ def main(argv=None):
         print(json.dumps(summary, indent=2), flush=True)
     elif args.command == "chat":
         if args.checkpoint is not None and args.checkpoint.suffix == ".mlm2":
-            from mlm.model_v2 import generate_v2, load_checkpoint_v2
+            from mlm.model_v2 import MemoryHierarchyV2, generate_v2, load_checkpoint_v2
             from mlm.train_v2 import format_chat_prompt_v2
             from mlm.tui import run_chat_tui_v2
 
@@ -497,9 +508,22 @@ def main(argv=None):
                 params_v2, cfg_v2, tok_v2, _ = load_checkpoint_v2(args.checkpoint)
                 if args.kv_bits is not None:
                     cfg_v2 = cfg_v2.model_copy(update={"kv_cache_bits": int(args.kv_bits)})
+                eff_mem_path = (
+                    args.memory_file
+                    if args.memory_file is not None
+                    else args.checkpoint.with_suffix(".mlm2.memory")
+                )
+                if args.reset_memory and eff_mem_path.exists():
+                    eff_mem_path.unlink(missing_ok=True)
+                mem_h = MemoryHierarchyV2(cfg_v2, storage_path=eff_mem_path)
                 prompt = format_chat_prompt_v2(args.message.replace("\\n", "\n"), args.context)
                 reply = generate_v2(
-                    params_v2, cfg_v2, tok_v2, prompt, max_new_tokens=max(16, args.max_bytes // 2)
+                    params_v2,
+                    cfg_v2,
+                    tok_v2,
+                    prompt,
+                    max_new_tokens=max(16, args.max_bytes // 2),
+                    memory_hierarchy=mem_h,
                 )
                 print(reply.strip())
                 return
@@ -509,6 +533,8 @@ def main(argv=None):
                 show_thinking=not args.no_think,
                 initial_context=args.context,
                 kv_cache_bits=args.kv_bits,
+                memory_path=args.memory_file,
+                reset_memory=args.reset_memory,
             )
             return
         from mlm.tui import (

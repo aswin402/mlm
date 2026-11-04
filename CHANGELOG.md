@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+## [0.0.21] - 2026-11-05
+
+### Added
+
+- **3-Tier Persistent External & Episodic Memory Hierarchy (`MemoryHierarchyV2` in `mlm.model_v2`, `format_memory_inspector_v2` in `mlm.tui`):** Implemented a 3-tier memory architecture across `model_v2.py`, `tui.py`, and `cli.py`:
+  1. **Tier 1 — Immediate Context (`DSA + IndexShare Sparse Attention` + `TurboQuant 2-bit + QJL` KV Cache):** Live tracking of active KV positions, Frobenius KV norms ($\sqrt{\|K\|_F^2 + \|V\|_F^2}$), and `DSA` Lightning Indexer cache norms ($\|K_{\text{idx}}\|_F$) directly from the $O(1)$ recurrent decode carry (`record_decode_carry`).
+  2. **Tier 2 — Working State (`Parallel Gated DeltaNet` Recurrent Fast Weights):** Cross-turn recurrent fast-weight state $S_{\text{work}} \in \mathbb{R}^{L_{\text{sched}} \times 1 \times H \times D_h \times D_h}$ updated via gated delta-rule EMA ($S_{\text{work}} \leftarrow \gamma S_{\text{work}} + (1 - \gamma) S_{\text{turn}}$), blended into episodic value representations (`_compute_text_key_value`), and persisted in `fp16` inside `memory.safetensors`.
+  3. **Tier 3 — Persistent Long-Term Episodic Memory (`TurboQuant 2-bit + QJL` Content-Addressed Bank + State-Action-Overwrite `SAO`):** Compresses up to 64 content-addressed $(K_{\text{ep}}, V_{\text{ep}}) \in \mathbb{R}^{M \times D}$ slots using 2-bit `TurboQuant` (`FWHT` + Lloyd-Max + 1-bit `QJL`) at **`8.00x` compression vs `fp32`** (`12.0 KiB` total), supporting declarative fact extraction, cross-session `.mlm2.memory` disk persistence (`save` / `load`), in-place **State-Action-Overwrite (`SAO` / Delta Rule)** when facts or variables change (`upsert_slot`), and persistent variable substitution inside `VERIFIED` math expressions (`process_turn_before_generate`).
+- **Interactive Memory TUI & CLI Controls (`mlm.tui`, `mlm.cli`):** Added `/memory` (rendering all 3 memory tiers and per-layer DeltaNet fast-weight bars), `/forget` (clearing working and episodic memory), `--memory-file <path>`, and `--reset-memory` to `mlm chat`, plus live `Memory: T1(KV)=... | T2(DeltaNet ||S||_F)=... | T3(Episodic)=...` telemetry inside `<think>` boxes.
+
+### Changed
+
+- Extended `tests/test_v2_and_gguf.py` with unit tests covering `MemoryHierarchyV2` Tier-1 KV tracking, Tier-2 Gated DeltaNet working state, Tier-3 2-bit `TurboQuant` episodic storage, cross-session `.mlm2.memory` reload, `SAO` slot overwrite, and math variable substitution.
+- Incremented package and lockfile version to `0.0.21`.
+
 ## [0.0.20] - 2026-11-04
 
 ### Added

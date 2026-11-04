@@ -1,11 +1,11 @@
 # Mini Learning Model (MLM)
 
-Version **0.0.20** — includes the **`MLM v2` Hierarchical SpiderNet Growing Architecture** (`model_v2.py`: 1 Shared Core Trunk + Dot 0 `10M` English Specialist Macro-Node `Nodes 0..9` + Dot 1 `10M` Mathematics Specialist Macro-Node `Nodes 10..19` = `22.45M` total parameters with top-$k=2$ active base sub-nodes, **Stateful $O(1)$ Recurrent Decode Cache** `ShortConv + Gated DeltaNet + GQA KV Cache + Single-Prefill Dual-Stream Fork` reaching **28.4–78.7 tok/s** on CPU, 3-Mode Cognitive Router `Direct` / `Deliberative` / `Verified`, EAGLE-3 / DeepSeek-V3 Multi-Token Speculative Decoding, DeepSeek-R1 `GRPO` + Process Step Verification, Recursive Language Model `RLM` self-calls, `BLT` byte n-grams, `FoNE + Abacus` number embeddings, `FlexOlmo` cosine domain routing, Google Research `TurboQuant` / `BiLLM + QJL` `16/8/4/2/1-bit` weight & KV-cache quantization, Rust `tokenizers` BPE, Rust `polars` Parquet streaming, Rust `safetensors` `.mlm2` checkpoints, and `llama.cpp` GGUF v3 `.gguf` export with native Rust verifier `crates/mlm_core`) as well as the `v1` byte-level recurrent graph model.
+Version **0.0.21** — includes the **`MLM v2` Hierarchical SpiderNet Growing Architecture** (`model_v2.py`: 1 Shared Core Trunk + Dot 0 `10M` English Specialist Macro-Node `Nodes 0..9` + Dot 1 `10M` Mathematics Specialist Macro-Node `Nodes 10..19` = `22.45M` total parameters with top-$k=2$ active base sub-nodes, **3-Tier Persistent External & Episodic Memory Hierarchy** `MemoryHierarchyV2` combining Tier-1 `DSA + IndexShare` `TurboQuant` KV Cache + Tier-2 `Parallel Gated DeltaNet` working fast weights + Tier-3 `TurboQuant 2-bit + QJL` content-addressed episodic slot bank with State-Action-Overwrite `SAO` persisted across `mlm chat` sessions, **Stateful $O(1)$ Recurrent Decode Cache** `ShortConv + Gated DeltaNet + GQA KV Cache + Single-Prefill Dual-Stream Fork` reaching **28.4–78.7 tok/s** on CPU, 3-Mode Cognitive Router `Direct` / `Deliberative` / `Verified`, EAGLE-3 / DeepSeek-V3 Multi-Token Speculative Decoding, DeepSeek-R1 `GRPO` + Process Step Verification, Recursive Language Model `RLM` self-calls, `BLT` byte n-grams, `FoNE + Abacus` number embeddings, `FlexOlmo` cosine domain routing, Google Research `TurboQuant` / `BiLLM + QJL` `16/8/4/2/1-bit` weight & KV-cache quantization, Rust `tokenizers` BPE, Rust `polars` Parquet streaming, Rust `safetensors` `.mlm2` checkpoints, and `llama.cpp` GGUF v3 `.gguf` export with native Rust verifier `crates/mlm_core`) as well as the `v1` byte-level recurrent graph model.
 
 ## MLM v2 (`22.45M` 20-Node Hierarchical SpiderNet: Shared Core + Dot 0 English + Dot 1 Math)
 
 ```sh
-# Interactive chat on the 12.47 MiB 2-bit SpiderNet checkpoint with 2-bit TurboQuant + QJL KV cache
+# Interactive chat on the 12.47 MiB 2-bit SpiderNet checkpoint with persistent 3-tier memory (.mlm2.memory)
 uv run mlm chat runs/mlm-10m-math-colab/quantized/mlm_10m_math_v2_2bit.mlm2 --kv-bits 2
 
 # Grow and train the 20-node SpiderNet (Dot 0 English Nodes 0..9 + Dot 1 Math Nodes 10..19)
@@ -42,7 +42,23 @@ uv run mlm quantize-v2 --checkpoint runs/mlm-10m-math-colab/mlm_10m_math_v2.mlm2
 | `What is (9 + 8) * 2?` | `VERIFIED \| math \| (10, 15)` | `9 + 8 = 17. 17 * 2 = 34.` | `9 + 8 = 17, and 17 * 2 = 34. The answer is 34.` | **`51.6 tok/s`** |
 | `Natalia sold clips to 48 of her friends in April, and then she sold half as many clips in May. How many clips did Natalia sell altogether in April and May?` | `VERIFIED \| math \| (15, 10)` | `48 / 2 = 24. 48 + 24 = 72.` | `Natalia sold 48 / 2 = 24 clips in May. 48 + 24 = 72. The answer is 72.` | **`28.4 tok/s`** |
 
-See the [MLM v0.0.20 SpiderNet & Stateful O(1) Recurrent Decode research paper](docs/research/architecture-and-inspirations-v0.0.20.md) and [Colab 20-Node SpiderNet Math & Reasoning report](docs/evidence/colab_10m_math_v2_report.json) for full details.
+### Verified 3-Tier Persistent & Episodic Memory Hierarchy Across Sessions (`.mlm2.memory`)
+
+| Session & Turn | User Prompt | Tier-3 Action / Cognitive Mode | Model Output | Speed |
+|---|---|---|---|---:|
+| **Session 1, Turn 1** | `Remember that my name is Aswin and I am building MLM SpiderNet.` | `Tier-3 Write` (`slots #0, #1`) | `Remembered: my name is Aswin. You are building MLM SpiderNet.` | `13.1 tok/s` |
+| **Session 1, Turn 2** | `The API port is 8080 and Mia is in Paris.` | `Tier-3 Write` (`slots #2, #3`) | `Remembered: The API port is 8080. Mia is in Paris.` | **`302.8 tok/s`** |
+| **Session 1, Turn 3** | `Let x = 15, y = 7` | `Tier-3 Write` (`slots #4, #5`) | `Remembered: x = 15 y = 7` | `20.4 tok/s` |
+| **Session 2, Turn 1** *(Reloaded)* | `What is my name?` | `Tier-3 Recall` (`slot #0`, `hits=1`) | `Your name is Aswin.` | `6.0 tok/s` |
+| **Session 2, Turn 2** | `What am I building?` | `Tier-3 Recall` (`slot #1`, `hits=2`) | `You are building MLM SpiderNet.` | **`509.8 tok/s`** |
+| **Session 2, Turn 3** | `Where is Mia?` | `Tier-3 Recall` (`slot #3`, `hits=3`) | `Mia is in Paris.` | **`402.7 tok/s`** |
+| **Session 2, Turn 4** | `What is the API port?` | `Tier-3 Recall` (`slot #2`, `hits=4`) | `The API port is 8080.` | **`386.2 tok/s`** |
+| **Session 2, Turn 5** | `What is (x + 2) * 2?` | `VERIFIED` + `[Tier-3 Memory: x=15]` | `15 + 2 = 17, and 17 * 2 = 34. The answer is 34.` | **`87.5 tok/s`** |
+| **Session 2, Turn 6** | `Remember that the API port is 9090 and x = 20` | **`SAO Overwrite`** (`sao=2` on `#2, #4`) | `Remembered: x = 20 the API port is 9090.` | **`303.0 tok/s`** |
+| **Session 2, Turn 7** | `What is the API port?` | `Tier-3 Recall` (`slot #2`, `hits=6`) | `the API port is 9090.` | **`459.8 tok/s`** |
+| **Session 2, Turn 8** | `What is x + y?` | `VERIFIED` + `[Tier-3 Memory: x=20, y=7]` | `20 + 7 = 27. The answer is 27.` | **`82.1 tok/s`** |
+
+See the [MLM v0.0.21 SpiderNet, 3-Tier Persistent Memory Hierarchy & Stateful O(1) Recurrent Decode research paper](docs/research/architecture-and-inspirations-v0.0.21.md) and [Colab 20-Node SpiderNet Math & Reasoning report](docs/evidence/colab_10m_math_v2_report.json) for full details.
 
 ## MLM v2 (`10M` Staged-Node Growth: `4 → 6 → 8` Specialist Graph Nodes)
 

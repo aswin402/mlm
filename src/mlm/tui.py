@@ -509,6 +509,64 @@ def run_chat_tui(
     return learner.state, learner.config
 
 
+def format_memory_inspector_v2(
+    mem_h,
+    color: bool = True,
+) -> str:
+    """Render the 3-Tier Persistent External & Episodic Memory Hierarchy Inspector (`/memory`)."""
+    info = mem_h.summary_dict()
+    t1 = info["tier1_immediate_kv"]
+    t2 = info["tier2_working_deltanet"]
+    t3 = info["tier3_persistent_episodic"]
+    hdr = "╭─ 💾 MLM v2 3-Tier Persistent Memory Hierarchy Inspector (/memory) " + "─" * 4 + "╮"
+    ftr = "╰" + "─" * 71 + "╯"
+    lines = [
+        _c(hdr, CYAN, color),
+        (
+            f"  {_c('Tier 1 (Immediate Context):', BOLD + BRIGHT_GREEN, color)} "
+            f"{t1['mechanism']} (TurboQuant {t1['kv_bits']}-bit + QJL)"
+        ),
+        (
+            f"     active_tokens={t1['active_tokens']} | "
+            f"||KV||_F={t1['kv_norm']:.3f} | ||K_idx||_F={t1['dsa_idx_norm']:.3f}"
+        ),
+        (
+            f"  {_c('Tier 2 (Working State):    ', BOLD + BRIGHT_YELLOW, color)} "
+            f"{t2['mechanism']} (decay={t2['working_decay']:.2f})"
+        ),
+        f"     ||S_work||_F={t2['delta_norm']:.3f}",
+    ]
+    lnorms = t2.get("layer_norms", [])
+    if lnorms:
+        max_ln = max(max(lnorms), 1e-6)
+        chips = [f"L{i}[{_bar(v / max_ln, 4)}]{v:.2f}" for i, v in enumerate(lnorms)]
+        for r_idx in range(0, len(chips), 4):
+            lines.append("     " + "  ".join(chips[r_idx : r_idx + 4]))
+    lines.append(
+        f"  {_c('Tier 3 (Persistent Bank):  ', BOLD + BRIGHT_CYAN, color)} "
+        f"{t3['mechanism']}"
+    )
+    lines.append(
+        f"     slots={t3['occupied_slots']}/{t3['max_slots']} | "
+        f"packed={t3['packed_bytes'] / 1024.0:.1f} KiB "
+        f"({t3['compression_vs_fp32']:.2f}x vs fp32) | "
+        f"hits={t3['total_hits']} | SAO_overwrites={t3['total_overwrites']}"
+    )
+    if t3.get("storage_path"):
+        lines.append(f"     disk_store={t3['storage_path']}")
+    if mem_h.slots:
+        for sl in mem_h.slots:
+            lines.append(
+                f"     • [slot #{sl['slot_id']:02d} | {sl['kind']}] "
+                f"{sl['subject']} {sl['relation']} {sl['value']} "
+                f"(hits={sl.get('hits', 0)}, sao={sl.get('overwrites', 0)})"
+            )
+    else:
+        lines.append("     (No persistent episodic slots stored yet)")
+    lines.append(_c(ftr, CYAN, color))
+    return "\n".join(lines)
+
+
 def run_chat_tui_v2(
     checkpoint_path: Path,
     max_new_tokens: int = 64,
@@ -518,11 +576,18 @@ def run_chat_tui_v2(
     output_stream=None,
     color: bool | None = None,
     kv_cache_bits: int | None = None,
+    memory_path: Path | None = None,
+    reset_memory: bool = False,
 ) -> None:
     """Interactive llama.cpp-style TUI for MLM v2 (.mlm2) checkpoints."""
     import time
 
-    from mlm.model_v2 import classify_cognitive_mode_v2, generate_v2, load_checkpoint_v2
+    from mlm.model_v2 import (
+        MemoryHierarchyV2,
+        classify_cognitive_mode_v2,
+        generate_v2,
+        load_checkpoint_v2,
+    )
     from mlm.train_v2 import format_chat_prompt_v2
 
     in_s = input_stream if input_stream is not None else sys.stdin
@@ -532,6 +597,19 @@ def run_chat_tui_v2(
     params_v2, cfg_v2, tok_v2, manifest = load_checkpoint_v2(checkpoint_path)
     if kv_cache_bits is not None:
         cfg_v2 = cfg_v2.model_copy(update={"kv_cache_bits": int(kv_cache_bits)})
+    eff_mem_path = (
+        Path(memory_path)
+        if memory_path is not None
+        else checkpoint_path.with_suffix(".mlm2.memory")
+    )
+    if reset_memory and eff_mem_path.exists():
+        eff_mem_path.unlink(missing_ok=True)
+    mem_h = MemoryHierarchyV2(
+        cfg_v2,
+        max_slots=64,
+        episodic_bits=2,
+        storage_path=eff_mem_path,
+    )
     q_info = manifest.get("quantization", {})
     w_bits = int(
         q_info.get("bits", manifest.get("metadata", {}).get("quantization_bits", 32))
@@ -593,10 +671,15 @@ def run_chat_tui_v2(
             f"(active_top_k={cfg_v2.top_k_experts}, mature_protected={cfg_v2.mature_experts}, "
             f"node_dim={cfg_v2.expert_ffn_dim})"
         ),
+        (
+            f"  {_c('memory_tiers:   ', BOLD, use_color)}  "
+            f"T1=DSA+{kv_str} | T2=Gated DeltaNet Fast-Weights | "
+            f"T3=Episodic ({len(mem_h.slots)}/{mem_h.max_slots} slots, 2b TurboQuant)"
+        ),
         _c(mid_border, CYAN, use_color),
         (
             f"  {_c('Autonomous Chat:', BOLD, use_color)} "
-            f"Type messages naturally (type 'exit' or 'quit' to leave)"
+            f"Type messages naturally ('/memory' to inspect, '/forget' to clear, 'exit' to leave)"
         ),
         _c(bot_border, CYAN, use_color),
     ]
@@ -616,9 +699,22 @@ def run_chat_tui_v2(
         user_text = line.strip()
         if not user_text:
             continue
-        if user_text.lower() in ("quit", "exit", "q"):
+        if user_text.lower() in ("quit", "exit", "q", "/exit", "/quit"):
             writeln(_c("Exiting MLM v2 interactive session.", DIM, use_color))
             break
+        if user_text.lower() == "/memory":
+            writeln(format_memory_inspector_v2(mem_h, color=use_color))
+            continue
+        if user_text.lower() == "/forget":
+            mem_h.clear()
+            writeln(
+                _c(
+                    "Cleared Tier-2 working fast weights and Tier-3 persistent episodic bank.",
+                    DIM,
+                    use_color,
+                )
+            )
+            continue
 
         prompt = format_chat_prompt_v2(user_text.replace("\\n", "\n"), initial_context)
         p_toks = len(tok_v2.encode(prompt, add_bos=True, add_eos=False))
@@ -630,6 +726,7 @@ def run_chat_tui_v2(
             prompt,
             max_new_tokens=max_new_tokens,
             include_think=True,
+            memory_hierarchy=mem_h,
         ).strip()
         elapsed_ms = (time.perf_counter() - t0) * 1000.0
         r_toks = max(1, len(tok_v2.encode(raw_reply, add_bos=False, add_eos=False)))
@@ -645,7 +742,9 @@ def run_chat_tui_v2(
             reply = raw_reply.replace("<|think|>", "").replace("<|/think|>", "").strip()
 
         if show_thinking:
-            cog_meta = classify_cognitive_mode_v2(params_v2, cfg_v2, tok_v2, prompt)
+            cog_meta = classify_cognitive_mode_v2(
+                params_v2, cfg_v2, tok_v2, mem_h.last_resolved_prompt or prompt
+            )
             hdr = "╭─ 🧠 MLM v2 Hybrid Telemetry (<think>) " + "─" * 30 + "╮"
             ftr = "╰" + "─" * 69 + "╯"
             writeln(_c(hdr, MAGENTA, use_color))
@@ -660,6 +759,15 @@ def run_chat_tui_v2(
                 + _c("Routing: ", BOLD, use_color)
                 + f"mode={str(cog_meta['mode']).upper()} | domain={cog_meta['domain']} | "
                 + f"subnodes={cog_meta['active_subnodes']}"
+            )
+            writeln(
+                _c("│ ", MAGENTA, use_color)
+                + _c("Memory: ", BOLD, use_color)
+                + f"T1(KV)={mem_h.tier1_kv_bits}b[{mem_h.tier1_active_tokens} tok, "
+                + f"||KV||={mem_h.tier1_kv_norm:.1f}] | "
+                + f"T2(DeltaNet ||S||_F)={mem_h.tier2_delta_norm:.2f} | "
+                + f"T3(Episodic)={len(mem_h.slots)}/{mem_h.max_slots} slots "
+                + f"(hits={mem_h.total_hits}, sao={mem_h.total_overwrites})"
             )
             if think_trace:
                 writeln(
@@ -767,21 +875,45 @@ def chat_main(argv: list[str] | None = None) -> None:
         choices=[0, 1, 2, 4, 8],
         help="TurboQuant KV cache bitwidth (4, 2, or 1 for 4-bit/2-bit/1-bit KV cache)",
     )
+    parser.add_argument(
+        "--memory-file",
+        type=Path,
+        default=None,
+        help="Persistent 3-tier memory sidecar path (default: <checkpoint>.memory)",
+    )
+    parser.add_argument(
+        "--reset-memory",
+        action="store_true",
+        help="Clear persistent Tier-3 episodic memory before starting",
+    )
     parser.add_argument("--save", type=Path, default=None, help="Save updated checkpoint on exit")
     parser.add_argument("--stats", type=Path, default=None, help="Write JSON stats on exit")
     args = parser.parse_args(argv)
 
     if args.checkpoint is not None and args.checkpoint.suffix == ".mlm2":
-        from mlm.model_v2 import generate_v2, load_checkpoint_v2
+        from mlm.model_v2 import MemoryHierarchyV2, generate_v2, load_checkpoint_v2
         from mlm.train_v2 import format_chat_prompt_v2
 
         if args.message is not None:
             params_v2, cfg_v2, tok_v2, _ = load_checkpoint_v2(args.checkpoint)
             if args.kv_bits is not None:
                 cfg_v2 = cfg_v2.model_copy(update={"kv_cache_bits": int(args.kv_bits)})
+            eff_mem_path = (
+                args.memory_file
+                if args.memory_file is not None
+                else args.checkpoint.with_suffix(".mlm2.memory")
+            )
+            if args.reset_memory and eff_mem_path.exists():
+                eff_mem_path.unlink(missing_ok=True)
+            mem_h = MemoryHierarchyV2(cfg_v2, storage_path=eff_mem_path)
             prompt = format_chat_prompt_v2(args.message.replace("\\n", "\n"), args.context)
             reply = generate_v2(
-                params_v2, cfg_v2, tok_v2, prompt, max_new_tokens=max(16, args.max_bytes // 2)
+                params_v2,
+                cfg_v2,
+                tok_v2,
+                prompt,
+                max_new_tokens=max(16, args.max_bytes // 2),
+                memory_hierarchy=mem_h,
             )
             sys.stdout.write(reply.strip() + "\n")
             return
@@ -792,6 +924,8 @@ def chat_main(argv: list[str] | None = None) -> None:
             initial_context=args.context,
             color=False if args.no_color else None,
             kv_cache_bits=args.kv_bits,
+            memory_path=args.memory_file,
+            reset_memory=args.reset_memory,
         )
         return
 

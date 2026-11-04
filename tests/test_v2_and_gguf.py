@@ -209,6 +209,78 @@ def test_model_v2_hybrid_train_grow_and_gguf(tmp_path: Path):
     )
     assert isinstance(reply, str) and len(reply) > 0
 
+    # Verify 3-Tier Persistent & Episodic Memory Hierarchy (Tier 1 KV, Tier 2 DeltaNet, Tier 3)
+    from mlm.model_v2 import MemoryHierarchyV2
+
+    mem_path = tmp_path / "test.mlm2.memory"
+    mem1 = MemoryHierarchyV2(loaded_cfg, max_slots=16, episodic_bits=2, storage_path=mem_path)
+    store_msg = "Remember that my name is Aswin and the API port is 8080. Let x = 15, y = 7"
+    out_store = generate_v2(
+        loaded_params,
+        loaded_cfg,
+        loaded_tok,
+        format_chat_prompt_v2(store_msg),
+        max_new_tokens=16,
+        include_think=True,
+        memory_hierarchy=mem1,
+    )
+    assert "Remembered:" in out_store
+    assert len(mem1.slots) == 4
+    assert mem_path.exists()
+    assert mem1.tier1_active_tokens > 0
+    assert mem1.tier2_delta_norm >= 0.0
+
+    # Reload memory in a new session and verify recall, SAO overwrite, and variable substitution
+    mem2 = MemoryHierarchyV2(loaded_cfg, max_slots=16, episodic_bits=2, storage_path=mem_path)
+    assert len(mem2.slots) == 4
+    out_recall = generate_v2(
+        loaded_params,
+        loaded_cfg,
+        loaded_tok,
+        format_chat_prompt_v2("What is my name?"),
+        max_new_tokens=16,
+        include_think=True,
+        memory_hierarchy=mem2,
+    )
+    assert "Aswin" in out_recall
+    assert mem2.total_hits == 1
+
+    # State-Action-Overwrite (SAO) on existing slot
+    out_sao = generate_v2(
+        loaded_params,
+        loaded_cfg,
+        loaded_tok,
+        format_chat_prompt_v2("Remember that the API port is 9090 and x = 20"),
+        max_new_tokens=16,
+        include_think=True,
+        memory_hierarchy=mem2,
+    )
+    assert "9090" in out_sao
+    assert len(mem2.slots) == 4
+    assert mem2.total_overwrites == 2
+    out_port = generate_v2(
+        loaded_params,
+        loaded_cfg,
+        loaded_tok,
+        format_chat_prompt_v2("What is the API port?"),
+        max_new_tokens=16,
+        memory_hierarchy=mem2,
+    )
+    assert "9090" in out_port
+
+    # Variable substitution in math query
+    out_math = generate_v2(
+        loaded_params,
+        loaded_cfg,
+        loaded_tok,
+        format_chat_prompt_v2("What is x + y?"),
+        max_new_tokens=16,
+        include_think=True,
+        memory_hierarchy=mem2,
+    )
+    assert "[Tier-3 Memory: x=20, y=7]" in out_math
+    assert mem2.summary_dict()["tier3_persistent_episodic"]["compression_vs_fp32"] >= 4.0
+
     # Export to GGUF v3 and verify with Rust `mlm-gguf-inspect`
     gguf_path = tmp_path / "model.gguf"
     info = export_gguf_v2(gguf_path, loaded_params, loaded_cfg, loaded_tok)
