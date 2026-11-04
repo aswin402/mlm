@@ -322,6 +322,194 @@ def test_model_v2_hybrid_train_grow_and_gguf(tmp_path: Path):
     assert fused["k_fused"].shape == (1, 8, loaded_cfg.n_kv_heads, loaded_cfg.head_dim)
     assert len(fused["hkvd_indices"]) >= 1
 
+    # Verify v0.0.22 True Sparse Index-Gather Execution & Profiler
+    from mlm.model_v2 import (
+        AutonomousGrowthControllerV2,
+        _execute_dense_nodes_step_v2,
+        _execute_sparse_nodes_step_v2,
+        compute_directed_edge_weights_v2,
+        compute_spidernet_graph_regularizers_v2,
+        directed_graph_message_passing_v2,
+        evaluate_continual_learning_metrics_v2,
+        profile_sparse_execution_v2,
+        run_spidernet_ablation_suite_v2,
+        split_specialist_nodes_orthogonal_v2,
+    )
+
+    sp_cfg = loaded_cfg.model_copy(
+        update={"n_experts": 6, "top_k_experts": 2, "expert_ffn_dim": 64}
+    )
+    sp_params = create_state_v2(sp_cfg, total_steps=4).params
+
+    prof = profile_sparse_execution_v2(sp_params, sp_cfg, [1, 2, 3, 4], n_bench_steps=4)
+    assert prof["max_logit_diff"] < 1e-4
+    assert prof["sparse_specialist_flops_fast_per_tok"] < prof["dense_specialist_flops_per_tok"]
+    assert prof["activation_ratio_fast"] <= 0.5
+
+    ffn_x = jnp.ones((1, 1, sp_cfg.d_model), dtype=jnp.float32) * 0.25
+    probs_sparse = jnp.zeros((1, 1, sp_cfg.n_experts), dtype=jnp.float32).at[0, 0, :2].set(
+        jnp.array([0.65, 0.35], dtype=jnp.float32)
+    )
+    out_sp = _execute_sparse_nodes_step_v2(
+        ffn_x,
+        probs_sparse,
+        sp_params["blk.0.nodes.gate.weight"],
+        sp_params["blk.0.nodes.up.weight"],
+        sp_params["blk.0.nodes.down.weight"],
+        k_active=2,
+    )
+    out_dn = _execute_dense_nodes_step_v2(
+        ffn_x,
+        probs_sparse,
+        sp_params["blk.0.nodes.gate.weight"],
+        sp_params["blk.0.nodes.up.weight"],
+        sp_params["blk.0.nodes.down.weight"],
+    )
+    assert float(jnp.max(jnp.abs(out_sp - out_dn))) < 1e-5
+
+    # Verify v0.0.23 Directed Graph Message Passing & v0.0.24 Input-Conditioned Edge Routing
+    c_active = jnp.full((sp_cfg.n_experts,), 0.85, dtype=jnp.float32)
+    out_sp_msg = _execute_sparse_nodes_step_v2(
+        ffn_x,
+        probs_sparse,
+        sp_params["blk.0.nodes.gate.weight"],
+        sp_params["blk.0.nodes.up.weight"],
+        sp_params["blk.0.nodes.down.weight"],
+        k_active=2,
+        edge_u=sp_params["blk.0.nodes.edge_u"],
+        edge_v=sp_params["blk.0.nodes.edge_v"],
+        edge_proj_h=sp_params["blk.0.nodes.edge_proj_h"],
+        edge_proj_x=sp_params["blk.0.nodes.edge_proj_x"],
+        edge_bias=sp_params["blk.0.nodes.edge_bias"],
+        msg_down=sp_params["blk.0.nodes.msg_down"],
+        msg_up=sp_params["blk.0.nodes.msg_up"],
+        collab_gate=c_active,
+        top_k_edges=1,
+    )
+    out_dn_msg = _execute_dense_nodes_step_v2(
+        ffn_x,
+        probs_sparse,
+        sp_params["blk.0.nodes.gate.weight"],
+        sp_params["blk.0.nodes.up.weight"],
+        sp_params["blk.0.nodes.down.weight"],
+        edge_u=sp_params["blk.0.nodes.edge_u"],
+        edge_v=sp_params["blk.0.nodes.edge_v"],
+        edge_proj_h=sp_params["blk.0.nodes.edge_proj_h"],
+        edge_proj_x=sp_params["blk.0.nodes.edge_proj_x"],
+        edge_bias=sp_params["blk.0.nodes.edge_bias"],
+        msg_down=sp_params["blk.0.nodes.msg_down"],
+        msg_up=sp_params["blk.0.nodes.msg_up"],
+        collab_gate=c_active,
+        top_k_edges=1,
+    )
+    assert float(jnp.max(jnp.abs(out_sp_msg - out_dn_msg))) < 1e-5
+    assert float(jnp.max(jnp.abs(out_sp_msg - out_sp))) > 1e-5
+
+    dummy_h1 = jnp.ones((1, 2, sp_cfg.n_experts, sp_cfg.d_model), dtype=jnp.float32) * 0.1
+    x_ctx = jnp.stack(
+        [
+            jnp.ones((sp_cfg.d_model,), dtype=jnp.float32),
+            -jnp.ones((sp_cfg.d_model,), dtype=jnp.float32),
+        ],
+        axis=0,
+    )[None, :, :]
+    a_ij = compute_directed_edge_weights_v2(
+        x_ctx,
+        dummy_h1,
+        sp_params["blk.0.nodes.edge_u"],
+        sp_params["blk.0.nodes.edge_v"],
+        sp_params["blk.0.nodes.edge_proj_h"],
+        sp_params["blk.0.nodes.edge_proj_x"],
+        sp_params["blk.0.nodes.edge_bias"],
+        top_k_edges=2,
+    )
+    # Zero self-loop diagonal A_ii == 0 and input-conditioned variation across tokens t=0 vs t=1
+    assert float(jnp.max(jnp.abs(jnp.diagonal(a_ij, axis1=-2, axis2=-1)))) == 0.0
+    assert float(jnp.max(jnp.abs(a_ij[:, 0] - a_ij[:, 1]))) > 1e-4
+    _, a_ij_mp = directed_graph_message_passing_v2(
+        x_ctx,
+        jnp.full((1, 2, sp_cfg.n_experts), 1.0 / sp_cfg.n_experts, dtype=jnp.float32),
+        dummy_h1,
+        sp_params["blk.0.nodes.edge_u"],
+        sp_params["blk.0.nodes.edge_v"],
+        sp_params["blk.0.nodes.edge_proj_h"],
+        sp_params["blk.0.nodes.edge_proj_x"],
+        sp_params["blk.0.nodes.edge_bias"],
+        sp_params["blk.0.nodes.msg_down"],
+        sp_params["blk.0.nodes.msg_up"],
+        c_active,
+        top_k_edges=2,
+        return_edge_weights=True,
+    )
+    assert a_ij_mp.shape == (1, 2, sp_cfg.n_experts, sp_cfg.n_experts)
+
+    reg_out = compute_spidernet_graph_regularizers_v2(
+        sp_params,
+        jnp.array([[1, 2, 3, 4]], dtype=jnp.int32),
+        jnp.ones((1, 4), dtype=jnp.float32),
+        sp_cfg,
+    )
+    assert float(reg_out["total_reg"]) > 0.0
+    assert float(reg_out["load_loss"]) > 0.0
+    assert float(reg_out["edge_loss"]) > 0.0
+    assert float(reg_out["diversity_loss"]) >= 0.0
+
+    # Verify v0.0.25 Autonomous Growth Controller & v0.0.26 Symmetric Orthogonal Splitting
+    split_params, split_cfg, split_diag = split_specialist_nodes_orthogonal_v2(
+        sp_params, sp_cfg, add_nodes=1, epsilon=0.02
+    )
+    assert split_cfg.n_experts == sp_cfg.n_experts + 1
+    assert split_diag["max_orthogonality_cosine"] < 1e-4
+    assert split_diag["max_mean_reconstruction_err"] < 1e-5
+    assert split_params["blk.0.nodes.gate.weight"].shape[0] == sp_cfg.n_experts + 1
+    assert split_params["blk.0.nodes.edge_bias"].shape == (
+        sp_cfg.n_experts + 1,
+        sp_cfg.n_experts + 1,
+    )
+
+    ctrl = AutonomousGrowthControllerV2(threshold_h=0.5, delta_drift=0.05, cooldown_steps=2)
+    ctrl.update_cusum(1.0)
+    grown_p, grown_c, evt = ctrl.observe_and_maybe_grow(
+        step=5,
+        loss_val=4.5,
+        params=sp_params,
+        grads=None,
+        inputs=jnp.array([[1, 2, 3, 4]], dtype=jnp.int32),
+        mask=jnp.ones((1, 4), dtype=jnp.float32),
+        config=sp_cfg,
+        add_nodes=1,
+    )
+    assert evt["grew"] is True
+    assert grown_c.n_experts == sp_cfg.n_experts + 1
+    assert len(ctrl.growth_events) == 1
+
+    # Verify v0.0.27 Continual Learning Metrics & v0.0.28 6-Architecture Ablation Suite
+    cl_m = evaluate_continual_learning_metrics_v2(
+        [
+            [0.5, 2.0, 2.0, 2.0],
+            [0.6, 0.5, 2.0, 2.0],
+            [0.65, 0.55, 0.4, 2.0],
+            [0.7, 0.6, 0.45, 0.35],
+        ],
+        active_k=2,
+        total_n=10,
+    )
+    assert 0.0 < cl_m["AA"] <= 1.0
+    assert cl_m["BWT"] < 0.0
+    assert cl_m["retention_pct"] > 50.0
+    assert cl_m["activation_ratio"] == 0.20
+
+    ablation_res = run_spidernet_ablation_suite_v2(
+        vocab_size=loaded_cfg.vocab_size, d_model=64, steps_per_task=3
+    )
+    assert len(ablation_res) == 6
+    assert "A_dense_baseline" in ablation_res
+    assert "F_spidernet_full_autonomous" in ablation_res
+    assert (
+        ablation_res["F_spidernet_full_autonomous"]["final_n_nodes"]
+        > ablation_res["B_static_flat_moe"]["final_n_nodes"]
+    )
+
     # Export to GGUF v3 and verify with Rust `mlm-gguf-inspect`
     gguf_path = tmp_path / "model.gguf"
     info = export_gguf_v2(gguf_path, loaded_params, loaded_cfg, loaded_tok)

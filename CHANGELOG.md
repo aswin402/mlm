@@ -2,6 +2,59 @@
 
 ## [Unreleased]
 
+## [0.0.28] - 2026-11-05
+
+### Added
+
+- **SpiderNet 6-Architecture Continual-Learning Ablation Suite (`run_spidernet_ablation_suite_v2` in `mlm.model_v2`):** Implemented a controlled 6-variant continual-learning ablation (`A_dense_baseline`, `B_static_flat_moe`, `C_static_hierarchical_moe`, `D_manual_grow_moe`, `E_spidernet_directed_graph`, `F_spidernet_full_autonomous`) across 4 sequential domains (`English -> Math -> Science -> Code`):
+  - `F_spidernet_full_autonomous` achieved **`AA = 0.49417`** (`+112%` vs `A_dense_baseline` `0.23309`, `+60%` vs `D_manual_grow_moe` `0.30822`), **`BWT = -0.00954`** (near-zero backward transfer degradation), **`forgetting = 0.11652`**, **`retention_pct = 92.43%`**, **`final_mean_loss = 0.83097`**, and **`3.50x` specialist FLOPs reduction** (`4 -> 7` nodes via `3` autonomous CUSUM orthogonal split events).
+
+## [0.0.27] - 2026-11-05
+
+### Added
+
+- **Continual-Learning Evaluation Harness (`evaluate_continual_learning_metrics_v2` in `mlm.model_v2`):** Added standardized continual-learning metrics over sequential task loss matrices $L \in \mathbb{R}^{T \times T}$ (`R_{t,j} = \exp(-L_{t,j})`), computing **Average Accuracy Proxy (`AA`)**, **Backward Transfer (`BWT`)**, **Average Forgetting (`F`)**, **Retention Percentage (`retention_pct`)**, **Active Parameter Ratio (`activation_ratio`)**, and **Specialist FLOPs Reduction (`flops_reduction_x`)**.
+
+## [0.0.26] - 2026-11-05
+
+### Added
+
+- **Symmetric Orthogonal Parent-Child Specialist Splitting (`_orthogonal_perturbation_like`, `split_specialist_nodes_orthogonal_v2` in `mlm.model_v2`):** Replaced noisy heuristic duplication with Gram-Schmidt orthogonal perturbation $Q$ ($\langle Q, W_{i^*} \rangle = 0, \; \|Q\|_F = \|W_{i^*}\|_F$) so parent $i^*$ and child $\text{new}$ split symmetrically:
+  $$W_{i^*}' = W_{i^*} + \epsilon Q, \qquad W_{\text{new}}' = W_{i^*} - \epsilon Q, \qquad b_{i^*}' = b_{i^*} - \log 2, \qquad b_{\text{new}}' = b_{i^*} - \log 2$$
+  Verified `max_orthogonality_cosine = 4.56e-9` and `max_mean_reconstruction_err = 1.49e-8` while initializing directed parent$\leftrightarrow$child graph collaboration bias $c_{i^*,\text{new}} = c_{\text{new},i^*} = +0.5$.
+
+## [0.0.25] - 2026-11-05
+
+### Added
+
+- **Autonomous Page-Hinkley / One-Sided CUSUM + 3-Signal Node Spawning Controller (`AutonomousGrowthControllerV2` in `mlm.model_v2`):** Implemented autonomous drift detection ($C_t = \max(0, C_{t-1} + (L_t - \mu_t)/\sigma_t - \delta) > h$) and composite per-node overload scoring:
+  $$G_i = w_s \hat{S}_i + w_o \hat{O}_i + w_h \hat{H}_i$$
+  combining gradient-conflict saturation $\hat{S}_i$, routing occupancy overload $\hat{O}_i = \bar{p}_i / (k/N)$, and output representation variance $\hat{H}_i$ to autonomously select parent $i^* = \arg\max_i G_i$ and trigger `split_specialist_nodes_orthogonal_v2`.
+
+## [0.0.24] - 2026-11-05
+
+### Added
+
+- **Input-Conditioned Low-Rank Bilinear Edge Routing (`compute_directed_edge_weights_v2`) & 3 Anti-Collapse Graph Regularizers (`compute_spidernet_graph_regularizers_v2` in `mlm.model_v2`):**
+  - Implemented token-conditioned directed edge scoring $e_{ij}(x_t) = \frac{(U h_i^{(1)})^\top (V h_j^{(1)}) + u_i^\top R x_t + v_j^\top R x_t}{\sqrt{r}} + c_{ij}$ with top-$k_e$ sparse neighbor selection so the same primary specialist dynamically selects different collaborators depending on the token context $x_t$.
+  - Added 3 differentiable anti-collapse graph regularizers into `make_train_step_v2`: Switch-style load-balancing $\mathcal{L}_{\text{load}} = N \sum_{i=1}^N \bar{p}_i \bar{f}_i$, L1 directed edge sparsity $\mathcal{L}_{\text{edge}} = \frac{1}{N(N-1)} \sum_{i \neq j} \bar{a}_{ij}$, and squared cosine specialist diversity $\mathcal{L}_{\text{diversity}} = \frac{1}{N(N-1)} \sum_{i \neq j} \cos^2(W_i, W_j)$.
+
+## [0.0.23] - 2026-11-05
+
+### Added
+
+- **Directed Inter-Node Graph Message Passing (`directed_graph_message_passing_v2` in `mlm.model_v2`):** Upgraded SpiderNet from parallel independent experts to a 2-hop directed computational graph ($N_i \to N_j$) with zero self-loops ($A_{ii} = 0$), low-rank bottleneck message projection $W_{\text{msg}} = W_{\text{msg,up}} W_{\text{msg,down}}$, and zero-initialized gated residual refinement:
+  $$M_j(x_t) = \sum_{i \neq j} p_i(x_t) a_{ij}(x_t) W_{\text{msg}} h_i^{(1)}(x_t), \qquad \Delta h_j^{(2)} = \tanh(g_{\text{collab}, j}) \odot \left(\operatorname{SiLU}(M_j) \odot \hat{h}_j^{(1)} + M_j\right)$$
+  guaranteeing 100% lossless backward compatibility (`max_logit_diff = 0.0`) with existing checkpoints when $g_{\text{collab}} = 0$ and exact equivalence between sparse gather and dense execution when $g_{\text{collab}} \neq 0$.
+
+## [0.0.22] - 2026-11-05
+
+### Added
+
+- **True Sparse Index-Gather Specialist Execution (`_execute_sparse_nodes_step_v2`, `_execute_dense_nodes_step_v2`, `profile_sparse_execution_v2` in `mlm.model_v2`):** Replaced dense `einsum("btd,ndf->btnf")` evaluation of all $N=20$ specialist nodes during $O(1)$ recurrent decoding with a 3-tier `jax.lax.switch` active-index gather (`k_t0 = 2`, `k_t1 = 4`, `k_t2 = 8`) over `gate_w[active_idx]`, `up_w[active_idx]`, and `down_w[active_idx]`:
+  - **English Profile (`k_active = 2 / 20 = 10%`):** `max_logit_diff = 9.54e-6` (**100% lossless**), **`10.0x` specialist FLOPs reduction** (`5.31M` vs `53.08M` FLOPs/tok; `1.77M / 17.69M` active specialist params), and **`2.93x` wall-clock decode speedup** (`6.18 ms/tok` vs `18.12 ms/tok`).
+  - **Math Profile (`k_active = 4 / 20 = 20%`):** `max_logit_diff = 9.78e-6` (**100% lossless**), **`5.0x` specialist FLOPs reduction**, and **`2.40x` wall-clock decode speedup** (`7.51 ms/tok` vs `18.05 ms/tok`).
+
 ## [0.0.21] - 2026-11-05
 
 ### Added

@@ -1,8 +1,8 @@
 # Mini Learning Model (MLM): Research and Feasibility
 
-Date: 2026-10-23 (Updated 2026-11-05 for `v0.0.21` SpiderNet Architecture + 3-Tier Persistent & Episodic Memory Hierarchy + Stateful $O(1)$ Recurrent Decode Cache)
+Date: 2026-10-23 (Updated 2026-11-05 for `v0.0.28` SpiderNet Dynamically Growing Hierarchical Directed Graph Network + True Sparse Index-Gather Execution + Autonomous CUSUM Orthogonal Splitting + 6-Architecture Continual-Learning Ablation)
 Status: Active research synthesis and implemented `MLM v1` (`GraphLM`) & `MLM v2` (`SpiderNet Hybrid`) architectures.
-Evidence: See [MLM v0.0.21 SpiderNet, 3-Tier Persistent Memory Hierarchy & Stateful O(1) Recurrent Decode Research Paper](research/architecture-and-inspirations-v0.0.21.md), [Colab 20-Node SpiderNet Math & Reasoning Report](evidence/colab_10m_math_v2_report.json), and [Colab 10M English v2 Report](evidence/colab_10m_v2_report.json).
+Evidence: See [MLM v0.0.28 SpiderNet Dynamically Growing Hierarchical Directed Graph Network Research Paper](research/architecture-and-inspirations-v0.0.28.md), [MLM v0.0.21 3-Tier Memory & O(1) Recurrent Decode Paper](research/architecture-and-inspirations-v0.0.21.md), [Colab 20-Node SpiderNet Math & Reasoning Report](evidence/colab_10m_math_v2_report.json), and [Colab 10M English v2 Report](evidence/colab_10m_v2_report.json).
 Companion document: [Product requirements](prd.md).
 
 ## 1. Preserve the original idea

@@ -1,6 +1,6 @@
 # Mini Learning Model (MLM)
 
-Version **0.0.21** — includes the **`MLM v2` Hierarchical SpiderNet Growing Architecture** (`model_v2.py`: 1 Shared Core Trunk + Dot 0 `10M` English Specialist Macro-Node `Nodes 0..9` + Dot 1 `10M` Mathematics Specialist Macro-Node `Nodes 10..19` = `22.45M` total parameters with top-$k=2$ active base sub-nodes, **3-Tier Persistent External & Episodic Memory Hierarchy** `MemoryHierarchyV2` combining Tier-1 `DSA + IndexShare` `TurboQuant` KV Cache + Tier-2 `Parallel Gated DeltaNet` working fast weights + Tier-3 `TurboQuant 2-bit + QJL` content-addressed episodic slot bank with State-Action-Overwrite `SAO` persisted across `mlm chat` sessions, **Stateful $O(1)$ Recurrent Decode Cache** `ShortConv + Gated DeltaNet + GQA KV Cache + Single-Prefill Dual-Stream Fork` reaching **28.4–78.7 tok/s** on CPU, 3-Mode Cognitive Router `Direct` / `Deliberative` / `Verified`, EAGLE-3 / DeepSeek-V3 Multi-Token Speculative Decoding, DeepSeek-R1 `GRPO` + Process Step Verification, Recursive Language Model `RLM` self-calls, `BLT` byte n-grams, `FoNE + Abacus` number embeddings, `FlexOlmo` cosine domain routing, Google Research `TurboQuant` / `BiLLM + QJL` `16/8/4/2/1-bit` weight & KV-cache quantization, Rust `tokenizers` BPE, Rust `polars` Parquet streaming, Rust `safetensors` `.mlm2` checkpoints, and `llama.cpp` GGUF v3 `.gguf` export with native Rust verifier `crates/mlm_core`) as well as the `v1` byte-level recurrent graph model.
+Version **0.0.28** — includes the **`MLM v2` SpiderNet Dynamically Growing Hierarchical Directed Graph Network** (`model_v2.py`: 1 Shared Core Trunk + Dot 0 `10M` English Specialist Macro-Node `Nodes 0..9` + Dot 1 `10M` Mathematics Specialist Macro-Node `Nodes 10..19` = `22.45M` total parameters with **True Sparse Index-Gather Execution** `_execute_sparse_nodes_step_v2` activating only `10%–20%` of specialist parameters for a **`10.0x` specialist FLOPs reduction** and **`2.93x` wall-clock speedup**, **2-Hop Directed Inter-Node Graph Message Passing** `directed_graph_message_passing_v2` with zero self-loops $A_{ii}=0$, **Input-Conditioned Low-Rank Bilinear Edge Routing** `compute_directed_edge_weights_v2` + **3 Anti-Collapse Graph Regularizers** $\mathcal{L}_{\text{load}} + \mathcal{L}_{\text{edge}} + \mathcal{L}_{\text{diversity}}$, **Autonomous Page-Hinkley / One-Sided CUSUM + 3-Signal Node Spawning Controller** `AutonomousGrowthControllerV2`, **Symmetric Orthogonal Parent-Child Specialist Splitting** `split_specialist_nodes_orthogonal_v2` with $\langle Q, W_{i^*} \rangle = 0$, **Continual-Learning Evaluation Harness & 6-Architecture Ablation Suite** `run_spidernet_ablation_suite_v2`, **3-Tier Persistent External & Episodic Memory Hierarchy** `MemoryHierarchyV2` + `LMCache` / `CacheBlend` / `CacheGen`, **Stateful $O(1)$ Recurrent Decode Cache** reaching **28.4–81.8 tok/s** on CPU, 3-Mode Cognitive Router `Direct` / `Deliberative` / `Verified`, EAGLE-3 / DeepSeek-V3 Multi-Token Speculative Decoding, DeepSeek-R1 `GRPO` + Process Step Verification, Recursive Language Model `RLM` self-calls, `BLT` byte n-grams, `FoNE + Abacus` number embeddings, `FlexOlmo` cosine domain routing, Google Research `TurboQuant` / `BiLLM + QJL` `16/8/4/2/1-bit` weight & KV-cache quantization, Rust `tokenizers` BPE, Rust `polars` Parquet streaming, Rust `safetensors` `.mlm2` checkpoints, and `llama.cpp` GGUF v3 `.gguf` export with native Rust verifier `crates/mlm_core`) as well as the `v1` byte-level recurrent graph model.
 
 ## MLM v2 (`22.45M` 20-Node Hierarchical SpiderNet: Shared Core + Dot 0 English + Dot 1 Math)
 
@@ -14,6 +14,22 @@ uv run mlm grow-math-v2 --data-root data/curated-math-v1 --out runs/mlm-10m-math
 # Export all 5 quantized precision tiers (16-bit, 8-bit, 4-bit, 2-bit, 1-bit)
 uv run mlm quantize-v2 --checkpoint runs/mlm-10m-math-colab/mlm_10m_math_v2.mlm2 --out-dir runs/mlm-10m-math-colab/quantized --bits all
 ```
+
+### Verified SpiderNet True Sparse Index-Gather Execution (`v0.0.22`) & 6-Architecture Continual-Learning Ablation (`v0.0.28`)
+
+| Benchmark Profile (`22.45M` 20-Node Checkpoint) | Active Nodes ($k / N$) | Active Specialist Params | Specialist FLOPs / Tok | Dense vs Sparse Latency | Wall-Clock Speedup | Max Logit Diff |
+|---|---:|---:|---:|---:|---:|---:|
+| **English Fast (`k_t0 = 2`)** | `2 / 20` (**`10.0%`**) | `1.77M / 17.69M` (`29.1%` total) | **`5.31M`** vs `53.08M` (**`10.0x`** reduction) | `18.12 ms` $\to$ **`6.18 ms/tok`** | **`2.93x`** | `9.54e-6` (**100% lossless**) |
+| **Math Deliberative (`k_t1 = 4`)** | `4 / 20` (**`20.0%`**) | `3.54M / 17.69M` (`36.9%` total) | **`10.62M`** vs `53.08M` (**`5.0x`** reduction) | `18.05 ms` $\to$ **`7.51 ms/tok`** | **`2.40x`** | `9.78e-6` (**100% lossless**) |
+
+| Architecture Variant (`English -> Math -> Science -> Code`) | Final Nodes | Edge Rank $r$ | Growth Events | Average Accuracy (`AA` $\uparrow$) | Backward Transfer (`BWT` $\uparrow$) | Forgetting (`F` $\downarrow$) | Retention (`%` $\uparrow$) | Active Ratio (`FLOPs` $\downarrow$) |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| **`A_dense_baseline`** (Dense FFN, no specialists) | `0` | `0` | `0` | `0.23309` | `-0.14688` | `0.17378` | `83.29%` | `1.000` (`1.00x`) |
+| **`B_static_flat_moe`** (Static Flat Top-$k$ MoE) | `4` | `0` | `0` | `0.27237` | `-0.20861` | `0.24094` | `73.65%` | `0.500` (`2.00x`) |
+| **`C_static_hierarchical_moe`** (Static Hierarchical MoE) | `6` | `0` | `0` | `0.22800` | `-0.22416` | `0.25106` | `70.66%` | `0.333` (`3.00x`) |
+| **`D_manual_grow_moe`** (Schedule-Grown MoE, $4 \to 7$) | `7` | `0` | `0` | `0.30822` | `-0.29459` | `0.29459` | `49.27%` | `0.286` (`3.50x`) |
+| **`E_spidernet_directed_graph`** (Static Directed Graph, $r=8$) | `6` | `8` | `0` | `0.21518` | `-0.23055` | `0.24028` | `63.39%` | `0.333` (`3.00x`) |
+| **`F_spidernet_full_autonomous`** (**Full SpiderNet: Sparse Gather + Directed Graph + CUSUM Orthogonal Split**) | **`7`** | **`8`** | **`3`** | **`0.49417`** | **`-0.00954`** | **`0.11652`** | **`92.43%`** | **`0.286` (`3.50x`)** |
 
 ### Multi-Precision SpiderNet Checkpoints (`22,450,960` Parameters, 20 Specialist Sub-Nodes)
 

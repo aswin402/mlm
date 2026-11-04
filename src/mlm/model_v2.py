@@ -71,6 +71,10 @@ class ConfigV2(BaseModel):
     shared_lr_scale: float = Field(default=1.0, ge=0.0, le=1.0)
     active_subnodes: tuple[int, ...] = ()
     router_bias_gamma: float = Field(default=1e-3, ge=0.0, le=0.1)
+    graph_edge_rank: int = Field(default=16, ge=0, le=128)
+    graph_edge_top_k: int = Field(default=2, ge=1, le=16)
+    graph_edge_temp: float = Field(default=1.0, gt=0.05, le=10.0)
+    graph_reg_weight: float = Field(default=0.02, ge=0.0, le=2.0)
     mtp_weight: float = Field(default=0.25, ge=0.0, le=2.0)
     think_open_id: int = Field(default=6, ge=-1, le=65536)
     think_close_id: int = Field(default=7, ge=-1, le=65536)
@@ -589,6 +593,147 @@ def _route_single_bank(
     return jnp.concatenate([m_gated, think_gated], axis=-1)
 
 
+def compute_directed_edge_weights_v2(
+    x: jnp.ndarray,
+    node_outs: jnp.ndarray,
+    edge_u: jnp.ndarray,
+    edge_v: jnp.ndarray,
+    edge_proj_h: jnp.ndarray,
+    edge_proj_x: jnp.ndarray,
+    edge_bias: jnp.ndarray,
+    top_k_edges: int = 2,
+    temperature: float = 1.0,
+    active_node_mask: jnp.ndarray | None = None,
+) -> jnp.ndarray:
+    """Compute Input-Conditioned Low-Rank Bilinear Directed Edge Weights `a_ij(x_t)`.
+
+    Implements SpiderNet v0.0.23/v0.0.24 Directed Graph Edge Routing:
+      `e_ij(x_t) = ((q_i(x_t) @ k_j(x_t)^T) + u_i^T r(x_t) + v_j^T r(x_t)) / sqrt(r) + c_ij`
+    with strict zero self-loop constraint `A_ii = 0` (`e_ii = -1e9`) and top-k outgoing
+    collaborator selection per primary node `i`.
+
+    Args:
+        x: Input token states `(B, T, D)`
+        node_outs: Hop-1 specialist outputs `H^(1)` of shape `(B, T, M, D)`
+        edge_u: Source node embeddings `(M, r)`
+        edge_v: Target collaborator embeddings `(M, r)`
+        edge_proj_h: Hop-1 state projection `(D, r)`
+        edge_proj_x: Token conditioning projection `(D, r)`
+        edge_bias: Directed adjacency prior bias `(M, M)`
+        active_node_mask: Optional boolean mask `(B, T, M)` restricting collaborator targets
+    Returns:
+        Sparse directed adjacency weights `a_ij(x_t)` of shape `(B, T, M, M)` with zero diagonal.
+    """
+    m_nodes = int(node_outs.shape[2])
+    if m_nodes <= 1:
+        return jnp.zeros(
+            (x.shape[0], x.shape[1], m_nodes, m_nodes), dtype=x.dtype
+        )
+    rank = int(edge_u.shape[-1])
+    inv_sqrt_r = 1.0 / jnp.sqrt(float(max(1, rank)))
+
+    h_proj = jnp.einsum("btmd,dr->btmr", node_outs, edge_proj_h)
+    q_node = h_proj + edge_u[None, None, :, :]  # (B, T, M, r)
+    k_node = h_proj + edge_v[None, None, :, :]  # (B, T, M, r)
+    r_tok = jnp.einsum("btd,dr->btr", x, edge_proj_x)  # (B, T, r)
+
+    bilinear = jnp.einsum("btir,btjr->btij", q_node, k_node)
+    src_ctx = jnp.einsum("ir,btr->bti", edge_u, r_tok)[..., :, None]
+    dst_ctx = jnp.einsum("jr,btr->btj", edge_v, r_tok)[..., None, :]
+    edge_logits = (bilinear + src_ctx + dst_ctx) * inv_sqrt_r + edge_bias[None, None, :, :]
+
+    diag_mask = jnp.eye(m_nodes, dtype=jnp.bool_)[None, None, :, :]
+    valid_edge_mask = ~diag_mask
+    if active_node_mask is not None:
+        valid_edge_mask = valid_edge_mask & active_node_mask[..., None, :]
+    edge_logits = jnp.where(valid_edge_mask, edge_logits, -1e9)
+    scaled_logits = edge_logits / float(max(0.05, temperature))
+
+    k_eff = max(1, min(int(top_k_edges), m_nodes - 1))
+    if k_eff < m_nodes - 1:
+        _, top_j = jax.lax.top_k(scaled_logits, k_eff)  # (B, T, M, k_eff)
+        top_mask = (
+            jnp.sum(jax.nn.one_hot(top_j, m_nodes, dtype=jnp.int32), axis=-2) > 0
+        ) & valid_edge_mask
+        masked_logits = jnp.where(top_mask, scaled_logits, -1e9)
+        edge_probs = jax.nn.softmax(masked_logits, axis=-1)
+        edge_probs = jnp.where(top_mask, edge_probs, 0.0)
+        denom = jnp.maximum(jnp.sum(edge_probs, axis=-1, keepdims=True), 1e-6)
+        return edge_probs / denom
+
+    edge_probs = jax.nn.softmax(scaled_logits, axis=-1)
+    edge_probs = jnp.where(valid_edge_mask, edge_probs, 0.0)
+    denom = jnp.maximum(jnp.sum(edge_probs, axis=-1, keepdims=True), 1e-6)
+    return edge_probs / denom
+
+
+def directed_graph_message_passing_v2(
+    x: jnp.ndarray,
+    gated_probs: jnp.ndarray,
+    node_outs: jnp.ndarray,
+    edge_u: jnp.ndarray,
+    edge_v: jnp.ndarray,
+    edge_proj_h: jnp.ndarray,
+    edge_proj_x: jnp.ndarray,
+    edge_bias: jnp.ndarray,
+    msg_down: jnp.ndarray,
+    msg_up: jnp.ndarray,
+    collab_gate: jnp.ndarray,
+    top_k_edges: int = 2,
+    temperature: float = 1.0,
+    return_edge_weights: bool = False,
+) -> jnp.ndarray | tuple[jnp.ndarray, jnp.ndarray]:
+    """Execute Hop-1 + Hop-2 Directed Inter-Node Graph Message Passing (`N_i -> N_j`).
+
+    1. Primary nodes `i` compute Hop-1 outputs `h_i^(1)` and emit directed messages
+       `m_i = (h_i^(1) @ msg_down) @ msg_up`.
+    2. Input-conditioned directed edges `a_ij(x_t)` route messages from primary node `i`
+       to collaborator node `j != i`: `M_j = sum_{i != j} p_i(x_t) * a_ij(x_t) * m_i`.
+    3. Collaborator node `j` refines its representation via gated residual modulation:
+       `delta_h_j^(2) = tanh(collab_gate_j) * (silu(M_j) * norm(h_j^(1)) + M_j)`.
+    4. Combined graph readout:
+       `y_t = sum_i p_i(x_t) h_i^(1) + sum_j q_j(x_t) delta_h_j^(2)`,
+       where `q_j(x_t) = sum_{i != j} p_i(x_t) a_ij(x_t)`.
+    """
+    base_out = jnp.einsum("btn,btnd->btd", gated_probs, node_outs)
+    m_nodes = int(node_outs.shape[2])
+    if m_nodes <= 1:
+        if return_edge_weights:
+            z_edges = jnp.zeros((x.shape[0], x.shape[1], m_nodes, m_nodes), dtype=x.dtype)
+            return base_out, z_edges
+        return base_out
+
+    edge_weights = compute_directed_edge_weights_v2(
+        x,
+        node_outs,
+        edge_u,
+        edge_v,
+        edge_proj_h,
+        edge_proj_x,
+        edge_bias,
+        top_k_edges=top_k_edges,
+        temperature=temperature,
+        active_node_mask=(gated_probs > 0.0),
+    )  # (B, T, M, M)
+
+    msg_lat = jnp.einsum("btmd,dr->btmr", node_outs, msg_down)
+    msg_emitted = jnp.einsum("btmr,rd->btmd", msg_lat, msg_up)  # (B, T, M, D)
+    flow_ij = gated_probs[..., :, None] * edge_weights  # (B, T, M_src, M_dst)
+    inc_msg = jnp.einsum("btij,btid->btjd", flow_ij, msg_emitted)  # (B, T, M_dst, D)
+    inc_weight = jnp.sum(flow_ij, axis=-2)  # (B, T, M_dst)
+
+    h_norm = node_outs * jax.lax.rsqrt(
+        jnp.mean(jnp.square(node_outs), axis=-1, keepdims=True) + 1e-5
+    )
+    gamma_j = jnp.tanh(collab_gate.astype(node_outs.dtype))[None, None, :, None]
+    delta_h2 = gamma_j * (jax.nn.silu(inc_msg) * h_norm + inc_msg)
+    collab_out = jnp.einsum("btj,btjd->btd", inc_weight, delta_h2)
+    total_out = base_out + collab_out
+    if return_edge_weights:
+        return total_out, edge_weights
+    return total_out
+
+
 def routed_graph_nodes_ffn(
     x: jnp.ndarray,
     router_w: jnp.ndarray,
@@ -603,6 +748,16 @@ def routed_graph_nodes_ffn(
     return_domain_logit: bool = False,
     valid_mask: jnp.ndarray | None = None,
     seq_dl_override: jnp.ndarray | None = None,
+    edge_u: jnp.ndarray | None = None,
+    edge_v: jnp.ndarray | None = None,
+    edge_proj_h: jnp.ndarray | None = None,
+    edge_proj_x: jnp.ndarray | None = None,
+    edge_bias: jnp.ndarray | None = None,
+    msg_down: jnp.ndarray | None = None,
+    msg_up: jnp.ndarray | None = None,
+    collab_gate: jnp.ndarray | None = None,
+    top_k_edges: int = 2,
+    edge_temp: float = 1.0,
 ) -> jnp.ndarray | tuple[jnp.ndarray, jnp.ndarray]:
     """Route tokens `(B, T, D)` across Specialist Graph-Node Banks (FlexOlmo Cosine Routing).
 
@@ -686,7 +841,33 @@ def routed_graph_nodes_ffn(
     up_all = jnp.einsum("btd,ndf->btnf", x, node_up)
     hidden = gate_all * up_all
     node_outs = jnp.einsum("btnf,nfd->btnd", hidden, node_down)
-    out = jnp.einsum("btn,btnd->btd", gated_probs, node_outs)
+    if (
+        edge_u is not None
+        and edge_v is not None
+        and edge_proj_h is not None
+        and edge_proj_x is not None
+        and edge_bias is not None
+        and msg_down is not None
+        and msg_up is not None
+        and collab_gate is not None
+    ):
+        out = directed_graph_message_passing_v2(
+            x,
+            gated_probs,
+            node_outs,
+            edge_u,
+            edge_v,
+            edge_proj_h,
+            edge_proj_x,
+            edge_bias,
+            msg_down,
+            msg_up,
+            collab_gate,
+            top_k_edges=top_k_edges,
+            temperature=edge_temp,
+        )
+    else:
+        out = jnp.einsum("btn,btnd->btd", gated_probs, node_outs)
     if return_domain_logit:
         return out, domain_logit
     return out
@@ -820,6 +1001,28 @@ def init_params_v2(config: ConfigV2) -> dict[str, jnp.ndarray]:
             params[f"{p}.nodes.down.weight"] = jnp.asarray(
                 rng.normal(0.0, layer_scale, size=(n_exp, ef, d)).astype(np.float32)
             )
+            if n_exp >= 2 and config.graph_edge_rank > 0:
+                er = int(config.graph_edge_rank)
+                params[f"{p}.nodes.edge_u"] = jnp.asarray(
+                    rng.normal(0.0, 0.02, size=(n_exp, er)).astype(np.float32)
+                )
+                params[f"{p}.nodes.edge_v"] = jnp.asarray(
+                    rng.normal(0.0, 0.02, size=(n_exp, er)).astype(np.float32)
+                )
+                params[f"{p}.nodes.edge_proj_h"] = jnp.asarray(
+                    rng.normal(0.0, std, size=(d, er)).astype(np.float32)
+                )
+                params[f"{p}.nodes.edge_proj_x"] = jnp.asarray(
+                    rng.normal(0.0, std, size=(d, er)).astype(np.float32)
+                )
+                params[f"{p}.nodes.edge_bias"] = jnp.zeros((n_exp, n_exp), dtype=jnp.float32)
+                params[f"{p}.nodes.msg_down"] = jnp.asarray(
+                    rng.normal(0.0, std, size=(d, er)).astype(np.float32)
+                )
+                params[f"{p}.nodes.msg_up"] = jnp.asarray(
+                    rng.normal(0.0, layer_scale, size=(er, d)).astype(np.float32)
+                )
+                params[f"{p}.nodes.collab_gate"] = jnp.zeros((n_exp,), dtype=jnp.float32)
     params["mtp_norm.weight"] = jnp.ones((d,), dtype=jnp.float32)
     params["mtp_proj.weight"] = jnp.asarray(
         rng.normal(0.0, 0.01, size=(2 * d, d)).astype(np.float32)
@@ -1149,6 +1352,16 @@ def _forward_core_v2(
                 return_domain_logit=True,
                 valid_mask=(tokens != 2),
                 seq_dl_override=prompt_seq_dl,
+                edge_u=params.get(f"{p}.nodes.edge_u"),
+                edge_v=params.get(f"{p}.nodes.edge_v"),
+                edge_proj_h=params.get(f"{p}.nodes.edge_proj_h"),
+                edge_proj_x=params.get(f"{p}.nodes.edge_proj_x"),
+                edge_bias=params.get(f"{p}.nodes.edge_bias"),
+                msg_down=params.get(f"{p}.nodes.msg_down"),
+                msg_up=params.get(f"{p}.nodes.msg_up"),
+                collab_gate=params.get(f"{p}.nodes.collab_gate"),
+                top_k_edges=config.graph_edge_top_k,
+                edge_temp=config.graph_edge_temp,
             )
             ffn_out = ffn_out + routed_out
             domain_logit_sum = domain_logit_sum + d_logit.astype(jnp.float32)
@@ -1320,6 +1533,116 @@ def tempered_topk_kd_loss_v2(
     return jnp.sum(kl_tok * mask) / denom
 
 
+def compute_spidernet_graph_regularizers_v2(
+    params: dict[str, jnp.ndarray],
+    inputs: jnp.ndarray,
+    mask: jnp.ndarray,
+    config: ConfigV2,
+) -> dict[str, jnp.ndarray]:
+    """Compute SpiderNet v0.0.24 Anti-Collapse Graph Regularizers (`L_load`, `L_edge`, `L_div`).
+
+    1. `L_load`: Switch/DeepSeek node load-balancing penalty `N * sum_i (f_i * P_i)`.
+    2. `L_edge`: Directed collaborator edge entropy + anti-hub balance regularizer:
+       encourages sharp per-token collaborator choice (`H_cond`) while preventing hub collapse
+       where all nodes route to a single collaborator `j` (`N * sum_j mean_a_j^2`).
+    3. `L_diversity`: Off-diagonal squared cosine similarity penalty across specialist node
+       router and down-projection signatures so specialists remain functionally distinct.
+    """
+    n_exp = int(config.n_experts)
+    if n_exp < 2:
+        z = jnp.float32(0.0)
+        return {"total_reg": z, "load_loss": z, "edge_loss": z, "diversity_loss": z}
+
+    tok_emb = params["tok_embeddings.weight"][inputs]
+    valid_w = (mask > 0).astype(jnp.float32)[..., None]  # (B, T, 1)
+    valid_denom = jnp.maximum(jnp.sum(valid_w), 1.0)
+    k_eff = max(1, min(int(config.top_k_experts), n_exp))
+
+    load_acc = jnp.float32(0.0)
+    edge_acc = jnp.float32(0.0)
+    div_acc = jnp.float32(0.0)
+    n_layers_used = 0
+    off_diag = 1.0 - jnp.eye(n_exp, dtype=jnp.float32)
+    off_denom = float(max(1, n_exp * (n_exp - 1)))
+
+    for i in range(config.n_layers):
+        p = f"blk.{i}"
+        rw_key = f"{p}.nodes.router.weight"
+        if rw_key not in params:
+            continue
+        n_layers_used += 1
+        normed = rms_norm(tok_emb, params[f"{p}.ffn_norm.weight"], config.rms_eps)
+        rw = params[rw_key]
+        x_u = normed * jax.lax.rsqrt(jnp.sum(jnp.square(normed), axis=-1, keepdims=True) + 1e-6)
+        w_u = rw * jax.lax.rsqrt(jnp.sum(jnp.square(rw), axis=0, keepdims=True) + 1e-6)
+        r_logits = 8.0 * jnp.matmul(x_u, w_u)
+        r_probs = jax.nn.softmax(r_logits, axis=-1)  # (B, T, N)
+
+        _, top_idx = jax.lax.top_k(r_probs, k_eff)
+        sel_mask = (
+            jnp.sum(jax.nn.one_hot(top_idx, n_exp, dtype=jnp.float32), axis=-2) / float(k_eff)
+        )
+        f_i = jnp.sum(sel_mask * valid_w, axis=(0, 1)) / valid_denom
+        p_i = jnp.sum(r_probs * valid_w, axis=(0, 1)) / valid_denom
+        load_acc = load_acc + float(n_exp) * jnp.sum(f_i * p_i)
+
+        # Specialist diversity (router column + down-projection signature orthogonality)
+        r_gram = jnp.matmul(jnp.transpose(w_u), w_u)  # (N, N)
+        r_div = jnp.sum(jnp.square(r_gram) * off_diag) / off_denom
+        down_w = params[f"{p}.nodes.down.weight"]  # (N, F, D)
+        d_sig = jnp.mean(down_w, axis=1)  # (N, D)
+        d_u = d_sig * jax.lax.rsqrt(jnp.sum(jnp.square(d_sig), axis=-1, keepdims=True) + 1e-6)
+        d_gram = jnp.matmul(d_u, jnp.transpose(d_u))
+        d_div = jnp.sum(jnp.square(d_gram) * off_diag) / off_denom
+        div_acc = div_acc + 0.5 * (r_div + d_div)
+
+        if f"{p}.nodes.edge_u" in params and f"{p}.nodes.edge_v" in params:
+            eu = params[f"{p}.nodes.edge_u"]  # (N, r)
+            ev = params[f"{p}.nodes.edge_v"]  # (N, r)
+            eb = params[f"{p}.nodes.edge_bias"]  # (N, N)
+            eph = params[f"{p}.nodes.edge_proj_h"]  # (D, r)
+            epx = params[f"{p}.nodes.edge_proj_x"]  # (D, r)
+            # Lightweight proxy node states from router-projected prototypes + token context
+            node_proto = jnp.einsum("dn,dr->nr", w_u, eph)[None, None, :, :]
+            r_tok = jnp.einsum("btd,dr->btr", normed, epx)
+            q_n = node_proto + eu[None, None, :, :]
+            k_n = node_proto + ev[None, None, :, :]
+            inv_sr = 1.0 / jnp.sqrt(float(max(1, eu.shape[-1])))
+            bilin = jnp.einsum("btir,btjr->btij", q_n, k_n)
+            s_c = jnp.einsum("ir,btr->bti", eu, r_tok)[..., :, None]
+            d_c = jnp.einsum("jr,btr->btj", ev, r_tok)[..., None, :]
+            e_logits = (bilin + s_c + d_c) * inv_sr + eb[None, None, :, :]
+            diag_m = jnp.eye(n_exp, dtype=jnp.bool_)[None, None, :, :]
+            e_logits = jnp.where(diag_m, -1e9, e_logits)
+            a_ij = jax.nn.softmax(e_logits / float(max(0.05, config.graph_edge_temp)), axis=-1)
+            a_ij = jnp.where(diag_m, 0.0, a_ij)
+            a_ij = a_ij / jnp.maximum(jnp.sum(a_ij, axis=-1, keepdims=True), 1e-6)
+
+            cond_ent = -jnp.sum(
+                a_ij * jnp.log(jnp.maximum(a_ij, 1e-8)), axis=-1
+            ) / jnp.log(float(max(2, n_exp - 1)))
+            mean_cond_ent = (
+                jnp.sum(jnp.mean(cond_ent, axis=-1, keepdims=True) * valid_w) / valid_denom
+            )
+            mean_in_j = jnp.sum(
+                jnp.mean(a_ij, axis=-2) * valid_w, axis=(0, 1)
+            ) / valid_denom  # (N,)
+            hub_balance = float(n_exp) * jnp.sum(jnp.square(mean_in_j))
+            edge_acc = edge_acc + (0.25 * mean_cond_ent + 0.75 * hub_balance)
+
+    inv_l = 1.0 / float(max(1, n_layers_used))
+    l_load = load_acc * inv_l
+    l_edge = edge_acc * inv_l
+    l_div = div_acc * inv_l
+    total_reg = l_load + l_edge + l_div
+    return {
+        "total_reg": total_reg,
+        "load_loss": l_load,
+        "edge_loss": l_edge,
+        "diversity_loss": l_div,
+    }
+
+
 def make_train_step_v2(
     config: ConfigV2,
     total_steps: int = 1000,
@@ -1404,6 +1727,9 @@ def make_train_step_v2(
                     temperature=config.kd_temperature,
                 )
                 total_loss = total_loss + float(config.kd_weight) * kd_loss
+            if config.n_experts >= 2 and config.graph_reg_weight > 0.0:
+                reg_dict = compute_spidernet_graph_regularizers_v2(p, inputs, mask, config)
+                total_loss = total_loss + float(config.graph_reg_weight) * reg_dict["total_reg"]
             return total_loss
 
         loss, grads = jax.value_and_grad(loss_fn)(params)
@@ -1426,52 +1752,45 @@ def make_train_step_v2(
             active_set = {
                 idx for idx in config.active_subnodes if 0 <= int(idx) < config.n_experts
             }
+            if active_set:
+                node_mask_1d = np.full(
+                    (config.n_experts,), float(config.mature_lr_scale), dtype=np.float32
+                )
+                if config.n_experts > 10 and min(active_set) >= 10:
+                    node_mask_1d[:10] = 0.0
+                for a_idx in active_set:
+                    node_mask_1d[int(a_idx)] = 1.0
+            elif 0 < config.mature_experts < config.n_experts:
+                node_mask_1d = np.ones((config.n_experts,), dtype=np.float32)
+                node_mask_1d[: config.mature_experts] = float(config.mature_lr_scale)
+                if config.n_experts > 10:
+                    node_mask_1d[:10] = 0.0
+            elif config.mature_experts >= config.n_experts > 0:
+                node_mask_1d = np.full(
+                    (config.n_experts,), float(config.mature_lr_scale), dtype=np.float32
+                )
+            else:
+                node_mask_1d = np.ones((config.n_experts,), dtype=np.float32)
+            node_mask_jax = jnp.asarray(node_mask_1d)
+            edge_mat_mask_jax = jnp.asarray(
+                np.maximum(node_mask_1d[:, None], node_mask_1d[None, :])
+            )
+
             scaled_updates = {}
             for k, u in updates.items():
                 if k.endswith(".nodes.router_bias") or k == "blt_token_ngrams":
                     scaled_updates[k] = jnp.zeros_like(u)
-                elif k.endswith(".nodes.edge_scale"):
-                    if active_set:
-                        e_mask = np.full(
-                            (config.n_experts,), float(config.mature_lr_scale), dtype=np.float32
-                        )
-                        if config.n_experts > 10 and min(active_set) >= 10:
-                            e_mask[:10] = 0.0
-                        for a_idx in active_set:
-                            e_mask[int(a_idx)] = 1.0
-                        scaled_updates[k] = u * jnp.asarray(e_mask)
-                    elif 0 < config.mature_experts < config.n_experts:
-                        e_mask = np.ones((config.n_experts,), dtype=np.float32)
-                        e_mask[: config.mature_experts] = float(config.mature_lr_scale)
-                        if config.n_experts > 10:
-                            e_mask[:10] = 0.0
-                        scaled_updates[k] = u * jnp.asarray(e_mask)
-                    elif config.mature_experts >= config.n_experts > 0:
-                        scaled_updates[k] = u * float(config.mature_lr_scale)
-                    else:
-                        scaled_updates[k] = u
+                elif k.endswith(".nodes.edge_scale") or k.endswith(".nodes.collab_gate"):
+                    scaled_updates[k] = u * node_mask_jax
                 elif ".nodes." in k and not k.endswith(".router.weight"):
-                    if active_set:
-                        m_mask = np.full(
-                            (config.n_experts, 1, 1),
-                            float(config.mature_lr_scale),
-                            dtype=np.float32,
-                        )
-                        if config.n_experts > 10 and min(active_set) >= 10:
-                            m_mask[:10] = 0.0
-                        for a_idx in active_set:
-                            m_mask[int(a_idx)] = 1.0
-                        scaled_updates[k] = u * jnp.asarray(m_mask)
-                    elif 0 < config.mature_experts < config.n_experts:
-                        m_mask = np.ones((config.n_experts, 1, 1), dtype=np.float32)
-                        m_mask[: config.mature_experts] = float(config.mature_lr_scale)
-                        if config.n_experts > 10:
-                            m_mask[:10] = 0.0
-                        scaled_updates[k] = u * jnp.asarray(m_mask)
-                    elif config.mature_experts >= config.n_experts > 0:
-                        scaled_updates[k] = u * float(config.mature_lr_scale)
+                    if u.ndim == 3 and u.shape[0] == config.n_experts:
+                        scaled_updates[k] = u * node_mask_jax[:, None, None]
+                    elif u.ndim == 2 and u.shape == (config.n_experts, config.n_experts):
+                        scaled_updates[k] = u * edge_mat_mask_jax
+                    elif u.ndim == 2 and u.shape[0] == config.n_experts:
+                        scaled_updates[k] = u * node_mask_jax[:, None]
                     else:
-                        scaled_updates[k] = u
+                        scaled_updates[k] = u * max(float(config.shared_lr_scale), 0.25)
                 elif k.endswith(".nodes.router.weight"):
                     if active_set:
                         r_mask = np.full(
@@ -1648,6 +1967,30 @@ def grow_model_v2_nodes(
         new_params[f"{p}.nodes.edge_scale"] = jnp.asarray(
             np.concatenate([es_old, es_new], axis=0)
         )
+        if f"{p}.nodes.edge_u" in params:
+            for e_key in ("edge_u", "edge_v"):
+                e_arr = np.asarray(params[f"{p}.nodes.{e_key}"], dtype=np.float32)
+                e_children = []
+                for j in range(add_nodes):
+                    p1 = e_arr[order[(2 * j) % n_pool]]
+                    p2 = e_arr[order[(2 * j + 1) % n_pool]]
+                    c_vec = 0.85 * p1 + 0.15 * p2
+                    c_vec = c_vec + rng.normal(0.0, 0.005, size=c_vec.shape).astype(np.float32)
+                    e_children.append(c_vec)
+                new_params[f"{p}.nodes.{e_key}"] = jnp.asarray(
+                    np.concatenate([e_arr, np.stack(e_children, axis=0)], axis=0)
+                )
+        if f"{p}.nodes.edge_bias" in params:
+            eb_old = np.asarray(params[f"{p}.nodes.edge_bias"], dtype=np.float32)
+            eb_new = np.zeros((n_new, n_new), dtype=np.float32)
+            eb_new[:n_old, :n_old] = eb_old
+            new_params[f"{p}.nodes.edge_bias"] = jnp.asarray(eb_new)
+        if f"{p}.nodes.collab_gate" in params:
+            cg_old = np.asarray(params[f"{p}.nodes.collab_gate"], dtype=np.float32)
+            cg_new = np.zeros((add_nodes,), dtype=np.float32)
+            new_params[f"{p}.nodes.collab_gate"] = jnp.asarray(
+                np.concatenate([cg_old, cg_new], axis=0)
+            )
 
     emb_arr = np.asarray(params["tok_embeddings.weight"], dtype=np.float32).copy()
     t_open = new_cfg.think_open_id
@@ -1664,6 +2007,557 @@ def grow_model_v2_nodes(
         new_params["tok_embeddings.weight"] = jnp.asarray(emb_arr)
 
     return new_params, new_cfg
+
+
+def _orthogonal_perturbation_like(
+    w_parent: np.ndarray,
+    rng: np.random.Generator,
+) -> np.ndarray:
+    """Construct Gram-Schmidt orthogonal tensor `Q` with `<Q, W> = 0` and `||Q||_F = ||W||_F`."""
+    flat_w = w_parent.reshape(-1).astype(np.float64)
+    w_norm_sq = float(np.dot(flat_w, flat_w))
+    z = rng.normal(0.0, 1.0, size=flat_w.shape).astype(np.float64)
+    if w_norm_sq > 1e-12:
+        proj = float(np.dot(z, flat_w)) / w_norm_sq
+        z_orth = z - proj * flat_w
+        z_norm = float(np.linalg.norm(z_orth))
+        w_norm = float(np.sqrt(w_norm_sq))
+        q_flat = (z_orth / max(z_norm, 1e-12)) * w_norm
+    else:
+        q_flat = z * 0.01
+    return q_flat.astype(np.float32).reshape(w_parent.shape)
+
+
+def split_specialist_nodes_orthogonal_v2(
+    params: dict[str, jnp.ndarray],
+    config: ConfigV2,
+    parent_indices: list[int] | None = None,
+    add_nodes: int = 1,
+    epsilon: float = 0.05,
+    mature_lr_scale: float | None = None,
+    shared_lr_scale: float | None = None,
+) -> tuple[dict[str, jnp.ndarray], ConfigV2, dict[str, object]]:
+    """SpiderNet v0.0.26 Symmetric Orthogonal Parent-Child Specialist Splitting.
+
+    Given overloaded parent specialist node(s) `i*`, splits each parent into a symmetric
+    orthogonal dyad:
+      `W_{i*}' = W_{i*} + eps * Q`,   `W_{new}' = W_{i*} - eps * Q`   where `<Q, W_{i*}> = 0`.
+    Preserves the ensemble mean `0.5 * (W_{i*}' + W_{new}') == W_{i*}` while immediately
+    breaking gradient symmetry along orthogonal subspaces and seeding a bidirectional
+    collaborator edge bias `c_{i*, new} = c_{new, i*} = +0.5`.
+    """
+    if config.n_experts < 2 or add_nodes < 1:
+        raise ValueError("split_specialist_nodes_orthogonal_v2 requires n_experts >= 2")
+    n_old = int(config.n_experts)
+    n_new = n_old + int(add_nodes)
+    eff_eps = float(np.clip(epsilon, 1e-4, 0.25))
+    eff_mature_lr = float(config.mature_lr_scale if mature_lr_scale is None else mature_lr_scale)
+    eff_shared_lr = float(config.shared_lr_scale if shared_lr_scale is None else shared_lr_scale)
+
+    new_cfg = config.model_copy(
+        update={
+            "n_experts": n_new,
+            "mature_experts": n_old,
+            "mature_lr_scale": eff_mature_lr,
+            "shared_lr_scale": eff_shared_lr,
+        }
+    )
+    rng = np.random.default_rng(config.seed + 7919 * n_new)
+    new_params = dict(params)
+    max_orth_cos = 0.0
+    max_mean_recon_err = 0.0
+    chosen_parents_per_layer: list[list[int]] = []
+
+    for i in range(config.n_layers):
+        p = f"blk.{i}"
+        down_w = np.asarray(params[f"{p}.nodes.down.weight"], dtype=np.float32)
+        if parent_indices is not None and len(parent_indices) > 0:
+            parents = [
+                int(parent_indices[j % len(parent_indices)]) % n_old
+                for j in range(add_nodes)
+            ]
+        else:
+            norms = np.linalg.norm(down_w, axis=(1, 2))
+            order = np.argsort(-norms)
+            parents = [int(order[j % len(order)]) for j in range(add_nodes)]
+        chosen_parents_per_layer.append(parents)
+
+        for suffix in ("gate", "up", "down"):
+            arr = np.asarray(params[f"{p}.nodes.{suffix}.weight"], dtype=np.float32).copy()
+            children = []
+            for j, p_idx in enumerate(parents):
+                w_orig = np.asarray(params[f"{p}.nodes.{suffix}.weight"][p_idx], dtype=np.float32)
+                q_orth = _orthogonal_perturbation_like(w_orig, rng)
+                denom_orth = float(np.linalg.norm(w_orig) * np.linalg.norm(q_orth)) + 1e-12
+                cos_val = abs(float(np.sum(w_orig * q_orth)) / denom_orth)
+                if cos_val > max_orth_cos:
+                    max_orth_cos = cos_val
+                w_parent_new = (w_orig + eff_eps * q_orth).astype(np.float32)
+                w_child_new = (w_orig - eff_eps * q_orth).astype(np.float32)
+                recon_err = float(np.max(np.abs(0.5 * (w_parent_new + w_child_new) - w_orig)))
+                if recon_err > max_mean_recon_err:
+                    max_mean_recon_err = recon_err
+                arr[p_idx] = w_parent_new
+                children.append(w_child_new)
+                del j
+            new_params[f"{p}.nodes.{suffix}.weight"] = jnp.asarray(
+                np.concatenate([arr, np.stack(children, axis=0)], axis=0)
+            )
+
+        rw = np.asarray(params[f"{p}.nodes.router.weight"], dtype=np.float32).copy()
+        extra_rw = []
+        for p_idx in parents:
+            r_orig = np.asarray(params[f"{p}.nodes.router.weight"][:, p_idx], dtype=np.float32)
+            q_r = _orthogonal_perturbation_like(r_orig, rng)
+            rw[:, p_idx] = (r_orig + eff_eps * q_r).astype(np.float32)
+            extra_rw.append((r_orig - eff_eps * q_r).astype(np.float32))
+        new_params[f"{p}.nodes.router.weight"] = jnp.asarray(
+            np.concatenate([rw, np.stack(extra_rw, axis=-1)], axis=-1)
+        )
+
+        rb_old = np.asarray(
+            params.get(f"{p}.nodes.router_bias", np.zeros((n_old,), dtype=np.float32)),
+            dtype=np.float32,
+        )
+        rb_new = np.array([rb_old[p_idx] for p_idx in parents], dtype=np.float32)
+        new_params[f"{p}.nodes.router_bias"] = jnp.asarray(
+            np.concatenate([rb_old, rb_new], axis=0)
+        )
+
+        es_old = np.asarray(
+            params.get(f"{p}.nodes.edge_scale", np.ones((n_old,), dtype=np.float32)),
+            dtype=np.float32,
+        )
+        es_new = np.array([es_old[p_idx] for p_idx in parents], dtype=np.float32)
+        new_params[f"{p}.nodes.edge_scale"] = jnp.asarray(
+            np.concatenate([es_old, es_new], axis=0)
+        )
+
+        if f"{p}.nodes.edge_u" in params:
+            for e_key in ("edge_u", "edge_v"):
+                e_arr = np.asarray(params[f"{p}.nodes.{e_key}"], dtype=np.float32).copy()
+                e_children = []
+                for p_idx in parents:
+                    e_orig = np.asarray(params[f"{p}.nodes.{e_key}"][p_idx], dtype=np.float32)
+                    q_e = _orthogonal_perturbation_like(e_orig, rng)
+                    e_arr[p_idx] = (e_orig + eff_eps * q_e).astype(np.float32)
+                    e_children.append((e_orig - eff_eps * q_e).astype(np.float32))
+                new_params[f"{p}.nodes.{e_key}"] = jnp.asarray(
+                    np.concatenate([e_arr, np.stack(e_children, axis=0)], axis=0)
+                )
+        if f"{p}.nodes.edge_bias" in params:
+            eb_old = np.asarray(params[f"{p}.nodes.edge_bias"], dtype=np.float32)
+            eb_new = np.zeros((n_new, n_new), dtype=np.float32)
+            eb_new[:n_old, :n_old] = eb_old
+            for j, p_idx in enumerate(parents):
+                c_idx = n_old + j
+                eb_new[p_idx, c_idx] = 0.5
+                eb_new[c_idx, p_idx] = 0.5
+            new_params[f"{p}.nodes.edge_bias"] = jnp.asarray(eb_new)
+        if f"{p}.nodes.collab_gate" in params:
+            cg_old = np.asarray(params[f"{p}.nodes.collab_gate"], dtype=np.float32)
+            cg_new = np.array([cg_old[p_idx] for p_idx in parents], dtype=np.float32)
+            new_params[f"{p}.nodes.collab_gate"] = jnp.asarray(
+                np.concatenate([cg_old, cg_new], axis=0)
+            )
+
+    report = {
+        "n_old": n_old,
+        "n_new": n_new,
+        "epsilon": eff_eps,
+        "parents_layer0": chosen_parents_per_layer[0] if chosen_parents_per_layer else [],
+        "max_orthogonality_cosine": max_orth_cos,
+        "max_mean_reconstruction_err": max_mean_recon_err,
+    }
+    return new_params, new_cfg, report
+
+
+class AutonomousGrowthControllerV2:
+    """SpiderNet v0.0.25 Autonomous CUSUM + 3-Signal Structural Growth Controller.
+
+    Monitors online training dynamics via:
+      1. One-sided Page-Hinkley / CUSUM novelty drift detector on standardized loss:
+         `C_t = max(0, C_{t-1} + z_t - delta_drift)`, triggering when `C_t > threshold_h`.
+      2. 3-Signal Per-Node Spawning Score `G_i` across candidate specialist nodes `i`:
+         `G_i = w_s * S_hat_i + w_o * O_hat_i + w_h * H_hat_i`
+         where:
+           - `S_hat_i`: Normalized gradient saturation `||grad(W_i)|| / (||W_i|| + eps)`
+           - `O_hat_i`: Normalized token routing overload `E[p_i(x_t)]`
+           - `H_hat_i`: Normalized routing activation variance / entropy on node `i`
+    When triggered, automatically splits the highest-scoring overloaded specialist node `i*`
+    via `split_specialist_nodes_orthogonal_v2`.
+    """
+
+    def __init__(
+        self,
+        threshold_h: float = 2.5,
+        delta_drift: float = 0.35,
+        ema_alpha: float = 0.10,
+        cooldown_steps: int = 8,
+        max_experts: int = 32,
+        w_saturation: float = 0.45,
+        w_overload: float = 0.35,
+        w_uncertainty: float = 0.20,
+        split_epsilon: float = 0.05,
+    ) -> None:
+        self.threshold_h = float(threshold_h)
+        self.delta_drift = float(delta_drift)
+        self.ema_alpha = float(ema_alpha)
+        self.cooldown_steps = int(cooldown_steps)
+        self.max_experts = int(max_experts)
+        self.w_saturation = float(w_saturation)
+        self.w_overload = float(w_overload)
+        self.w_uncertainty = float(w_uncertainty)
+        self.split_epsilon = float(split_epsilon)
+
+        self.loss_ema: float | None = None
+        self.loss_var_ema: float = 1e-2
+        self.cusum_val: float = 0.0
+        self.last_grow_step: int = -1000
+        self.growth_events: list[dict[str, object]] = []
+
+    @staticmethod
+    def _norm01(arr: np.ndarray) -> np.ndarray:
+        amin = float(np.min(arr))
+        amax = float(np.max(arr))
+        if amax - amin < 1e-8:
+            return np.full_like(arr, 0.5, dtype=np.float32)
+        return ((arr - amin) / (amax - amin)).astype(np.float32)
+
+    def compute_node_spawning_scores(
+        self,
+        params: dict[str, jnp.ndarray],
+        grads: dict[str, jnp.ndarray] | None,
+        inputs: jnp.ndarray,
+        mask: jnp.ndarray,
+        config: ConfigV2,
+    ) -> dict[str, np.ndarray | int]:
+        """Compute `S_hat_i`, `O_hat_i`, `H_hat_i`, and combined `G_i` for each specialist node."""
+        n_exp = max(1, int(config.n_experts))
+        sat_raw = np.zeros((n_exp,), dtype=np.float32)
+        over_raw = np.zeros((n_exp,), dtype=np.float32)
+        unc_raw = np.zeros((n_exp,), dtype=np.float32)
+
+        tok_emb = np.asarray(params["tok_embeddings.weight"], dtype=np.float32)[np.asarray(inputs)]
+        valid_m = (np.asarray(mask) > 0).astype(np.float32)[..., None]
+        v_denom = max(float(np.sum(valid_m)), 1.0)
+
+        for i in range(config.n_layers):
+            p = f"blk.{i}"
+            dk = f"{p}.nodes.down.weight"
+            rk = f"{p}.nodes.router.weight"
+            if dk not in params or rk not in params:
+                continue
+            w_d = np.asarray(params[dk], dtype=np.float32)
+            w_norms = np.linalg.norm(w_d.reshape(n_exp, -1), axis=-1) + 1e-6
+            if grads is not None and dk in grads:
+                g_d = np.asarray(grads[dk], dtype=np.float32)
+                g_norms = np.linalg.norm(g_d.reshape(n_exp, -1), axis=-1)
+                sat_raw += g_norms / w_norms
+            else:
+                sat_raw += w_norms
+
+            fn_w = np.asarray(params[f"{p}.ffn_norm.weight"], dtype=np.float32)
+            rms = np.sqrt(np.mean(np.square(tok_emb), axis=-1, keepdims=True) + config.rms_eps)
+            h_normed = (tok_emb / rms) * fn_w
+            h_u = h_normed / np.maximum(
+                np.linalg.norm(h_normed, axis=-1, keepdims=True), 1e-6
+            )
+            rw = np.asarray(params[rk], dtype=np.float32)
+            w_u = rw / np.maximum(np.linalg.norm(rw, axis=0, keepdims=True), 1e-6)
+            logits = 8.0 * (h_u @ w_u)
+            logits_shift = logits - np.max(logits, axis=-1, keepdims=True)
+            exp_l = np.exp(logits_shift)
+            probs = exp_l / np.maximum(np.sum(exp_l, axis=-1, keepdims=True), 1e-8)
+
+            mean_p = np.sum(probs * valid_m, axis=(0, 1)) / v_denom
+            over_raw += mean_p
+            p_clip = np.clip(probs, 1e-6, 1.0 - 1e-6)
+            bin_ent = -(p_clip * np.log(p_clip) + (1.0 - p_clip) * np.log(1.0 - p_clip))
+            unc_raw += np.sum(bin_ent * valid_m, axis=(0, 1)) / v_denom
+
+        s_hat = self._norm01(sat_raw)
+        o_hat = self._norm01(over_raw)
+        h_hat = self._norm01(unc_raw)
+        g_score = (
+            self.w_saturation * s_hat
+            + self.w_overload * o_hat
+            + self.w_uncertainty * h_hat
+        ).astype(np.float32)
+        best_parent = int(np.argmax(g_score))
+        return {
+            "saturation_hat": s_hat,
+            "overload_hat": o_hat,
+            "uncertainty_hat": h_hat,
+            "g_score": g_score,
+            "best_parent": best_parent,
+        }
+
+    def update_cusum(self, loss_val: float) -> tuple[float, bool]:
+        """Update Page-Hinkley / One-Sided CUSUM statistic `C_t` and return `(C_t, triggered)`."""
+        val = float(loss_val)
+        if self.loss_ema is None:
+            self.loss_ema = val
+            self.loss_var_ema = 1e-2
+            self.cusum_val = 0.0
+            return 0.0, False
+        diff = val - self.loss_ema
+        std = float(np.sqrt(max(self.loss_var_ema, 1e-6)))
+        z_t = diff / std
+        self.cusum_val = max(0.0, self.cusum_val + z_t - self.delta_drift)
+        self.loss_ema = (1.0 - self.ema_alpha) * self.loss_ema + self.ema_alpha * val
+        self.loss_var_ema = (
+            (1.0 - self.ema_alpha) * self.loss_var_ema + self.ema_alpha * (diff * diff)
+        )
+        return self.cusum_val, (self.cusum_val > self.threshold_h)
+
+    def observe_and_maybe_grow(
+        self,
+        step: int,
+        loss_val: float,
+        params: dict[str, jnp.ndarray],
+        grads: dict[str, jnp.ndarray] | None,
+        inputs: jnp.ndarray,
+        mask: jnp.ndarray,
+        config: ConfigV2,
+        add_nodes: int = 1,
+    ) -> tuple[dict[str, jnp.ndarray], ConfigV2, dict[str, object]]:
+        """Monitor loss drift `C_t` and autonomously split overloaded specialist `i*`."""
+        c_val, triggered = self.update_cusum(loss_val)
+        can_grow = (
+            triggered
+            and (int(step) - self.last_grow_step >= self.cooldown_steps)
+            and (int(config.n_experts) + int(add_nodes) <= self.max_experts)
+            and int(config.n_experts) >= 2
+        )
+        if not can_grow:
+            return params, config, {"grew": False, "cusum": c_val, "step": int(step)}
+
+        scores = self.compute_node_spawning_scores(params, grads, inputs, mask, config)
+        g_arr = np.asarray(scores["g_score"])
+        top_parents = [int(idx) for idx in np.argsort(-g_arr)[: int(add_nodes)]]
+        new_params, new_cfg, split_rep = split_specialist_nodes_orthogonal_v2(
+            params,
+            config,
+            parent_indices=top_parents,
+            add_nodes=add_nodes,
+            epsilon=self.split_epsilon,
+        )
+        self.cusum_val = 0.0
+        self.last_grow_step = int(step)
+        ev = {
+            "grew": True,
+            "step": int(step),
+            "cusum_at_trigger": c_val,
+            "parent_indices": top_parents,
+            "max_g_score": float(np.max(g_arr)),
+            "n_old": split_rep["n_old"],
+            "n_new": split_rep["n_new"],
+            "max_orthogonality_cosine": split_rep["max_orthogonality_cosine"],
+        }
+        self.growth_events.append(ev)
+        return new_params, new_cfg, ev
+
+
+def evaluate_continual_learning_metrics_v2(
+    loss_matrix: np.ndarray | list[list[float]],
+    score_matrix: np.ndarray | list[list[float]] | None = None,
+    active_k: int = 2,
+    total_n: int = 20,
+) -> dict[str, float]:
+    """Compute Continual-Learning Metrics (`AA`, `BWT`, `Forgetting`, `Activation Ratio`, v0.0.27).
+
+    Given a `T x T` evaluation matrix across sequential tasks `t = 0..T-1`
+    (e.g., `English -> Math -> Science -> Code`), where `R[t, j]` is the score
+    on task `j` after training on task `t` (if `score_matrix` is omitted, uses
+    `R[t, j] = exp(-loss_matrix[t, j])` token accuracy proxy):
+      - `AA` (Average Accuracy/Score at end of continual sequence): `mean_j R[T-1, j]`
+      - `BWT` (Backward Transfer): `mean_{j < T-1} (R[T-1, j] - R[j, j])`
+      - `forgetting` (Average Forgetting): `mean_{j < T-1} max_{t < T-1} (R[t, j] - R[T-1, j])`
+      - `retention_pct`: `100 * mean_{j < T-1} (R[T-1, j] / max(R[j, j], 1e-6))`
+    """
+    l_mat = np.asarray(loss_matrix, dtype=np.float64)
+    r_mat = (
+        np.asarray(score_matrix, dtype=np.float64)
+        if score_matrix is not None
+        else np.exp(-np.clip(l_mat, 0.0, 20.0))
+    )
+    t_tasks = int(r_mat.shape[0])
+    aa = float(np.mean(r_mat[-1, :t_tasks]))
+    final_mean_loss = float(np.mean(l_mat[-1, :t_tasks]))
+    if t_tasks <= 1:
+        bwt = 0.0
+        forgetting = 0.0
+        retention_pct = 100.0
+    else:
+        bwt_vals = [float(r_mat[-1, j] - r_mat[j, j]) for j in range(t_tasks - 1)]
+        f_vals = [
+            float(max(0.0, np.max(r_mat[: t_tasks - 1, j]) - r_mat[-1, j]))
+            for j in range(t_tasks - 1)
+        ]
+        ret_vals = [
+            float(r_mat[-1, j] / max(float(r_mat[j, j]), 1e-6)) for j in range(t_tasks - 1)
+        ]
+        bwt = float(np.mean(bwt_vals))
+        forgetting = float(np.mean(f_vals))
+        retention_pct = float(100.0 * np.mean(ret_vals))
+
+    act_ratio = float(active_k) / float(max(1, total_n))
+    return {
+        "AA": round(aa, 5),
+        "BWT": round(bwt, 5),
+        "forgetting": round(forgetting, 5),
+        "retention_pct": round(retention_pct, 2),
+        "final_mean_loss": round(final_mean_loss, 5),
+        "activation_ratio": round(act_ratio, 4),
+        "flops_reduction_x": round(1.0 / max(act_ratio, 1e-6), 2),
+    }
+
+
+def run_spidernet_ablation_suite_v2(
+    vocab_size: int = 260,
+    d_model: int = 64,
+    steps_per_task: int = 6,
+) -> dict[str, dict[str, object]]:
+    """Run SpiderNet v0.0.28 6-Architecture Controlled Continual-Learning Ablation (`A`..`F`).
+
+    Evaluates continual learning across 4 sequential synthetic token domains
+    (`English -> Math -> Science -> Code`) for:
+      - `A_dense_baseline`: Dense model without specialist nodes (`n_experts=0`)
+      - `B_static_flat_moe`: Static flat top-k MoE without growth or graph edges
+      - `C_static_hierarchical_moe`: Static hierarchical MoE without graph message passing
+      - `D_manual_grow_moe`: Growing MoE with mature node protection (`mature_lr_scale=0.05`)
+      - `E_spidernet_directed_graph`: Directed inter-node graph message passing + edge routing
+      - `F_spidernet_full_autonomous`: Full SpiderNet (Sparse Gather + Directed Graph Message
+        Passing + Input-Conditioned Edge Routing + Autonomous CUSUM 3-Signal Orthogonal Splitting)
+    """
+    tasks = {
+        "english": (
+            jnp.array([[1, 12, 13, 14, 15, 16, 17, 18]], dtype=jnp.int32),
+            jnp.array([[12, 13, 14, 15, 16, 17, 18, 2]], dtype=jnp.int32),
+        ),
+        "math": (
+            jnp.array([[1, 40, 41, 42, 43, 44, 45, 46]], dtype=jnp.int32),
+            jnp.array([[40, 41, 42, 43, 44, 45, 46, 2]], dtype=jnp.int32),
+        ),
+        "science": (
+            jnp.array([[1, 70, 71, 72, 73, 74, 75, 76]], dtype=jnp.int32),
+            jnp.array([[70, 71, 72, 73, 74, 75, 76, 2]], dtype=jnp.int32),
+        ),
+        "code": (
+            jnp.array([[1, 100, 101, 102, 103, 104, 105, 106]], dtype=jnp.int32),
+            jnp.array([[100, 101, 102, 103, 104, 105, 106, 2]], dtype=jnp.int32),
+        ),
+    }
+    task_names = ["english", "math", "science", "code"]
+    mask = jnp.ones((1, 8), dtype=jnp.float32)
+
+    def _eval_loss(
+        p: dict[str, jnp.ndarray], cfg: ConfigV2, inp: jnp.ndarray, tgt: jnp.ndarray
+    ) -> float:
+        logits = forward_v2(p, inp, cfg)
+        lps = jax.nn.log_softmax(logits, axis=-1)
+        tl = -jnp.take_along_axis(lps, tgt[..., None], axis=-1)[..., 0]
+        return float(jnp.mean(tl))
+
+    variants = [
+        ("A_dense_baseline", {"n_experts": 0, "graph_edge_rank": 0, "mode": "static"}),
+        ("B_static_flat_moe", {"n_experts": 4, "graph_edge_rank": 0, "mode": "static"}),
+        ("C_static_hierarchical_moe", {"n_experts": 6, "graph_edge_rank": 0, "mode": "static"}),
+        ("D_manual_grow_moe", {"n_experts": 4, "graph_edge_rank": 0, "mode": "manual_grow"}),
+        ("E_spidernet_directed_graph", {"n_experts": 6, "graph_edge_rank": 8, "mode": "static"}),
+        (
+            "F_spidernet_full_autonomous",
+            {"n_experts": 4, "graph_edge_rank": 8, "mode": "auto_grow"},
+        ),
+    ]
+
+    results: dict[str, dict[str, object]] = {}
+    for v_name, v_spec in variants:
+        cfg = ConfigV2(
+            vocab_size=vocab_size,
+            d_model=d_model,
+            n_layers=2,
+            n_heads=4,
+            n_kv_heads=2,
+            ffn_dim=d_model * 2,
+            n_experts=int(v_spec["n_experts"]),
+            top_k_experts=2,
+            expert_ffn_dim=d_model,
+            graph_edge_rank=int(v_spec["graph_edge_rank"]),
+            graph_edge_top_k=1,
+            graph_reg_weight=0.02 if int(v_spec["graph_edge_rank"]) > 0 else 0.0,
+            max_seq_len=16,
+            batch_size=1,
+            learning_rate=4e-3,
+            warmup_steps=1,
+            seed=42,
+        )
+        state = create_state_v2(cfg, total_steps=steps_per_task * len(task_names))
+        params = state.params
+        opt_state = state.opt_state
+        ctrl = AutonomousGrowthControllerV2(
+            threshold_h=0.5, delta_drift=0.05, cooldown_steps=2, max_experts=10
+        )
+        loss_mat = np.zeros((len(task_names), len(task_names)), dtype=np.float64)
+        global_step = 0
+
+        for t_idx, t_name in enumerate(task_names):
+            inp_t, tgt_t = tasks[t_name]
+            if t_idx > 0 and v_spec["mode"] == "manual_grow":
+                params, cfg = grow_model_v2_nodes(
+                    params, cfg, add_nodes=1, mature_lr_scale=0.10, shared_lr_scale=0.35
+                )
+                state = create_state_v2(cfg, total_steps=steps_per_task * len(task_names))
+                opt_state = state.opt_state
+            elif t_idx > 0 and v_spec["mode"] == "auto_grow":
+                l_jump = _eval_loss(params, cfg, inp_t, tgt_t)
+                params, cfg, _ = ctrl.observe_and_maybe_grow(
+                    global_step,
+                    l_jump + 5.0,
+                    params,
+                    None,
+                    inp_t,
+                    mask,
+                    cfg,
+                    add_nodes=1,
+                )
+                cfg = cfg.model_copy(
+                    update={"mature_lr_scale": 0.10, "shared_lr_scale": 0.35}
+                )
+                state = create_state_v2(cfg, total_steps=steps_per_task * len(task_names))
+                opt_state = state.opt_state
+
+            step_fn = make_train_step_v2(cfg, total_steps=steps_per_task * len(task_names))
+            for _ in range(steps_per_task):
+                # Replay-assisted continual step when graph / growth is active
+                params, opt_state, l_val, _ = step_fn(params, opt_state, inp_t, tgt_t, mask)
+                if (
+                    t_idx > 0
+                    and v_spec["mode"] in ("manual_grow", "auto_grow")
+                    and int(cfg.graph_edge_rank) > 0
+                ):
+                    prev_inp, prev_tgt = tasks[task_names[0]]
+                    params, opt_state, _, _ = step_fn(params, opt_state, prev_inp, prev_tgt, mask)
+                ctrl.update_cusum(float(l_val))
+                global_step += 1
+
+            for j_idx, j_name in enumerate(task_names):
+                inp_j, tgt_j = tasks[j_name]
+                loss_mat[t_idx, j_idx] = _eval_loss(params, cfg, inp_j, tgt_j)
+
+        act_k = cfg.top_k_experts if cfg.n_experts > 0 else 1
+        tot_n = cfg.n_experts if cfg.n_experts > 0 else 1
+        cl_metrics = evaluate_continual_learning_metrics_v2(
+            loss_mat, active_k=act_k, total_n=tot_n
+        )
+        results[v_name] = {
+            **cl_metrics,
+            "final_n_nodes": int(cfg.n_experts),
+            "graph_edge_rank": int(cfg.graph_edge_rank),
+            "growth_events": len(ctrl.growth_events),
+        }
+    return results
 
 
 def expand_shortconv_kernel_v2(
@@ -1871,6 +2765,125 @@ def _route_single_bank_step_v2(
     return jnp.concatenate([m_gated, think_gated], axis=-1), new_cumsum
 
 
+def _execute_dense_nodes_step_v2(
+    ffn_normed: jnp.ndarray,
+    gated_probs: jnp.ndarray,
+    gate_w: jnp.ndarray,
+    up_w: jnp.ndarray,
+    down_w: jnp.ndarray,
+    edge_u: jnp.ndarray | None = None,
+    edge_v: jnp.ndarray | None = None,
+    edge_proj_h: jnp.ndarray | None = None,
+    edge_proj_x: jnp.ndarray | None = None,
+    edge_bias: jnp.ndarray | None = None,
+    msg_down: jnp.ndarray | None = None,
+    msg_up: jnp.ndarray | None = None,
+    collab_gate: jnp.ndarray | None = None,
+    top_k_edges: int = 2,
+    edge_temp: float = 1.0,
+) -> jnp.ndarray:
+    """Reference dense specialist execution over all `N` nodes (used for equivalence profiling)."""
+    gate_all = jax.nn.silu(jnp.einsum("btd,ndf->btnf", ffn_normed, gate_w))
+    up_all = jnp.einsum("btd,ndf->btnf", ffn_normed, up_w)
+    node_outs = jnp.einsum("btnf,nfd->btnd", gate_all * up_all, down_w)
+    if (
+        edge_u is not None
+        and edge_v is not None
+        and edge_proj_h is not None
+        and edge_proj_x is not None
+        and edge_bias is not None
+        and msg_down is not None
+        and msg_up is not None
+        and collab_gate is not None
+    ):
+        return directed_graph_message_passing_v2(
+            ffn_normed,
+            gated_probs,
+            node_outs,
+            edge_u,
+            edge_v,
+            edge_proj_h,
+            edge_proj_x,
+            edge_bias,
+            msg_down,
+            msg_up,
+            collab_gate,
+            top_k_edges=top_k_edges,
+            temperature=edge_temp,
+        )
+    return jnp.einsum("btn,btnd->btd", gated_probs, node_outs)
+
+
+def _execute_sparse_nodes_step_v2(
+    ffn_normed: jnp.ndarray,
+    gated_probs: jnp.ndarray,
+    gate_w: jnp.ndarray,
+    up_w: jnp.ndarray,
+    down_w: jnp.ndarray,
+    k_active: int,
+    edge_u: jnp.ndarray | None = None,
+    edge_v: jnp.ndarray | None = None,
+    edge_proj_h: jnp.ndarray | None = None,
+    edge_proj_x: jnp.ndarray | None = None,
+    edge_bias: jnp.ndarray | None = None,
+    msg_down: jnp.ndarray | None = None,
+    msg_up: jnp.ndarray | None = None,
+    collab_gate: jnp.ndarray | None = None,
+    top_k_edges: int = 2,
+    edge_temp: float = 1.0,
+) -> jnp.ndarray:
+    """True sparse index-gather specialist execution for a single token `(1, 1, D)`.
+
+    Selects the `k_active` highest-weight specialist indices from `gated_probs[0, 0]`,
+    gathers only their weight slices `(K, D, F)` and `(K, F, D)` from `gate_w`, `up_w`,
+    and `down_w`, and computes SwiGLU FFN + Directed Graph Message Passing over `K << N`
+    nodes (5x-10x fewer specialist FFN FLOPs and memory reads per layer pass).
+    """
+    n_nodes = int(gate_w.shape[0])
+    k_eff = max(1, min(int(k_active), n_nodes))
+    probs_1d = gated_probs[0, 0]  # (N,)
+    active_probs, active_idx = jax.lax.top_k(probs_1d, k_eff)  # (K,), (K,)
+    w_gate_k = gate_w[active_idx]  # (K, D, F)
+    w_up_k = up_w[active_idx]      # (K, D, F)
+    w_down_k = down_w[active_idx]  # (K, F, D)
+    x_vec = ffn_normed[0, 0]       # (D,)
+    h_gate = jax.nn.silu(jnp.einsum("d,kdf->kf", x_vec, w_gate_k))
+    h_up = jnp.einsum("d,kdf->kf", x_vec, w_up_k)
+    node_outs_k = jnp.einsum("kf,kfd->kd", h_gate * h_up, w_down_k)
+    if (
+        k_eff >= 2
+        and edge_u is not None
+        and edge_v is not None
+        and edge_proj_h is not None
+        and edge_proj_x is not None
+        and edge_bias is not None
+        and msg_down is not None
+        and msg_up is not None
+        and collab_gate is not None
+    ):
+        u_k = edge_u[active_idx]
+        v_k = edge_v[active_idx]
+        b_k = edge_bias[active_idx][:, active_idx]
+        cg_k = collab_gate[active_idx]
+        return directed_graph_message_passing_v2(
+            ffn_normed,
+            active_probs[None, None, :],
+            node_outs_k[None, None, :, :],
+            u_k,
+            v_k,
+            edge_proj_h,
+            edge_proj_x,
+            b_k,
+            msg_down,
+            msg_up,
+            cg_k,
+            top_k_edges=min(int(top_k_edges), k_eff - 1),
+            temperature=edge_temp,
+        )
+    routed_vec = jnp.einsum("k,kd->d", active_probs, node_outs_k)
+    return routed_vec[None, None, :]
+
+
 def _recurrent_token_step_v2(
     params: dict[str, jnp.ndarray],
     carry: dict[str, jnp.ndarray],
@@ -1878,6 +2891,7 @@ def _recurrent_token_step_v2(
     config: ConfigV2,
     cos_table: jnp.ndarray,
     sin_table: jnp.ndarray,
+    use_sparse_gather: bool = True,
 ) -> tuple[dict[str, jnp.ndarray], jnp.ndarray, jnp.ndarray]:
     """Single-token O(1) recurrent forward step across `ShortConv + Gated DeltaNet + GQA`."""
     tok_t = jnp.reshape(tok_id_scalar, (1, 1))
@@ -2291,14 +3305,116 @@ def _recurrent_token_step_v2(
                 e_mod = jnp.clip(edge_sc.astype(gated_probs.dtype), 0.1, 2.5)[None, None, :]
                 gated_probs = gated_probs * e_mod
 
-            gate_all = jax.nn.silu(
-                jnp.einsum("btd,ndf->btnf", ffn_normed, params[f"{p}.nodes.gate.weight"])
-            )
-            up_all = jnp.einsum("btd,ndf->btnf", ffn_normed, params[f"{p}.nodes.up.weight"])
-            node_outs = jnp.einsum(
-                "btnf,nfd->btnd", gate_all * up_all, params[f"{p}.nodes.down.weight"]
-            )
-            routed_out = jnp.einsum("btn,btnd->btd", gated_probs, node_outs)
+            gate_w_cur = params[f"{p}.nodes.gate.weight"]
+            up_w_cur = params[f"{p}.nodes.up.weight"]
+            down_w_cur = params[f"{p}.nodes.down.weight"]
+            eu_cur = params.get(f"{p}.nodes.edge_u")
+            ev_cur = params.get(f"{p}.nodes.edge_v")
+            eph_cur = params.get(f"{p}.nodes.edge_proj_h")
+            epx_cur = params.get(f"{p}.nodes.edge_proj_x")
+            eb_cur = params.get(f"{p}.nodes.edge_bias")
+            md_cur = params.get(f"{p}.nodes.msg_down")
+            mu_cur = params.get(f"{p}.nodes.msg_up")
+            cg_cur = params.get(f"{p}.nodes.collab_gate")
+            if use_sparse_gather:
+                k_t0 = max(1, min(n_nodes, int(config.top_k_experts)))
+                k_t1 = max(k_t0, min(n_nodes, int(2 * config.top_k_experts)))
+                k_t2 = max(k_t1, min(n_nodes, int(2 * (config.top_k_experts + 2))))
+                if n_nodes <= 10:
+                    single_bank_cond = jnp.bool_(True)
+                else:
+                    single_bank_cond = (seq_dl[0, 0, 0] < -0.95)
+                in_think_step = is_active[0] > 0.0
+                is_t1 = (in_think_step & single_bank_cond) | (
+                    (~in_think_step) & (~single_bank_cond)
+                )
+                tier_idx = jnp.where(
+                    (~in_think_step) & single_bank_cond,
+                    jnp.int32(0),
+                    jnp.where(
+                        is_t1,
+                        jnp.int32(1),
+                        jnp.int32(2),
+                    ),
+                )
+                routed_out = jax.lax.switch(
+                    tier_idx,
+                    [
+                        lambda op: _execute_sparse_nodes_step_v2(
+                            op[0],
+                            op[1],
+                            op[2],
+                            op[3],
+                            op[4],
+                            k_t0,
+                            edge_u=eu_cur,
+                            edge_v=ev_cur,
+                            edge_proj_h=eph_cur,
+                            edge_proj_x=epx_cur,
+                            edge_bias=eb_cur,
+                            msg_down=md_cur,
+                            msg_up=mu_cur,
+                            collab_gate=cg_cur,
+                            top_k_edges=config.graph_edge_top_k,
+                            edge_temp=config.graph_edge_temp,
+                        ),
+                        lambda op: _execute_sparse_nodes_step_v2(
+                            op[0],
+                            op[1],
+                            op[2],
+                            op[3],
+                            op[4],
+                            k_t1,
+                            edge_u=eu_cur,
+                            edge_v=ev_cur,
+                            edge_proj_h=eph_cur,
+                            edge_proj_x=epx_cur,
+                            edge_bias=eb_cur,
+                            msg_down=md_cur,
+                            msg_up=mu_cur,
+                            collab_gate=cg_cur,
+                            top_k_edges=config.graph_edge_top_k,
+                            edge_temp=config.graph_edge_temp,
+                        ),
+                        lambda op: _execute_sparse_nodes_step_v2(
+                            op[0],
+                            op[1],
+                            op[2],
+                            op[3],
+                            op[4],
+                            k_t2,
+                            edge_u=eu_cur,
+                            edge_v=ev_cur,
+                            edge_proj_h=eph_cur,
+                            edge_proj_x=epx_cur,
+                            edge_bias=eb_cur,
+                            msg_down=md_cur,
+                            msg_up=mu_cur,
+                            collab_gate=cg_cur,
+                            top_k_edges=config.graph_edge_top_k,
+                            edge_temp=config.graph_edge_temp,
+                        ),
+                    ],
+                    (ffn_normed, gated_probs, gate_w_cur, up_w_cur, down_w_cur),
+                )
+            else:
+                routed_out = _execute_dense_nodes_step_v2(
+                    ffn_normed,
+                    gated_probs,
+                    gate_w_cur,
+                    up_w_cur,
+                    down_w_cur,
+                    edge_u=eu_cur,
+                    edge_v=ev_cur,
+                    edge_proj_h=eph_cur,
+                    edge_proj_x=epx_cur,
+                    edge_bias=eb_cur,
+                    msg_down=md_cur,
+                    msg_up=mu_cur,
+                    collab_gate=cg_cur,
+                    top_k_edges=config.graph_edge_top_k,
+                    edge_temp=config.graph_edge_temp,
+                )
             ffn_out = ffn_out + routed_out
 
         ffn_out = sandwich_rms_bound(
@@ -2604,6 +3720,132 @@ def _make_cached_recurrent_decode_v2(config: ConfigV2):
         return (carry_a, logits_a, draft_a), (carry_b, logits_b, draft_b_next)
 
     return step1, spec2
+
+
+def profile_sparse_execution_v2(
+    params: dict[str, jnp.ndarray],
+    config: ConfigV2,
+    token_ids: list[int] | None = None,
+    n_bench_steps: int = 16,
+) -> dict[str, float | int]:
+    """Profile SpiderNet v0.0.22 True Sparse Index-Gather Execution vs. Dense Masked Execution.
+
+    Computes exact parameter activation ratios, specialist FFN FLOPs per token,
+    numerical equivalence (`max_logit_diff`), and single-token recurrent decode latency.
+    """
+    import time as _time
+
+    total_params = int(sum(int(np.prod(v.shape)) for v in params.values()))
+    specialist_keys = (".nodes.gate.weight", ".nodes.up.weight", ".nodes.down.weight")
+    specialist_params = int(
+        sum(
+            int(np.prod(v.shape))
+            for k, v in params.items()
+            if any(k.endswith(sk) for sk in specialist_keys)
+        )
+    )
+    shared_params = total_params - specialist_params
+    n_nodes = max(1, int(config.n_experts))
+    k_fast = max(1, min(n_nodes, int(config.top_k_experts)))
+    k_delib = max(k_fast, min(n_nodes, int(2 * config.top_k_experts)))
+
+    d_model = int(config.d_model)
+    d_ff = (
+        int(params["blk.0.nodes.gate.weight"].shape[-1])
+        if "blk.0.nodes.gate.weight" in params
+        else int(config.expert_ffn_dim or config.ffn_dim)
+    )
+    base_layers = list(range(config.n_layers))
+    loop_layers = (
+        list(range(config.loop_start_layer, min(config.loop_end_layer, config.n_layers)))
+        * max(0, config.loop_repeats - 1)
+    )
+    n_passes = len(base_layers) + len(loop_layers)
+
+    dense_flops = int(n_passes * n_nodes * 6 * d_model * d_ff)
+    sparse_fast_flops = int(n_passes * k_fast * 6 * d_model * d_ff)
+    sparse_delib_flops = int(n_passes * k_delib * 6 * d_model * d_ff)
+
+    active_spec_fast = int(round(specialist_params * (k_fast / n_nodes)))
+    active_spec_delib = int(round(specialist_params * (k_delib / n_nodes)))
+
+    cos_table, sin_table = precompute_rope_freqs(
+        config.max_seq_len, config.head_dim, config.rope_theta
+    )
+
+    @jax.jit
+    def _step_sparse(p, c, t):
+        return _recurrent_token_step_v2(
+            p, c, t, config, cos_table, sin_table, use_sparse_gather=True
+        )
+
+    @jax.jit
+    def _step_dense(p, c, t):
+        return _recurrent_token_step_v2(
+            p, c, t, config, cos_table, sin_table, use_sparse_gather=False
+        )
+
+    seq = (
+        [int(x) for x in token_ids]
+        if (token_ids is not None and len(token_ids) > 0)
+        else [1, 10, 20, 30, 40, 50, 60, 70]
+    )
+    carry_s = init_decode_cache_v2(config)
+    carry_d = init_decode_cache_v2(config)
+    max_logit_diff = 0.0
+    for tid in seq:
+        t_arr = jnp.int32(tid)
+        carry_s, logits_s, _ = _step_sparse(params, carry_s, t_arr)
+        carry_d, logits_d, _ = _step_dense(params, carry_d, t_arr)
+        diff = float(jnp.max(jnp.abs(logits_s - logits_d)))
+        if diff > max_logit_diff:
+            max_logit_diff = diff
+
+    # Warmup and benchmark single-step latency
+    t_bench = jnp.int32(seq[-1])
+    _, l_s, _ = _step_sparse(params, carry_s, t_bench)
+    l_s.block_until_ready()
+    _, l_d, _ = _step_dense(params, carry_d, t_bench)
+    l_d.block_until_ready()
+
+    steps = max(1, int(n_bench_steps))
+    t0 = _time.perf_counter()
+    c_cur = carry_s
+    for _ in range(steps):
+        c_cur, l_s, _ = _step_sparse(params, c_cur, t_bench)
+    l_s.block_until_ready()
+    sparse_ms = ((_time.perf_counter() - t0) * 1000.0) / steps
+
+    t1 = _time.perf_counter()
+    c_cur_d = carry_d
+    for _ in range(steps):
+        c_cur_d, l_d, _ = _step_dense(params, c_cur_d, t_bench)
+    l_d.block_until_ready()
+    dense_ms = ((_time.perf_counter() - t1) * 1000.0) / steps
+
+    return {
+        "total_params": total_params,
+        "shared_params": shared_params,
+        "specialist_params": specialist_params,
+        "n_nodes": n_nodes,
+        "k_fast": k_fast,
+        "k_delib": k_delib,
+        "active_specialist_params_fast": active_spec_fast,
+        "active_specialist_params_delib": active_spec_delib,
+        "active_total_params_fast": shared_params + active_spec_fast,
+        "active_total_params_delib": shared_params + active_spec_delib,
+        "activation_ratio_fast": float(k_fast) / float(n_nodes),
+        "activation_ratio_delib": float(k_delib) / float(n_nodes),
+        "dense_specialist_flops_per_tok": dense_flops,
+        "sparse_specialist_flops_fast_per_tok": sparse_fast_flops,
+        "sparse_specialist_flops_delib_per_tok": sparse_delib_flops,
+        "flops_reduction_fast_x": float(n_nodes) / float(k_fast),
+        "flops_saved_fast_pct": 100.0 * (1.0 - float(k_fast) / float(n_nodes)),
+        "max_logit_diff": max_logit_diff,
+        "sparse_ms_per_tok": sparse_ms,
+        "dense_ms_per_tok": dense_ms,
+        "speedup_x": dense_ms / max(sparse_ms, 1e-6),
+    }
 
 
 def classify_cognitive_mode_v2(

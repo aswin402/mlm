@@ -4,6 +4,7 @@ Start with the [release overview](../README.md) and [changelog](../CHANGELOG.md)
 
 ## Project
 
+- [MLM v0.0.28 SpiderNet Dynamically Growing Hierarchical Directed Graph Network, True Sparse Index-Gather Execution, Autonomous CUSUM Orthogonal Splitting & 6-Architecture Continual-Learning Ablation research paper](research/architecture-and-inspirations-v0.0.28.md)
 - [MLM v0.0.21 SpiderNet architecture, 3-Tier Persistent & Episodic Memory Hierarchy, Stateful O(1) Recurrent Decode Cache, 3-Mode Cognitive Router, GRPO & TurboQuant research paper](research/architecture-and-inspirations-v0.0.21.md)
 - [MLM v0.0.20 SpiderNet architecture, Stateful O(1) Recurrent Decode Cache, 3-Mode Cognitive Router, GRPO & TurboQuant research paper](research/architecture-and-inspirations-v0.0.20.md)
 - [MLM v0.0.19 SpiderNet architecture, 3-Mode Cognitive Router, GRPO & TurboQuant research paper](research/architecture-and-inspirations-v0.0.19.md)

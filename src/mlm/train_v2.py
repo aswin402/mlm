@@ -647,7 +647,7 @@ def make_grpo_step_v2(
         for k, u in updates.items():
             if k.endswith(".nodes.router_bias") or k == "blt_token_ngrams":
                 scaled_updates[k] = jnp.zeros_like(u)
-            elif k.endswith(".nodes.edge_scale"):
+            elif k.endswith(".nodes.edge_scale") or k.endswith(".nodes.collab_gate"):
                 if 0 < config.mature_experts < config.n_experts:
                     e_mask = np.ones((config.n_experts,), dtype=np.float32)
                     e_mask[: config.mature_experts] = float(config.mature_lr_scale)
@@ -658,11 +658,20 @@ def make_grpo_step_v2(
                     scaled_updates[k] = u
             elif config.mature_experts > 0 and ".nodes." in k and not k.endswith(".router.weight"):
                 if 0 < config.mature_experts < config.n_experts:
-                    m_mask = np.ones((config.n_experts, 1, 1), dtype=np.float32)
-                    m_mask[: config.mature_experts] = float(config.mature_lr_scale)
+                    m_1d = np.ones((config.n_experts,), dtype=np.float32)
+                    m_1d[: config.mature_experts] = float(config.mature_lr_scale)
                     if config.n_experts > 10:
-                        m_mask[:10] = 0.0
-                    scaled_updates[k] = u * jnp.asarray(m_mask)
+                        m_1d[:10] = 0.0
+                    m_jax = jnp.asarray(m_1d)
+                    if u.ndim == 3 and u.shape[0] == config.n_experts:
+                        scaled_updates[k] = u * m_jax[:, None, None]
+                    elif u.ndim == 2 and u.shape == (config.n_experts, config.n_experts):
+                        e_mat = jnp.asarray(np.maximum(m_1d[:, None], m_1d[None, :]))
+                        scaled_updates[k] = u * e_mat
+                    elif u.ndim == 2 and u.shape[0] == config.n_experts:
+                        scaled_updates[k] = u * m_jax[:, None]
+                    else:
+                        scaled_updates[k] = u * max(float(config.shared_lr_scale), 0.25)
                 else:
                     scaled_updates[k] = u
             elif k.endswith(".nodes.router.weight"):
@@ -1073,7 +1082,7 @@ def run_grpo_reasoning_v2(
         updates, next_opt = tx.update(grads, o_st, p)
         masked_updates = {}
         for k, u in updates.items():
-            if k.endswith(".nodes.edge_scale"):
+            if k.endswith(".nodes.edge_scale") or k.endswith(".nodes.collab_gate"):
                 m = np.zeros((config.n_experts,), dtype=np.float32)
                 for a_i in active_set:
                     m[int(a_i)] = 1.0
@@ -1083,10 +1092,19 @@ def run_grpo_reasoning_v2(
                 and not k.endswith(".router.weight")
                 and not k.endswith(".router_bias")
             ):
-                m = np.zeros((config.n_experts, 1, 1), dtype=np.float32)
+                m_1d = np.zeros((config.n_experts,), dtype=np.float32)
                 for a_i in active_set:
-                    m[int(a_i)] = 1.0
-                masked_updates[k] = u * jnp.asarray(m)
+                    m_1d[int(a_i)] = 1.0
+                m_jax = jnp.asarray(m_1d)
+                if u.ndim == 3 and u.shape[0] == config.n_experts:
+                    masked_updates[k] = u * m_jax[:, None, None]
+                elif u.ndim == 2 and u.shape == (config.n_experts, config.n_experts):
+                    e_mat = jnp.asarray(np.maximum(m_1d[:, None], m_1d[None, :]))
+                    masked_updates[k] = u * e_mat
+                elif u.ndim == 2 and u.shape[0] == config.n_experts:
+                    masked_updates[k] = u * m_jax[:, None]
+                else:
+                    masked_updates[k] = u * 0.25
             elif k.endswith(".nodes.router.weight"):
                 m = np.zeros((1, config.n_experts), dtype=np.float32)
                 for a_i in active_set:
