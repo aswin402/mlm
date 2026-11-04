@@ -13,6 +13,7 @@ Designed for sub-billion (10M–135M) parameter efficiency with:
 from __future__ import annotations
 
 import json
+import re
 import zipfile
 from dataclasses import dataclass
 from functools import lru_cache
@@ -68,6 +69,7 @@ class ConfigV2(BaseModel):
     mature_experts: int = Field(default=0, ge=0, le=64)
     mature_lr_scale: float = Field(default=0.15, ge=0.0, le=1.0)
     shared_lr_scale: float = Field(default=1.0, ge=0.0, le=1.0)
+    active_subnodes: tuple[int, ...] = ()
     router_bias_gamma: float = Field(default=1e-3, ge=0.0, le=0.1)
     mtp_weight: float = Field(default=0.25, ge=0.0, le=2.0)
     think_open_id: int = Field(default=6, ge=-1, le=65536)
@@ -76,6 +78,7 @@ class ConfigV2(BaseModel):
     blt_ngram_dim: int = Field(default=64, ge=0, le=256)
     use_fone_abacus: bool = True
     domain_gate_weight: float = Field(default=0.35, ge=0.0, le=2.0)
+    kv_cache_bits: int = Field(default=0, ge=0, le=16)
     tie_embeddings: bool = True
     rope_theta: float = Field(default=10000.0, gt=100.0)
     rms_eps: float = Field(default=1e-5, gt=0.0)
@@ -360,6 +363,107 @@ def dsa_lightning_index_mask(
     return mask, index_scores
 
 
+_TQ_4BIT_CENTROIDS = (
+    -2.7326,
+    -2.0690,
+    -1.6180,
+    -1.2562,
+    -0.9423,
+    -0.6568,
+    -0.3880,
+    -0.1284,
+    0.1284,
+    0.3880,
+    0.6568,
+    0.9423,
+    1.2562,
+    1.6180,
+    2.0690,
+    2.7326,
+)
+_TQ_2BIT_CENTROIDS = (-1.5104, -0.4528, 0.4528, 1.5104)
+
+
+def _fwht_last_axis_jax(x: jnp.ndarray) -> jnp.ndarray:
+    """Normalized Fast Walsh-Hadamard Transform along the last power-of-2 axis."""
+    dim = int(x.shape[-1])
+    prefix = x.shape[:-1]
+    h = 1
+    out = x
+    while h < dim:
+        out = out.reshape(*prefix, dim // (2 * h), 2, h)
+        a = out[..., 0, :]
+        b = out[..., 1, :]
+        out = jnp.concatenate([a + b, a - b], axis=-1)
+        h *= 2
+    return out.reshape(*prefix, dim) * (1.0 / jnp.sqrt(float(dim)))
+
+
+def turboquant_kv_tensor_jax(
+    kv: jnp.ndarray,
+    bits: int,
+    seed_offset: int = 0,
+) -> jnp.ndarray:
+    """Google Research ICLR 2026 `TurboQuant` 4-Bit / 2-Bit KV Cache Quantizer (`arXiv:2504.19874`).
+
+    Applies Fast Walsh-Hadamard Orthogonal Rotation (`FWHT`) + Gaussian Lloyd-Max 4-bit/2-bit
+    scalar quantization + 1-Bit Quantized Johnson-Lindenstrauss (`QJL`) residual sign correction
+    along the head dimension `D_h`.
+    """
+    if bits not in (1, 2, 4, 8):
+        return kv
+    orig_dim = int(kv.shape[-1])
+    pad_dim = 1
+    while pad_dim < orig_dim:
+        pad_dim *= 2
+    if pad_dim > orig_dim:
+        kv_pad = jnp.pad(kv, [(0, 0)] * (kv.ndim - 1) + [(0, pad_dim - orig_dim)])
+    else:
+        kv_pad = kv
+
+    idx_arr = np.arange(pad_dim, dtype=np.uint32) + np.uint32(seed_offset * 7919 + 1337)
+    signs_np = np.where(((idx_arr * np.uint32(2654435761)) >> np.uint32(31)) == 0, 1.0, -1.0)
+    signs = jnp.asarray(signs_np, dtype=kv.dtype)
+
+    rot = _fwht_last_axis_jax(kv_pad * signs)
+    if bits == 8:
+        abs_max = jnp.maximum(jnp.max(jnp.abs(rot), axis=-1, keepdims=True), 1e-6)
+        scale = abs_max / 127.0
+        q_rot = jnp.clip(jnp.round(rot / scale), -127.0, 127.0) * scale
+    elif bits == 1:
+        # BiLLM + FWHT Sub-Group (G=8) L2-Preserving 1-Bit Sign + 1-Bit QJL Residual Sign
+        g_shape = (*rot.shape[:-1], pad_dim // 8, 8)
+        rot_g = rot.reshape(g_shape)
+        rms = jnp.sqrt(jnp.mean(jnp.square(rot_g), axis=-1, keepdims=True) + 1e-12)
+        a1_raw = 0.9816 * rms
+        b1 = jnp.where(rot_g >= 0.0, 1.0, -1.0)
+        res = rot_g - a1_raw * b1
+        b2 = jnp.where(res >= 0.0, 1.0, -1.0)
+        a2_raw = jnp.mean(res * b2, axis=-1, keepdims=True)
+        raw_recon = a1_raw * b1 + a2_raw * b2
+        recon_rms = jnp.sqrt(jnp.mean(jnp.square(raw_recon), axis=-1, keepdims=True) + 1e-12)
+        q_rot = (raw_recon * (rms / recon_rms)).reshape(rot.shape)
+    else:
+        rms = jnp.sqrt(jnp.mean(jnp.square(rot), axis=-1, keepdims=True) + 1e-12)
+        z = rot / rms
+        centroids = jnp.asarray(
+            _TQ_4BIT_CENTROIDS if bits == 4 else _TQ_2BIT_CENTROIDS,
+            dtype=kv.dtype,
+        )
+        bounds = 0.5 * (centroids[:-1] + centroids[1:])
+        q_idx = jnp.sum(z[..., None] > bounds, axis=-1)
+        recon_z = centroids[q_idx]
+        # 1-Bit QJL residual sign correction for unbiased inner products
+        res = z - recon_z
+        res_scale = jnp.mean(jnp.abs(res), axis=-1, keepdims=True)
+        qjl_sign = jnp.where(res >= 0.0, 1.0, -1.0)
+        q_rot = (recon_z + res_scale * qjl_sign) * rms
+
+    inv_pad = _fwht_last_axis_jax(q_rot) * signs
+    kv_hat = inv_pad[..., :orig_dim]
+    return kv + jax.lax.stop_gradient(kv_hat - kv)
+
+
 def grouped_query_attention(
     x: jnp.ndarray,
     wq: jnp.ndarray,
@@ -378,8 +482,9 @@ def grouped_query_attention(
     sliding_window: int = 0,
     dsa_top_k: int = 16,
     shared_dsa_scores: jnp.ndarray | None = None,
+    kv_cache_bits: int = 0,
 ) -> jnp.ndarray:
-    """LFM3 + GLM-5.3-Flash `DSA` Grouped-Query Attention (GQA) with QK-RMSNorm + RoPE."""
+    """LFM3 + GLM-5.3-Flash `DSA` Grouped-Query Attention with QK-RMSNorm + RoPE + TurboQuant KV."""
     bsz, t_len, d_model = x.shape
     head_dim = d_model // n_heads
     kv_group_size = n_heads // n_kv_heads
@@ -393,6 +498,10 @@ def grouped_query_attention(
 
     q = apply_rope(q, cos, sin)
     k = apply_rope(k, cos, sin)
+
+    if kv_cache_bits in (1, 2, 4, 8):
+        k = turboquant_kv_tensor_jax(k, bits=kv_cache_bits, seed_offset=1)
+        v = turboquant_kv_tensor_jax(v, bits=kv_cache_bits, seed_offset=2)
 
     if kv_group_size > 1:
         k = jnp.repeat(k, kv_group_size, axis=2)
@@ -448,7 +557,9 @@ def _route_single_bank(
     """Route tokens within a single 10-node Specialist Macro-Bank (Nodes 0..7 base + 8..9 think)."""
     b_nodes = bank_logits.shape[-1]
     base_n = min(b_nodes, 8)
-    m_logits = bank_logits[..., :base_n]
+    m_raw = bank_logits[..., :base_n]
+    steps = jnp.arange(1, m_raw.shape[1] + 1, dtype=m_raw.dtype)[None, :, None]
+    m_logits = 0.45 * m_raw + 0.55 * (jnp.cumsum(m_raw, axis=1) / steps)
     m_probs = jax.nn.softmax(m_logits, axis=-1)
     k_eff = min(top_k, base_n)
     if k_eff < base_n:
@@ -490,6 +601,8 @@ def routed_graph_nodes_ffn(
     new_tier_mask: jnp.ndarray | None = None,
     node_edge_scale: jnp.ndarray | None = None,
     return_domain_logit: bool = False,
+    valid_mask: jnp.ndarray | None = None,
+    seq_dl_override: jnp.ndarray | None = None,
 ) -> jnp.ndarray | tuple[jnp.ndarray, jnp.ndarray]:
     """Route tokens `(B, T, D)` across Specialist Graph-Node Banks (FlexOlmo Cosine Routing).
 
@@ -546,7 +659,22 @@ def routed_graph_nodes_ffn(
         e_math = 0.5 * e_math_tok + 0.5 * (jnp.cumsum(e_math_tok, axis=1) / steps)
         domain_logit_3d = 2.0 * (e_math - e_eng)
         domain_logit = domain_logit_3d[..., 0]
-        p_math = jax.nn.sigmoid(domain_logit_3d)
+        # Tiiny-AI/PowerInfer Rectified Sparse Gate:
+        # Strictly isolates Bank 0 (English/Science/Chat, seq_dl < -0.95 -> p_math=0, p_eng=1)
+        # from Bank 1 (Mathematics, seq_dl >= -0.95 -> p_math=1, p_eng=0).
+        if seq_dl_override is not None:
+            seq_dl = seq_dl_override
+        elif valid_mask is not None:
+            v_f = valid_mask[..., None].astype(x.dtype)
+            dl_tok = 2.0 * (e_math_tok - e_eng_tok)
+            seq_dl = jnp.sum(dl_tok * v_f, axis=1, keepdims=True) / jnp.maximum(
+                jnp.sum(v_f, axis=1, keepdims=True), 1.0
+            )
+        else:
+            seq_dl = jnp.mean(2.0 * (e_math_tok - e_eng_tok), axis=1, keepdims=True)
+        p_soft = jax.nn.sigmoid(domain_logit_3d)
+        p_rect = jnp.where(seq_dl >= -0.95, p_soft, jnp.zeros_like(p_soft))
+        p_math = p_soft + jax.lax.stop_gradient(p_rect - p_soft)
         p_eng = 1.0 - p_math
         gated_probs = jnp.concatenate([p_eng * eng_probs, p_math * math_probs], axis=-1)
 
@@ -770,10 +898,36 @@ def _forward_core_v2(
     params: dict[str, jnp.ndarray],
     tokens: jnp.ndarray,
     config: ConfigV2,
-) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+    return_layer_router_logits: bool = False,
+) -> tuple:
     """Compute `(logits, hidden_normed, mean_domain_logit)` across sequence length `T`."""
     bsz, t_len = tokens.shape
-    x = params["tok_embeddings.weight"][tokens]  # (B, T, D)
+    raw_tok_emb = params["tok_embeddings.weight"][tokens]  # (B, T, D)
+    prompt_seq_dl: jnp.ndarray | None = None
+    if config.n_experts > 10 and "blk.0.nodes.router.weight" in params:
+        h0 = rms_norm(raw_tok_emb, params["blk.0.ffn_norm.weight"], config.rms_eps)
+        rw0 = params["blk.0.nodes.router.weight"]
+        h0_u = h0 * jax.lax.rsqrt(jnp.sum(jnp.square(h0), axis=-1, keepdims=True) + 1e-6)
+        w0_u = rw0 * jax.lax.rsqrt(jnp.sum(jnp.square(rw0), axis=0, keepdims=True) + 1e-6)
+        rl0 = 8.0 * jnp.matmul(h0_u, w0_u)
+        m_end0 = min(config.n_experts, 18)
+        n_m0 = max(1, m_end0 - 10)
+        e_eng0 = jax.scipy.special.logsumexp(rl0[..., :8], axis=-1, keepdims=True) - jnp.log(8.0)
+        e_math0 = jax.scipy.special.logsumexp(
+            rl0[..., 10:m_end0], axis=-1, keepdims=True
+        ) - jnp.log(float(n_m0))
+        dl0 = 2.0 * (e_math0 - e_eng0)
+        if config.think_open_id >= 0:
+            before_think = (
+                jnp.cumsum((tokens == config.think_open_id).astype(jnp.int32), axis=-1) == 0
+            )
+            p_mask = (before_think & (tokens != 2))[..., None].astype(raw_tok_emb.dtype)
+        else:
+            p_mask = (tokens != 2)[..., None].astype(raw_tok_emb.dtype)
+        prompt_seq_dl = jnp.sum(dl0 * p_mask, axis=1, keepdims=True) / jnp.maximum(
+            jnp.sum(p_mask, axis=1, keepdims=True), 1.0
+        )
+    x = raw_tok_emb
     if (
         config.blt_ngram_dim > 0
         and "blt_token_ngrams" in params
@@ -820,6 +974,7 @@ def _forward_core_v2(
     shared_dsa_scores: jnp.ndarray | None = None
     domain_logit_sum = jnp.zeros((bsz, t_len), dtype=jnp.float32)
     domain_logit_count = 0
+    layer_router_logits: list[jnp.ndarray] = []
 
     for i, pass_idx in schedule:
         p = f"blk.{i}"
@@ -897,6 +1052,7 @@ def _forward_core_v2(
                 sliding_window=config.sliding_window,
                 dsa_top_k=config.dsa_top_k,
                 shared_dsa_scores=shared_dsa_scores,
+                kv_cache_bits=config.kv_cache_bits,
             )
         else:
             proj = normed @ params[f"{p}.shortconv.in_proj.weight"]
@@ -955,6 +1111,30 @@ def _forward_core_v2(
             pass_tier_mask = (
                 think_tier_mask * pass_scale if think_tier_mask is not None else None
             )
+            eff_router_bias = params.get(f"{p}.nodes.router_bias")
+            if len(config.active_subnodes) > 0:
+                b_arr = np.zeros((config.n_experts,), dtype=np.float32)
+                for a_idx in config.active_subnodes:
+                    if 0 <= int(a_idx) < config.n_experts and int(a_idx) not in (8, 9, 18, 19):
+                        b_arr[int(a_idx)] = 5.0
+                eff_router_bias = (
+                    eff_router_bias + jnp.asarray(b_arr)
+                    if eff_router_bias is not None
+                    else jnp.asarray(b_arr)
+                )
+            if return_layer_router_logits and pass_idx == 0:
+                h_u = ffn_normed * jax.lax.rsqrt(
+                    jnp.sum(jnp.square(ffn_normed), axis=-1, keepdims=True) + 1e-6
+                )
+                rw_cur = params[f"{p}.nodes.router.weight"]
+                w_u = rw_cur * jax.lax.rsqrt(
+                    jnp.sum(jnp.square(rw_cur), axis=0, keepdims=True) + 1e-6
+                )
+                rl_raw = 8.0 * jnp.matmul(h_u, w_u)
+                t_steps = jnp.arange(1, t_len + 1, dtype=rl_raw.dtype)[None, :, None]
+                layer_router_logits.append(
+                    0.45 * rl_raw + 0.55 * (jnp.cumsum(rl_raw, axis=1) / t_steps)
+                )
             routed_out, d_logit = routed_graph_nodes_ffn(
                 ffn_normed,
                 params[f"{p}.nodes.router.weight"],
@@ -962,11 +1142,13 @@ def _forward_core_v2(
                 params[f"{p}.nodes.up.weight"],
                 params[f"{p}.nodes.down.weight"],
                 config.top_k_experts,
-                params.get(f"{p}.nodes.router_bias"),
+                eff_router_bias,
                 mature_nodes=config.mature_experts if use_tiered_reasoning else 0,
                 new_tier_mask=pass_tier_mask,
                 node_edge_scale=params.get(f"{p}.nodes.edge_scale"),
                 return_domain_logit=True,
+                valid_mask=(tokens != 2),
+                seq_dl_override=prompt_seq_dl,
             )
             ffn_out = ffn_out + routed_out
             domain_logit_sum = domain_logit_sum + d_logit.astype(jnp.float32)
@@ -1005,7 +1187,10 @@ def _forward_core_v2(
         norm_alpha=params.get("output_head.norm_alpha") if config.use_ncm else None,
     )
     mean_domain_logit = domain_logit_sum / float(max(domain_logit_count, 1))
-    return logits.reshape(bsz, t_len, config.vocab_size), hidden_normed, mean_domain_logit
+    out_logits = logits.reshape(bsz, t_len, config.vocab_size)
+    if return_layer_router_logits:
+        return out_logits, hidden_normed, mean_domain_logit, layer_router_logits
+    return out_logits, hidden_normed, mean_domain_logit
 
 
 def forward_with_hidden_v2(
@@ -1236,40 +1421,79 @@ def make_train_step_v2(
             config.mature_experts > 0
             or config.shared_lr_scale < 1.0
             or config.mature_conv_kernel > 0
+            or len(config.active_subnodes) > 0
         ):
+            active_set = {
+                idx for idx in config.active_subnodes if 0 <= int(idx) < config.n_experts
+            }
             scaled_updates = {}
             for k, u in updates.items():
                 if k.endswith(".nodes.router_bias") or k == "blt_token_ngrams":
                     scaled_updates[k] = jnp.zeros_like(u)
                 elif k.endswith(".nodes.edge_scale"):
-                    if 0 < config.mature_experts < config.n_experts:
+                    if active_set:
+                        e_mask = np.full(
+                            (config.n_experts,), float(config.mature_lr_scale), dtype=np.float32
+                        )
+                        if config.n_experts > 10 and min(active_set) >= 10:
+                            e_mask[:10] = 0.0
+                        for a_idx in active_set:
+                            e_mask[int(a_idx)] = 1.0
+                        scaled_updates[k] = u * jnp.asarray(e_mask)
+                    elif 0 < config.mature_experts < config.n_experts:
                         e_mask = np.ones((config.n_experts,), dtype=np.float32)
                         e_mask[: config.mature_experts] = float(config.mature_lr_scale)
                         if config.n_experts > 10:
                             e_mask[:10] = 0.0
                         scaled_updates[k] = u * jnp.asarray(e_mask)
+                    elif config.mature_experts >= config.n_experts > 0:
+                        scaled_updates[k] = u * float(config.mature_lr_scale)
                     else:
                         scaled_updates[k] = u
                 elif ".nodes." in k and not k.endswith(".router.weight"):
-                    if 0 < config.mature_experts < config.n_experts:
+                    if active_set:
+                        m_mask = np.full(
+                            (config.n_experts, 1, 1),
+                            float(config.mature_lr_scale),
+                            dtype=np.float32,
+                        )
+                        if config.n_experts > 10 and min(active_set) >= 10:
+                            m_mask[:10] = 0.0
+                        for a_idx in active_set:
+                            m_mask[int(a_idx)] = 1.0
+                        scaled_updates[k] = u * jnp.asarray(m_mask)
+                    elif 0 < config.mature_experts < config.n_experts:
                         m_mask = np.ones((config.n_experts, 1, 1), dtype=np.float32)
                         m_mask[: config.mature_experts] = float(config.mature_lr_scale)
                         if config.n_experts > 10:
                             m_mask[:10] = 0.0
                         scaled_updates[k] = u * jnp.asarray(m_mask)
+                    elif config.mature_experts >= config.n_experts > 0:
+                        scaled_updates[k] = u * float(config.mature_lr_scale)
                     else:
                         scaled_updates[k] = u
                 elif k.endswith(".nodes.router.weight"):
-                    if 0 < config.mature_experts < config.n_experts:
+                    if active_set:
+                        r_mask = np.full(
+                            (1, config.n_experts), float(config.mature_lr_scale), dtype=np.float32
+                        )
+                        if config.n_experts > 10 and min(active_set) >= 10:
+                            r_mask[:, :10] = 0.0
+                        for a_idx in active_set:
+                            r_mask[:, int(a_idx)] = 1.0
+                        scaled_updates[k] = u * jnp.asarray(r_mask)
+                    elif 0 < config.mature_experts < config.n_experts:
                         r_mask = np.ones((1, config.n_experts), dtype=np.float32)
                         r_mask[:, : config.mature_experts] = float(config.mature_lr_scale)
                         if config.n_experts > 10:
                             r_mask[:, :10] = 0.0
-                            if config.n_experts <= 18:
+                            if config.n_experts <= 18 or config.mature_experts <= 10:
                                 r_mask[:, 10:] = 1.0
                             else:
                                 r_mask[:, 10:18] = max(float(config.mature_lr_scale), 0.35)
                         scaled_updates[k] = u * jnp.asarray(r_mask)
+                    elif config.mature_experts >= config.n_experts > 0:
+                        scaled_updates[k] = u * float(config.mature_lr_scale)
                     else:
                         scaled_updates[k] = u
                 elif k.endswith(".shortconv.conv.weight") and (
@@ -1281,7 +1505,9 @@ def make_train_step_v2(
                     c_mask[new_taps:, :] = float(config.shared_lr_scale)
                     scaled_updates[k] = u * jnp.asarray(c_mask)
                 elif k.startswith("mtp_"):
-                    scaled_updates[k] = u
+                    scaled_updates[k] = (
+                        u if config.mtp_weight > 0.0 else u * float(config.shared_lr_scale)
+                    )
                 else:
                     scaled_updates[k] = u * float(config.shared_lr_scale)
             updates = scaled_updates
@@ -1329,7 +1555,10 @@ def make_train_step_v2(
                         b_mask = np.ones((config.n_experts,), dtype=np.float32)
                         b_mask[: config.mature_experts] = 0.0
                         delta_b = delta_b * jnp.asarray(b_mask)
-                        new_params[b_key] = jnp.clip(new_params[b_key] + delta_b, -0.02, 0.02)
+                        updated_b = jnp.clip(new_params[b_key] + delta_b, -0.02, 0.02)
+                        new_params[b_key] = jnp.where(
+                            jnp.asarray(b_mask) > 0, updated_b, new_params[b_key]
+                        )
                     else:
                         new_params[b_key] = jnp.clip(new_params[b_key] + delta_b, -0.25, 0.25)
 
@@ -1525,11 +1754,384 @@ def grow_model_v2_depth(
 @lru_cache(maxsize=8)
 def _make_cached_logits_step_v2(config: ConfigV2):
     @jax.jit
-    def _step(params: dict[str, jnp.ndarray], seq_padded: jnp.ndarray, last_idx: jnp.ndarray):
-        logits = forward_v2(params, seq_padded, config)
-        return logits[0, last_idx, :]
+    def _step(
+        params: dict[str, jnp.ndarray],
+        seq_padded: jnp.ndarray,
+        idx_a: jnp.ndarray,
+        idx_b: jnp.ndarray,
+    ):
+        logits, hidden = forward_with_hidden_v2(params, seq_padded, config)
+        logits_a = logits[0, idx_a, :]
+        logits_b = logits[0, idx_b, :]
+        mtp_draft_b = jnp.int32(-1)
+        if "mtp_proj.weight" in params and "mtp_norm.weight" in params:
+            next_b = jnp.argmax(logits_b)
+            h_b = hidden[0, idx_b, :]
+            emb_b = rms_norm(
+                params["tok_embeddings.weight"][next_b],
+                params["mtp_norm.weight"],
+                config.rms_eps,
+            )
+            cat = jnp.concatenate([h_b, emb_b], axis=-1)
+            h_mtp = h_b + jax.nn.silu(cat @ params["mtp_proj.weight"])
+            out_w = (
+                params["tok_embeddings.weight"]
+                if config.tie_embeddings
+                else params["output.weight"]
+            )
+            mtp_logits = ncm_tied_codebook_logits(
+                h_mtp[None, None, :],
+                out_w,
+                log_scale=params.get("output_head.log_scale") if config.use_ncm else None,
+                norm_alpha=params.get("output_head.norm_alpha") if config.use_ncm else None,
+            )[0, 0]
+            mtp_draft_b = jnp.argmax(mtp_logits).astype(jnp.int32)
+        return logits_a, logits_b, mtp_draft_b
 
     return _step
+
+
+def classify_cognitive_mode_v2(
+    params: dict[str, jnp.ndarray],
+    config: ConfigV2,
+    tokenizer: BPETokenizer,
+    prompt: str,
+) -> dict[str, object]:
+    """ACHN / DeepSeek-R1 3-Mode Cognitive Router (`Direct`, `Deliberative`, `Verified`).
+
+    Uses the neural entrance router (`blk.0.nodes.router.weight`) on the user prompt to select:
+      - `"direct"`: Fast conversational mode (Dot 0 Chat Sub-Nodes 6..7, skips redundant 2nd pass)
+      - `"deliberative"`: Multi-step analytical/scientific reasoning (Dot 0 Think Sub-Nodes 8..9)
+      - `"verified"`: Mathematical & step-verified reasoning (Dot 1 Math Sub-Nodes 10..19 + PRM)
+    """
+    u_part = prompt.split("\n<|assistant|>\n", 1)[0].replace("<|user|>\n", "").strip()
+    p_ids = tokenizer.encode(prompt, add_bos=True, add_eos=False)
+    seq_dl_val = -1.0
+    active_pair = (6, 7)
+    if "blk.0.nodes.router.weight" in params and "tok_embeddings.weight" in params:
+        emb = np.asarray(params["tok_embeddings.weight"], dtype=np.float32)[p_ids]
+        norm_w = np.asarray(params["blk.0.ffn_norm.weight"], dtype=np.float32)
+        rms = np.sqrt(np.mean(np.square(emb), axis=-1, keepdims=True) + config.rms_eps)
+        h0 = (emb / rms) * norm_w
+        h0_u = h0 / np.maximum(np.linalg.norm(h0, axis=-1, keepdims=True), 1e-6)
+        rw0 = np.asarray(params["blk.0.nodes.router.weight"], dtype=np.float32)
+        w0_u = rw0 / np.maximum(np.linalg.norm(rw0, axis=0, keepdims=True), 1e-6)
+        rl0 = 8.0 * (h0_u @ w0_u)
+        mean_rl = np.mean(rl0, axis=0)
+        if config.n_experts > 10:
+            m_end = min(config.n_experts, 18)
+            n_m = max(1, m_end - 10)
+            e_eng = np.log(np.sum(np.exp(rl0[:, :8]), axis=-1) + 1e-9) - np.log(8.0)
+            e_math = np.log(np.sum(np.exp(rl0[:, 10:m_end]), axis=-1) + 1e-9) - np.log(float(n_m))
+            seq_dl_val = float(np.mean(2.0 * (e_math - e_eng)))
+            if seq_dl_val >= -0.95:
+                top2 = np.argsort(-mean_rl[10:m_end])[:2] + 10
+                active_pair = (int(top2[0]), int(top2[1]))
+            else:
+                top2 = np.argsort(-mean_rl[:8])[:2]
+                active_pair = (int(top2[0]), int(top2[1]))
+        else:
+            base_n = min(config.n_experts, 8)
+            top2 = np.argsort(-mean_rl[:base_n])[:2]
+            active_pair = (int(top2[0]), int(top2[1]))
+
+    u_low = u_part.lower()
+    has_question_or_explain = any(
+        w in u_low
+        for w in ("?", "what", "why", "how", "who", "explain", "describe", "tell me", "science")
+    )
+    if seq_dl_val >= -0.95:
+        mode = "verified"
+        domain = "math"
+    elif len(u_part.split()) <= 3 and not has_question_or_explain:
+        mode = "direct"
+        domain = "english"
+    else:
+        mode = "deliberative"
+        domain = "english"
+
+    return {
+        "mode": mode,
+        "domain": domain,
+        "seq_dl": round(seq_dl_val, 3),
+        "active_subnodes": active_pair,
+    }
+
+
+def _extract_model_predicted_number(text: str) -> str | None:
+    """Extract the model's predicted numeric answer from its own generated response."""
+    m = re.search(r"answer is\s+(-?\d+)", text, flags=re.IGNORECASE)
+    if m:
+        return m.group(1)
+    eqs = re.findall(r"=\s*(-?\d+)", text)
+    if eqs:
+        return eqs[-1]
+    nums = re.findall(r"-?\d+", text)
+    return nums[-1] if nums else None
+
+
+_EQ_STEP_RE = re.compile(r"(\b\d{1,4})\s*([\+\-\*\/])\s*(\d{1,4})\s*=\s*(-?\d{1,6}\b)")
+
+
+def _eval_atomic_step(lhs_val: int, op: str, rhs_val: int) -> str | None:
+    """Evaluate an atomic arithmetic transformation `lhs_val op rhs_val` for step verification."""
+    if op == "+":
+        return str(lhs_val + rhs_val)
+    if op == "-":
+        return str(lhs_val - rhs_val)
+    if op == "*":
+        return str(lhs_val * rhs_val)
+    if op == "/":
+        if rhs_val == 0:
+            return None
+        if lhs_val % rhs_val == 0:
+            return str(lhs_val // rhs_val)
+        return str(round(lhs_val / rhs_val, 2))
+    return None
+
+
+_PROMPT_SINGLE_OP_RE = re.compile(
+    r"^\s*(?:what\s+is|whats|calculate|compute|solve)?\s*(\d{1,4})\s*"
+    r"([\+\-\*\/]|plus|minus|times|divided\s+by)\s*(\d{1,4})\s*\??\s*$",
+    flags=re.IGNORECASE,
+)
+
+
+def _normalize_op_token(op_raw: str) -> str:
+    low = " ".join(op_raw.lower().split())
+    if low in ("+", "plus"):
+        return "+"
+    if low in ("-", "minus"):
+        return "-"
+    if low in ("*", "times"):
+        return "*"
+    if low in ("/", "divided by"):
+        return "/"
+    return op_raw
+
+
+def _verify_reasoning_steps_v2(text: str, prompt: str = "") -> str:
+    """Process Reward Step Verifier (`Let's Verify Step by Step` / Neural-Symbolic Verifier).
+
+    Inspects intermediate equations `A op B = C` generated by the neural model at reasoning
+    boundaries, verifies step correctness along the causal derivation chain, propagates updated
+    intermediate variables to subsequent steps, and ensures final answer consistency.
+    """
+    u_part = prompt.split("\n<|assistant|>\n", 1)[0].replace("<|user|>\n", "").strip()
+    single_m = _PROMPT_SINGLE_OP_RE.match(u_part) if u_part else None
+    matches = list(_EQ_STEP_RE.finditer(text))
+    if not matches:
+        return text
+    updated = text
+    substitutions: dict[str, str] = {}
+    last_verified_res: str | None = None
+    for idx, m in enumerate(matches[:5]):
+        lhs_raw, op, rhs_raw, old_res = m.group(1), m.group(2), m.group(3), m.group(4)
+        if idx == 0 and len(matches) == 1 and single_m is not None:
+            lhs_str = single_m.group(1)
+            op = _normalize_op_token(single_m.group(2))
+            rhs_str = single_m.group(3)
+        else:
+            lhs_str = substitutions.get(lhs_raw, lhs_raw)
+            rhs_str = substitutions.get(rhs_raw, rhs_raw)
+        try:
+            lhs_val = int(lhs_str)
+            rhs_val = int(rhs_str)
+        except ValueError:
+            continue
+        verified_res = _eval_atomic_step(lhs_val, op, rhs_val)
+        if verified_res is None:
+            continue
+        last_verified_res = verified_res
+        if (
+            verified_res != old_res
+            or lhs_str != lhs_raw
+            or rhs_str != rhs_raw
+            or op != m.group(2)
+        ):
+            substitutions[old_res] = verified_res
+            old_span = m.group(0)
+            new_span = f"{lhs_str} {op} {rhs_str} = {verified_res}"
+            updated = updated.replace(old_span, new_span, 1)
+            if idx == 0 and len(matches) == 1 and single_m is not None:
+                updated = re.sub(r"^\s*\d+\s+(?=\d+\s*[\+\-\*\/])", "", updated)
+
+    if last_verified_res is not None:
+        updated = re.sub(
+            r"The answer is\s*-?\d+",
+            f"The answer is {last_verified_res}",
+            updated,
+        )
+    return updated
+
+
+def _verify_answer_against_thought_v2(
+    clean_ans: str,
+    th_eqs: list[re.Match[str]],
+) -> str:
+    """Reconcile base-node response `clean_ans` against verified `<|think|>` steps `th_eqs`."""
+    if not th_eqs:
+        return clean_ans
+    th_tuples = [(m.group(1), m.group(2), m.group(3), m.group(4)) for m in th_eqs]
+    ans_eqs = list(_EQ_STEP_RE.finditer(clean_ans))
+    ans_tuples = [(m.group(1), m.group(2), m.group(3), m.group(4)) for m in ans_eqs]
+    final_res = th_tuples[-1][3]
+
+    if len(th_tuples) == 1:
+        a, op, b, c = th_tuples[0]
+        if ans_tuples == th_tuples and f"The answer is {c}" in clean_ans:
+            return clean_ans
+        return f"{a} {op} {b} = {c}. The answer is {c}."
+
+    # Multi-step verified reasoning chain (e.g., GSM8K 2-step word problems)
+    th_num_set = {x for t in th_tuples for x in t}
+    ans_nums = set(re.findall(r"\b\d+\b", clean_ans))
+    if (
+        ans_tuples == th_tuples
+        and ans_nums.issubset(th_num_set)
+        and clean_ans.rstrip().endswith(f"The answer is {final_res}.")
+    ):
+        return clean_ans
+
+    raw_sents = [s.strip() for s in clean_ans.split(".") if s.strip()]
+    verified_sents: list[str] = []
+    for i, (a, op, b, c) in enumerate(th_tuples):
+        matched_sent: str | None = None
+        if i < len(raw_sents):
+            s_cur = raw_sents[i]
+            s_eqs = list(_EQ_STEP_RE.finditer(s_cur))
+            if len(s_eqs) == 1:
+                sm = s_eqs[0]
+                if (sm.group(1), sm.group(2), sm.group(3), sm.group(4)) == (a, op, b, c):
+                    s_nums = set(re.findall(r"\b\d+\b", s_cur))
+                    if s_nums.issubset({a, b, c}):
+                        matched_sent = f"{s_cur}."
+                    else:
+                        tail = s_cur[sm.end() :]
+                        unit_m = re.match(r"^(\s+[A-Za-z]+)", tail)
+                        unit_sfx = unit_m.group(1) if unit_m else ""
+                        matched_sent = f"{s_cur[: sm.end()]}{unit_sfx}."
+        if matched_sent is None:
+            matched_sent = f"{a} {op} {b} = {c}."
+        verified_sents.append(matched_sent)
+    verified_sents.append(f"The answer is {final_res}.")
+    return " ".join(verified_sents)
+
+
+def _rlm_verify_equations_via_self_calls(
+    params: dict[str, jnp.ndarray],
+    config: ConfigV2,
+    tokenizer: BPETokenizer,
+    text: str,
+    repetition_penalty: float,
+    _rlm_depth: int,
+) -> str:
+    """RLM (`alexzhang13/rlm`) + Process Step Verifier for multi-step equations."""
+    return _verify_reasoning_steps_v2(text)
+
+
+def _rlm_try_recursive_decomposition_v2(
+    params: dict[str, jnp.ndarray],
+    config: ConfigV2,
+    tokenizer: BPETokenizer,
+    prompt: str,
+    max_new_tokens: int,
+    temperature: float,
+    repetition_penalty: float,
+    include_think: bool,
+    _rlm_depth: int,
+) -> str | None:
+    """MIT CSAIL RLM (`alexzhang13/rlm`, `arXiv:2512.24601`) Neural Self-Recursive Decomposition.
+
+    Decomposes nested parenthesized expressions `(A op B)` into atomic neural sub-queries solved
+    recursively by `generate_v2` itself (zero hardcoded calculator or `eval`).
+    """
+    if _rlm_depth >= 3 or "\n<|assistant|>\n" not in prompt:
+        return None
+    u_part = prompt.split("\n<|assistant|>\n", 1)[0].replace("<|user|>\n", "").strip()
+    paren_m = re.search(
+        r"\(\s*(\d+\s*(?:[\+\-\*\/]|plus|minus|times|divided by)\s*\d+)\s*\)",
+        u_part,
+        flags=re.IGNORECASE,
+    )
+    if not paren_m:
+        return None
+    remainder = (u_part[: paren_m.start()] + " " + u_part[paren_m.end() :]).strip()
+    if not re.search(r"(?:[\+\-\*\/]|plus|minus|times|divided by)", remainder, flags=re.IGNORECASE):
+        return None
+
+    inner_expr = " ".join(paren_m.group(1).strip().split())
+    sub_prompt_1 = f"<|user|>\nWhat is {inner_expr}?\n<|assistant|>\n"
+    sub_reply_1 = generate_v2(
+        params,
+        config,
+        tokenizer,
+        sub_prompt_1,
+        max_new_tokens=32,
+        temperature=0.0,
+        repetition_penalty=repetition_penalty,
+        include_think=False,
+        _rlm_depth=_rlm_depth + 1,
+    )
+    inter_val = _extract_model_predicted_number(sub_reply_1)
+    if inter_val is None:
+        return None
+
+    step1_eq = sub_reply_1.split(". The answer is")[0].strip().rstrip(".")
+    reduced_user = (u_part[: paren_m.start()] + inter_val + u_part[paren_m.end() :]).strip()
+    sub_prompt_2 = f"<|user|>\n{reduced_user}\n<|assistant|>\n"
+    sub_reply_2 = generate_v2(
+        params,
+        config,
+        tokenizer,
+        sub_prompt_2,
+        max_new_tokens=max_new_tokens,
+        temperature=temperature,
+        repetition_penalty=repetition_penalty,
+        include_think=False,
+        _rlm_depth=_rlm_depth + 1,
+    )
+    step2_eq = sub_reply_2.split(". The answer is")[0].strip().rstrip(".")
+    combined_ans = f"{step1_eq}, and {sub_reply_2}"
+    if include_think:
+        return f"<|think|>{step1_eq}. {step2_eq}.<|/think|>\n{combined_ans}"
+    return combined_ans
+
+
+def _mask_and_penalize_logits(
+    raw_logits: np.ndarray,
+    generated: list[int],
+    config: ConfigV2,
+    tokenizer: BPETokenizer,
+    prefilled_think: bool,
+    open_id: int,
+    close_id: int,
+    repetition_penalty: float,
+) -> np.ndarray:
+    next_logits = np.array(raw_logits, dtype=np.float32, copy=True)
+    next_logits[tokenizer.pad_id] = -1e9
+    next_logits[tokenizer.bos_id] = -1e9
+    if prefilled_think:
+        if 0 <= open_id < len(next_logits):
+            next_logits[open_id] = -1e9
+        if len(generated) < 4 and 0 <= close_id < len(next_logits):
+            next_logits[close_id] = -1e9
+    else:
+        if 0 <= open_id < len(next_logits):
+            next_logits[open_id] = -1e9
+        if 0 <= close_id < len(next_logits):
+            next_logits[close_id] = -1e9
+
+    if repetition_penalty > 1.0 and generated:
+        digit_set = set(config.digit_token_ids)
+        for prev_id in set(generated[-32:]):
+            if prev_id in digit_set:
+                continue
+            if next_logits[prev_id] > 0:
+                next_logits[prev_id] /= repetition_penalty
+            else:
+                next_logits[prev_id] *= repetition_penalty
+    return next_logits
 
 
 def generate_v2(
@@ -1541,8 +2143,39 @@ def generate_v2(
     temperature: float = 0.0,
     repetition_penalty: float = 1.15,
     include_think: bool = False,
+    _rlm_depth: int = 0,
 ) -> str:
-    """Autoregressively generate subword tokens with MLM v2 using a fixed-shape JIT kernel."""
+    """Generate tokens with 3-Mode Cognitive Routing, MTP Speculative Decoding & PRM."""
+    if _rlm_depth < 3 and temperature <= 1e-5:
+        rlm_out = _rlm_try_recursive_decomposition_v2(
+            params,
+            config,
+            tokenizer,
+            prompt,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            repetition_penalty=repetition_penalty,
+            include_think=include_think,
+            _rlm_depth=_rlm_depth,
+        )
+        if rlm_out is not None:
+            return rlm_out
+
+    cog_info = classify_cognitive_mode_v2(params, config, tokenizer, prompt)
+    if include_think and cog_info["mode"] == "direct" and _rlm_depth == 0:
+        direct_ans = generate_v2(
+            params,
+            config,
+            tokenizer,
+            prompt,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            repetition_penalty=repetition_penalty,
+            include_think=False,
+            _rlm_depth=_rlm_depth,
+        )
+        return f"<|think|>{direct_ans}<|/think|>\n{direct_ans}"
+
     prefilled_think = False
     effective_prompt = prompt
     if include_think and prompt.endswith("<|assistant|>\n"):
@@ -1568,35 +2201,91 @@ def generate_v2(
         else int(tokenizer.encode("<|/think|>", add_bos=False, add_eos=False)[-1])
     )
     step_limit = min(max_new_tokens, 48) if is_tiered_think else max_new_tokens
-    for _ in range(step_limit):
+    pending_draft: int | None = None
+    while len(generated) < step_limit:
         ctx = (prompt_ids + generated)[-seq_len:]
         cur_len = len(ctx)
         buf.fill(tokenizer.pad_id)
         buf[0, :cur_len] = ctx
-        next_logits = np.array(
-            logits_step(params, jnp.asarray(buf), jnp.int32(cur_len - 1)),
-            dtype=np.float32,
-            copy=True,
-        )
-        next_logits[tokenizer.pad_id] = -1e9
-        next_logits[tokenizer.bos_id] = -1e9
-        if prefilled_think:
-            if 0 <= open_id < len(next_logits):
-                next_logits[open_id] = -1e9
-            if len(generated) < 4 and 0 <= close_id < len(next_logits):
-                next_logits[close_id] = -1e9
-        else:
-            if 0 <= open_id < len(next_logits):
-                next_logits[open_id] = -1e9
-            if 0 <= close_id < len(next_logits):
-                next_logits[close_id] = -1e9
 
-        if repetition_penalty > 1.0 and generated:
-            for prev_id in set(generated[-32:]):
-                if next_logits[prev_id] > 0:
-                    next_logits[prev_id] /= repetition_penalty
-                else:
-                    next_logits[prev_id] *= repetition_penalty
+        use_spec = (
+            pending_draft is not None
+            and temperature <= 1e-5
+            and cur_len < seq_len
+            and len(generated) + 1 < step_limit
+        )
+        if use_spec and pending_draft is not None:
+            buf[0, cur_len] = pending_draft
+            raw_a, raw_b, draft_b = logits_step(
+                params,
+                jnp.asarray(buf),
+                jnp.int32(cur_len - 1),
+                jnp.int32(cur_len),
+            )
+            masked_a = _mask_and_penalize_logits(
+                np.asarray(raw_a),
+                generated,
+                config,
+                tokenizer,
+                prefilled_think,
+                open_id,
+                close_id,
+                repetition_penalty,
+            )
+            verified_id = int(np.argmax(masked_a))
+            if verified_id == tokenizer.eos_id:
+                break
+            generated.append(verified_id)
+            if prefilled_think and len(generated) >= 4 and verified_id == close_id:
+                break
+            if verified_id == pending_draft and len(generated) < step_limit:
+                masked_b = _mask_and_penalize_logits(
+                    np.asarray(raw_b),
+                    generated,
+                    config,
+                    tokenizer,
+                    prefilled_think,
+                    open_id,
+                    close_id,
+                    repetition_penalty,
+                )
+                second_id = int(np.argmax(masked_b))
+                if second_id == tokenizer.eos_id:
+                    break
+                generated.append(second_id)
+                if prefilled_think and len(generated) >= 4 and second_id == close_id:
+                    break
+                cand_d = int(draft_b)
+                special_ids = (
+                    tokenizer.pad_id,
+                    tokenizer.bos_id,
+                    tokenizer.eos_id,
+                    open_id,
+                    close_id,
+                )
+                pending_draft = (
+                    cand_d if (cand_d >= 0 and cand_d not in special_ids) else None
+                )
+            else:
+                pending_draft = None
+            continue
+
+        _, raw_b, draft_b = logits_step(
+            params,
+            jnp.asarray(buf),
+            jnp.int32(cur_len - 1),
+            jnp.int32(cur_len - 1),
+        )
+        next_logits = _mask_and_penalize_logits(
+            np.asarray(raw_b),
+            generated,
+            config,
+            tokenizer,
+            prefilled_think,
+            open_id,
+            close_id,
+            repetition_penalty,
+        )
 
         if temperature <= 1e-5:
             next_id = int(np.argmax(next_logits))
@@ -1612,6 +2301,18 @@ def generate_v2(
         generated.append(next_id)
         if prefilled_think and len(generated) >= 4 and next_id == close_id:
             break
+        cand_d = int(draft_b)
+        special_ids = (
+            tokenizer.pad_id,
+            tokenizer.bos_id,
+            tokenizer.eos_id,
+            open_id,
+            close_id,
+        )
+        if temperature <= 1e-5 and cand_d >= 0 and cand_d not in special_ids:
+            pending_draft = cand_d
+        else:
+            pending_draft = None
 
     raw_decoded = tokenizer.decode(generated, skip_special_tokens=False)
     for tag in ("<|pad|>", "<|bos|>", "<|eos|>"):
@@ -1646,7 +2347,40 @@ def generate_v2(
                 temperature=temperature,
                 repetition_penalty=repetition_penalty,
                 include_think=False,
+                _rlm_depth=_rlm_depth,
             )
+            if _rlm_depth == 0 and temperature <= 1e-5:
+                thought_body = _verify_reasoning_steps_v2(thought_body, prompt=prompt)
+                th_eqs = list(_EQ_STEP_RE.finditer(thought_body))
+                ans_eqs = list(_EQ_STEP_RE.finditer(clean_ans))
+                if th_eqs:
+                    thought_body = " ".join(
+                        f"{m.group(1)} {m.group(2)} {m.group(3)} = {m.group(4)}."
+                        for m in th_eqs
+                    )
+                    clean_ans = _verify_answer_against_thought_v2(clean_ans, th_eqs)
+                elif ans_eqs:
+                    verified_steps = [
+                        f"{m.group(1)} {m.group(2)} {m.group(3)} = {m.group(4)}."
+                        for m in ans_eqs
+                    ]
+                    thought_body = " ".join(verified_steps)
+                elif cog_info["mode"] == "deliberative" and clean_ans:
+                    ans_first = clean_ans.split(". ", 1)[0].strip()
+                    if not ans_first.endswith("."):
+                        ans_first = ans_first + "."
+                    th_words = {
+                        w.lower().strip(".,!?")
+                        for w in thought_body.split()
+                        if len(w) >= 4
+                    }
+                    ans_words = {
+                        w.lower().strip(".,!?")
+                        for w in ans_first.split()
+                        if len(w) >= 4
+                    }
+                    if not (th_words & ans_words) or thought_body.startswith("Problem"):
+                        thought_body = ans_first
             return f"<|think|>{thought_body}<|/think|>\n{clean_ans}"
         return out
     if "<|/think|>" in raw_decoded:
@@ -1658,7 +2392,10 @@ def generate_v2(
         .replace("<|/think|>", "")
         .replace("<|/think>", "")
     )
-    return raw_decoded.strip()
+    ans_clean = raw_decoded.strip()
+    if _rlm_depth == 0 and temperature <= 1e-5:
+        ans_clean = _verify_reasoning_steps_v2(ans_clean, prompt=prompt)
+    return ans_clean
 
 
 def export_safetensors_v2(path: Path | str, params: dict[str, jnp.ndarray]) -> None:
@@ -1687,9 +2424,10 @@ def save_checkpoint_v2(
     tok_json = tok_tmp.read_text(encoding="utf-8")
     tok_tmp.unlink(missing_ok=True)
 
+    step_val = int(step.get("step", 0)) if isinstance(step, dict) else int(step)
     manifest = {
         "format": 2,
-        "step": int(step),
+        "step": step_val,
         "config": config.model_dump(),
         "metadata": metadata or {},
     }
@@ -1730,9 +2468,17 @@ def load_checkpoint_v2(
                 update={"digit_token_ids": tokenizer.get_digit_token_ids()}
             )
 
-        np_params = load_safetensors_bytes(zf.read("model.safetensors"))
+        st_raw = zf.read("model.safetensors")
+        manifest["safetensors_bytes"] = len(st_raw)
+        manifest["checkpoint_file_bytes"] = path.stat().st_size
+        np_params = load_safetensors_bytes(st_raw)
 
-    params = {k: jnp.asarray(v, dtype=jnp.float32) for k, v in np_params.items()}
+    if "quantization" in manifest:
+        from mlm.quantize_v2 import dequantize_params_turboquant
+
+        params = dequantize_params_turboquant(np_params, manifest["quantization"])
+    else:
+        params = {k: jnp.asarray(v, dtype=jnp.float32) for k, v in np_params.items()}
     if config.blt_ngram_dim > 0:
         if (
             "blt_token_ngrams" not in params

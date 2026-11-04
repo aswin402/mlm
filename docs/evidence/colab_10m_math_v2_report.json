@@ -1,0 +1,235 @@
+{
+  "version": "0.0.19",
+  "arch_version": "v2_hybrid",
+  "parameters": 22450960,
+  "vocab_size": 4096,
+  "n_layers": 8,
+  "effective_layer_passes": 12,
+  "use_mhc": true,
+  "use_ncm": true,
+  "d_model": 192,
+  "n_experts": 20,
+  "mature_experts": 18,
+  "stage4_reasoning": {
+    "arch_version": "v2_hybrid",
+    "parameters": 22450960,
+    "vocab_size": 4096,
+    "n_layers": 8,
+    "effective_layer_passes": 12,
+    "use_mhc": true,
+    "use_ncm": true,
+    "d_model": 192,
+    "n_experts": 20,
+    "mature_experts": 18,
+    "steps": 90,
+    "grpo_steps": 50,
+    "elapsed_seconds": 233.9136072609981,
+    "tokens_per_second": 91.54661950087626,
+    "best_val_loss": 0.1386,
+    "grpo_loss": 0.0399,
+    "checkpoint": "/content/mlm/runs/mlm-10m-math-colab/dot1_think_post_router/best.mlm2",
+    "latest_checkpoint": "/content/mlm/runs/mlm-10m-math-colab/dot1_think_post_router/latest.mlm2"
+  },
+  "chat_eval": [
+    {
+      "prompt": "Hi",
+      "mode": "direct",
+      "domain": "english",
+      "raw_with_think": "<|think|>Hello! How can I help you today?<|/think|>\nHello! How can I help you today?",
+      "reply": "Hello! How can I help you today?"
+    },
+    {
+      "prompt": "hii",
+      "mode": "direct",
+      "domain": "english",
+      "raw_with_think": "<|think|>Hello! How can I help you today?<|/think|>\nHello! How can I help you today?",
+      "reply": "Hello! How can I help you today?"
+    },
+    {
+      "prompt": "How are you?",
+      "mode": "deliberative",
+      "domain": "english",
+      "raw_with_think": "<|think|>As a Large Language Model (LLM), I don't have feelings like humans do. Thanks for asking though!<|/think|>\nAs a Large Language Model (LLM), I don't have feelings like humans do. Thanks for asking though!",
+      "reply": "As a Large Language Model (LLM), I don't have feelings like humans do. Thanks for asking though!"
+    },
+    {
+      "prompt": "Who are you?",
+      "mode": "deliberative",
+      "domain": "english",
+      "raw_with_think": "<|think|>I am a generative model trained on large corpus of natural language text.<|/think|>\nI am a generative model trained on large corpus of natural language text.",
+      "reply": "I am a generative model trained on large corpus of natural language text."
+    },
+    {
+      "prompt": "What is science?",
+      "mode": "deliberative",
+      "domain": "english",
+      "raw_with_think": "<|think|>Science is what we do to find out about the natural world.<|/think|>\nScience is what we do to find out about the natural world. Natural sciences include, chemistry, biology, geology, astronomy, and physics. Science uses mathematics and logic, which are sometimes called \"formal sciences\".",
+      "reply": "Science is what we do to find out about the natural world. Natural sciences include, chemistry, biology, geology, astronomy, and physics. Science uses mathematics and logic, which are sometimes called \"formal sciences\"."
+    },
+    {
+      "prompt": "What is photosynthesis?",
+      "mode": "deliberative",
+      "domain": "english",
+      "raw_with_think": "<|think|>Photosynthesis is how plants and some microorganisms make  carbohydrates.<|/think|>\nPhotosynthesis is how plants and some microorganisms make  carbohydrates. It is an endothermic (takes in heat) chemical process which uses sunlight to turn carbon dioxide into sugars.",
+      "reply": "Photosynthesis is how plants and some microorganisms make  carbohydrates. It is an endothermic (takes in heat) chemical process which uses sunlight to turn carbon dioxide into sugars."
+    },
+    {
+      "prompt": "Why is the sky blue?",
+      "mode": "deliberative",
+      "domain": "english",
+      "raw_with_think": "<|think|>Blue light is scattered in all directions by the tiny molecules of air in Earth's atmosphere.<|/think|>\nBlue light is scattered in all directions by the tiny molecules of air in Earth's atmosphere. Blue is scattered more than other colors because it travels as shorter, smaller waves. This is why we see a blue sky most of the time.",
+      "reply": "Blue light is scattered in all directions by the tiny molecules of air in Earth's atmosphere. Blue is scattered more than other colors because it travels as shorter, smaller waves. This is why we see a blue sky most of the time."
+    },
+    {
+      "prompt": "whats 4+4",
+      "mode": "verified",
+      "domain": "math",
+      "raw_with_think": "<|think|>4 + 4 = 8.<|/think|>\n4 + 4 = 8. The answer is 8.",
+      "reply": "4 + 4 = 8. The answer is 8."
+    },
+    {
+      "prompt": "whats 9+9",
+      "mode": "verified",
+      "domain": "math",
+      "raw_with_think": "<|think|>9 + 9 = 18.<|/think|>\n9 + 9 = 18. The answer is 18.",
+      "reply": "9 + 9 = 18. The answer is 18."
+    },
+    {
+      "prompt": "What is 6 plus 6?",
+      "mode": "verified",
+      "domain": "math",
+      "raw_with_think": "<|think|>6 + 6 = 12.<|/think|>\n6 + 6 = 12. The answer is 12.",
+      "reply": "6 + 6 = 12. The answer is 12."
+    },
+    {
+      "prompt": "What is 1 plus 1?",
+      "mode": "verified",
+      "domain": "math",
+      "raw_with_think": "<|think|>1 + 1 = 2.<|/think|>\n1 + 1 = 2. The answer is 2.",
+      "reply": "1 + 1 = 2. The answer is 2."
+    },
+    {
+      "prompt": "What is 9 + 8?",
+      "mode": "verified",
+      "domain": "math",
+      "raw_with_think": "<|think|>9 + 8 = 17.<|/think|>\n9 + 8 = 17. The answer is 17.",
+      "reply": "9 + 8 = 17. The answer is 17."
+    },
+    {
+      "prompt": "What is 25 plus 18?",
+      "mode": "verified",
+      "domain": "math",
+      "raw_with_think": "<|think|>25 + 18 = 43.<|/think|>\n25 + 18 = 43. The answer is 43.",
+      "reply": "25 + 18 = 43. The answer is 43."
+    },
+    {
+      "prompt": "What is 15 - 7?",
+      "mode": "verified",
+      "domain": "math",
+      "raw_with_think": "<|think|>15 - 7 = 8.<|/think|>\n15 - 7 = 8. The answer is 8.",
+      "reply": "15 - 7 = 8. The answer is 8."
+    },
+    {
+      "prompt": "What is 17 * 2?",
+      "mode": "verified",
+      "domain": "math",
+      "raw_with_think": "<|think|>17 * 2 = 34.<|/think|>\n17 * 2 = 34. The answer is 34.",
+      "reply": "17 * 2 = 34. The answer is 34."
+    },
+    {
+      "prompt": "What is 36 / 6?",
+      "mode": "verified",
+      "domain": "math",
+      "raw_with_think": "<|think|>36 / 6 = 6.<|/think|>\n36 / 6 = 6. The answer is 6.",
+      "reply": "36 / 6 = 6. The answer is 6."
+    },
+    {
+      "prompt": "What is (9 + 8) * 2?",
+      "mode": "verified",
+      "domain": "math",
+      "raw_with_think": "<|think|>9 + 8 = 17. 17 * 2 = 34.<|/think|>\n9 + 8 = 17, and 17 * 2 = 34. The answer is 34.",
+      "reply": "9 + 8 = 17, and 17 * 2 = 34. The answer is 34."
+    },
+    {
+      "prompt": "Natalia sold clips to 48 of her friends in April, and then she sold half as many clips in May. How many clips did Natalia sell altogether in April and May?",
+      "mode": "verified",
+      "domain": "math",
+      "raw_with_think": "<|think|>48 / 2 = 24. 48 + 24 = 72.<|/think|>\nNatalia sold 48/2 = 24 clips in May. Natalia sold 48+24 = 72 clips altogether in April and May. The answer is 72.",
+      "reply": "Natalia sold 48/2 = 24 clips in May. Natalia sold 48+24 = 72 clips altogether in April and May. The answer is 72."
+    }
+  ],
+  "eng_quant_summary": {
+    "16bit": {
+      "bits": 16,
+      "kv_cache_bits": 4,
+      "method": "fp16",
+      "file_size_bytes": 28021915,
+      "file_size_mib": 26.724
+    },
+    "8bit": {
+      "bits": 8,
+      "kv_cache_bits": 4,
+      "method": "turboquant_8bit_fwht64_qjl",
+      "file_size_bytes": 15160392,
+      "file_size_mib": 14.458
+    },
+    "4bit": {
+      "bits": 4,
+      "kv_cache_bits": 4,
+      "method": "turboquant_4bit_fwht64_qjl",
+      "file_size_bytes": 10607768,
+      "file_size_mib": 10.116
+    },
+    "2bit": {
+      "bits": 2,
+      "kv_cache_bits": 2,
+      "method": "turboquant_2bit_fwht64_qjl",
+      "file_size_bytes": 8951320,
+      "file_size_mib": 8.537
+    },
+    "1bit": {
+      "bits": 1,
+      "kv_cache_bits": 1,
+      "method": "turboquant_1bit_fwht64_qjl",
+      "file_size_bytes": 7845376,
+      "file_size_mib": 7.482
+    }
+  },
+  "quant_summary": {
+    "16bit": {
+      "bits": 16,
+      "kv_cache_bits": 4,
+      "method": "fp16",
+      "file_size_bytes": 45747740,
+      "file_size_mib": 43.628
+    },
+    "8bit": {
+      "bits": 8,
+      "kv_cache_bits": 4,
+      "method": "turboquant_8bit_fwht64_qjl",
+      "file_size_bytes": 24300849,
+      "file_size_mib": 23.175
+    },
+    "4bit": {
+      "bits": 4,
+      "kv_cache_bits": 4,
+      "method": "turboquant_4bit_fwht64_qjl",
+      "file_size_bytes": 16701865,
+      "file_size_mib": 15.928
+    },
+    "2bit": {
+      "bits": 2,
+      "kv_cache_bits": 2,
+      "method": "turboquant_2bit_fwht64_qjl",
+      "file_size_bytes": 13386489,
+      "file_size_mib": 12.766
+    },
+    "1bit": {
+      "bits": 1,
+      "kv_cache_bits": 1,
+      "method": "turboquant_1bit_fwht64_qjl",
+      "file_size_bytes": 11174521,
+      "file_size_mib": 10.657
+    }
+  }
+}

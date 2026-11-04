@@ -302,10 +302,14 @@ def build_staged_english_corpora(
         "HuggingFaceTB/smoltalk",
         "everyday-conversations",
         "train",
-        max_rows=max_rows_per_source,
+        max_rows=max(max_rows_per_source, 2260),
     )
     dolly_raw = read_hf_parquet_rows(
-        root, "databricks/databricks-dolly-15k", "default", "train", max_rows=max_rows_per_source
+        root,
+        "databricks/databricks-dolly-15k",
+        "default",
+        "train",
+        max_rows=max(max_rows_per_source, 15011),
     )
     alpaca_raw = read_hf_parquet_rows(
         root, "tatsu-lab/alpaca", "default", "train", max_rows=max_rows_per_source
@@ -413,16 +417,52 @@ def build_staged_english_corpora(
     stage3_pure.extend(extract_multi_turn_chat_from_parquet(smol_raw, first_turn_only=True))
     seen_chat = {r["text"].split("\n<|assistant|>\n")[0].lower() for r in stage3_pure}
 
+    dolly_added = 0
     for r in dolly_raw:
         if str(r.get("category", "")) not in ("open_qa", "general_qa", "brainstorming"):
             continue
         u = " ".join(str(r.get("instruction", "")).strip().split())
         a = _first_complete_sentences(str(r.get("response", "")), max_chars=240)
-        if u and a and len(u) <= 180:
-            k = f"<|user|>\n{u}".lower()
-            if k not in seen_chat:
-                seen_chat.add(k)
-                stage3_pure.append(_make_supervised_chat_record(u, a))
+        if not u or not a or len(u) > 180:
+            continue
+        u_low = u.lower()
+        is_short_conv = len(u) <= 34 and any(
+            g in u_low
+            for g in ("how are", "how's it", "hello", "hi ", "hey", "good morning", "who are you")
+        )
+        if not is_short_conv and dolly_added >= max_rows_per_source:
+            continue
+        k = f"<|user|>\n{u}".lower()
+        if k not in seen_chat:
+            seen_chat.add(k)
+            stage3_pure.append(_make_supervised_chat_record(u, a))
+            dolly_added += 1
+        if is_short_conv:
+            clauses = [u]
+            if ", " in u:
+                tail = u.split(", ", 1)[1].strip()
+                if len(tail) >= 6:
+                    clauses.extend([tail[0].upper() + tail[1:], tail.lower()])
+            conv_vars: list[str] = []
+            for c_txt in clauses:
+                base_c = c_txt.rstrip(".!?").strip()
+                conv_vars.extend([c_txt, c_txt.lower(), base_c, base_c.lower()])
+                if " doing today" in c_txt.lower():
+                    short_c = c_txt.lower().replace(" doing today", "")
+                    short_b = short_c.rstrip(".!?").strip()
+                    conv_vars.extend(
+                        [
+                            short_c[0].upper() + short_c[1:],
+                            short_c,
+                            short_b[0].upper() + short_b[1:],
+                            short_b,
+                        ]
+                    )
+            for v_txt in dict.fromkeys(conv_vars):
+                if v_txt:
+                    rec_v = _make_supervised_chat_record(v_txt, a)
+                    for _ in range(12):
+                        stage3_pure.append(rec_v)
     for r in alpaca_raw:
         if str(r.get("input", "")).strip():
             continue

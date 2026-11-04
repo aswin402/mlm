@@ -260,6 +260,13 @@ def main(argv=None):
     chat.add_argument("--chunk", type=int, default=16)
     chat.add_argument("--show-thinking", action="store_true", help="Show <think> telemetry panel")
     chat.add_argument("--no-think", action="store_true", help="Hide <think> telemetry panel in TUI")
+    chat.add_argument(
+        "--kv-bits",
+        type=int,
+        default=None,
+        choices=[0, 1, 2, 4, 8],
+        help="TurboQuant KV cache bitwidth (4, 2, or 1 for 4-bit/2-bit/1-bit KV cache)",
+    )
     chat.add_argument("--save-out", type=Path, help="Optional path to save updated checkpoint")
     continual = commands.add_parser(
         "continual",
@@ -316,6 +323,31 @@ def main(argv=None):
     export_gguf_p.add_argument("checkpoint", type=Path)
     export_gguf_p.add_argument("--out", type=Path, required=True)
     export_gguf_p.add_argument("--f16", action="store_true")
+    export_gguf_p.add_argument(
+        "--bits",
+        type=int,
+        choices=[1, 2, 4, 8, 16, 32],
+        default=None,
+        help="Export precision tier (1=TQ1_0, 2=Q2_K, 4=Q4_0, 8=Q8_0, 16=F16, 32=F32)",
+    )
+    quant_v2_p = commands.add_parser(
+        "quantize-v2",
+        help=(
+            "Quantize an MLM v2 (.mlm2) checkpoint to "
+            "16-bit, 8-bit, 4-bit, 2-bit, or 1-bit TurboQuant+QJL"
+        ),
+    )
+    quant_v2_p.add_argument("checkpoint", type=Path)
+    quant_v2_p.add_argument("--out-dir", type=Path, default=None)
+    quant_v2_p.add_argument(
+        "--bits",
+        type=int,
+        nargs="+",
+        choices=[1, 2, 4, 8, 16],
+        default=[16, 8, 4, 2, 1],
+        help="Precision tiers to export (default: 16 8 4 2 1)",
+    )
+    quant_v2_p.add_argument("--gguf", action="store_true", help="Also export matching GGUF files")
     parquet_p = commands.add_parser(
         "stream-parquet",
         help="Stream and curate large Hugging Face Parquet shards via Rust Polars",
@@ -390,10 +422,25 @@ def main(argv=None):
 
         params, cfg_v2, tokenizer, _ = load_checkpoint_v2(args.checkpoint)
         info = export_gguf_v2(
-            args.out, params, cfg_v2, tokenizer, use_f16=bool(args.f16)
+            args.out,
+            params,
+            cfg_v2,
+            tokenizer,
+            use_f16=bool(args.f16),
+            bits=args.bits,
         )
         info["rust_verification"] = verify_gguf_with_rust(args.out)
         print(json.dumps(info, indent=2), flush=True)
+    elif args.command == "quantize-v2":
+        from mlm.quantize_v2 import export_all_precisions_v2
+
+        summary = export_all_precisions_v2(
+            args.checkpoint,
+            out_dir=args.out_dir,
+            bits_list=tuple(int(b) for b in args.bits),
+            export_gguf=bool(args.gguf),
+        )
+        print(json.dumps(summary, indent=2), flush=True)
     elif args.command == "stream-parquet":
         from mlm.parquet_stream import build_large_parquet_corpus
 
@@ -448,6 +495,8 @@ def main(argv=None):
 
             if args.message is not None:
                 params_v2, cfg_v2, tok_v2, _ = load_checkpoint_v2(args.checkpoint)
+                if args.kv_bits is not None:
+                    cfg_v2 = cfg_v2.model_copy(update={"kv_cache_bits": int(args.kv_bits)})
                 prompt = format_chat_prompt_v2(args.message.replace("\\n", "\n"), args.context)
                 reply = generate_v2(
                     params_v2, cfg_v2, tok_v2, prompt, max_new_tokens=max(16, args.max_bytes // 2)
@@ -459,6 +508,7 @@ def main(argv=None):
                 max_new_tokens=max(16, args.max_bytes // 2),
                 show_thinking=not args.no_think,
                 initial_context=args.context,
+                kv_cache_bits=args.kv_bits,
             )
             return
         from mlm.tui import (

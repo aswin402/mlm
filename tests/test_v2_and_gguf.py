@@ -377,3 +377,34 @@ def test_cli_train_v2_and_chat(tmp_path: Path, capsys):
     cluster_reply = cluster.generate("Hi", max_new_tokens=8)
     assert len(cluster_reply["reply"]) > 0
 
+    from mlm.quantize_v2 import (
+        dequantize_kv_cache_turboquant,
+        quantize_kv_cache_turboquant,
+        save_quantized_checkpoint_v2,
+    )
+
+    dummy_k = np.random.default_rng(7).normal(0.0, 1.0, size=(1, 16, 2, 32)).astype(np.float32)
+    dummy_v = np.random.default_rng(8).normal(0.0, 1.0, size=(1, 16, 2, 32)).astype(np.float32)
+    for kv_b in (4, 2, 1):
+        packed_kv = quantize_kv_cache_turboquant(dummy_k, dummy_v, bits=kv_b)
+        assert packed_kv["bits"] == kv_b
+        assert packed_kv["packed_bytes"] < packed_kv["raw_fp32_bytes"]
+        k_hat, v_hat = dequantize_kv_cache_turboquant(packed_kv)
+        assert k_hat.shape == dummy_k.shape
+        assert v_hat.shape == dummy_v.shape
+
+    for q_bits in (16, 8, 4, 2, 1):
+        q_path = tmp_path / f"quant_{q_bits}b.mlm2"
+        q_info = save_quantized_checkpoint_v2(
+            q_path, p_14, c_14, tok_loaded, bits=q_bits, step=10
+        )
+        assert q_info["bits"] == q_bits
+        assert q_info["kv_cache_bits"] in (1, 2, 4)
+        assert q_path.exists()
+        p_deq, c_deq, _, m_deq = load_checkpoint_v2(q_path)
+        assert m_deq["quantization"]["bits"] == q_bits
+        assert c_deq.kv_cache_bits in (1, 2, 4)
+        logits_deq = forward_v2(p_deq, jnp.array([[1, 2, 3, 4]], dtype=jnp.int32), c_deq)
+        assert logits_deq.shape == (1, 4, c_deq.vocab_size)
+
+

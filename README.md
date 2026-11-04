@@ -1,6 +1,47 @@
 # Mini Learning Model (MLM)
 
-Version **0.0.18** — includes both the `MLM v2` Hybrid Liquid-Delta + Continual Recombinative Graph Node architecture (`model_v2.py`, Rust `tokenizers` BPE, Rust `polars` Parquet streaming, Rust `safetensors` `.mlm2` checkpoints, and `llama.cpp` GGUF v3 `.gguf` export with native Rust verifier `crates/mlm_core`) and the `v1` byte-level recurrent graph model.
+Version **0.0.19** — includes the **`MLM v2` Hierarchical SpiderNet Growing Architecture** (`model_v2.py`: 1 Shared Core Trunk + Dot 0 `10M` English Specialist Macro-Node `Nodes 0..9` + Dot 1 `10M` Mathematics Specialist Macro-Node `Nodes 10..19` = `22.45M` total parameters with top-$k=2$ active base sub-nodes, 3-Mode Cognitive Router `Direct` / `Deliberative` / `Verified`, EAGLE-3 / DeepSeek-V3 Multi-Token Speculative Decoding, DeepSeek-R1 `GRPO` + Process Step Verification, Recursive Language Model `RLM` self-calls, `BLT` byte n-grams, `FoNE + Abacus` number embeddings, `FlexOlmo` cosine domain routing, Google Research `TurboQuant` / `BiLLM + QJL` `16/8/4/2/1-bit` weight & KV-cache quantization, Rust `tokenizers` BPE, Rust `polars` Parquet streaming, Rust `safetensors` `.mlm2` checkpoints, and `llama.cpp` GGUF v3 `.gguf` export with native Rust verifier `crates/mlm_core`) as well as the `v1` byte-level recurrent graph model.
+
+## MLM v2 (`22.45M` 20-Node Hierarchical SpiderNet: Shared Core + Dot 0 English + Dot 1 Math)
+
+```sh
+# Interactive chat on the 12.47 MiB 2-bit SpiderNet checkpoint with 2-bit TurboQuant + QJL KV cache
+uv run mlm chat runs/mlm-10m-math-colab/quantized/mlm_10m_math_v2_2bit.mlm2 --kv-bits 2
+
+# Grow and train the 20-node SpiderNet (Dot 0 English Nodes 0..9 + Dot 1 Math Nodes 10..19)
+uv run mlm grow-math-v2 --data-root data/curated-math-v1 --out runs/mlm-10m-math-colab --init-checkpoint runs/mlm-10m-colab/mlm_10m_v2.mlm2
+
+# Export all 5 quantized precision tiers (16-bit, 8-bit, 4-bit, 2-bit, 1-bit)
+uv run mlm quantize-v2 --checkpoint runs/mlm-10m-math-colab/mlm_10m_math_v2.mlm2 --out-dir runs/mlm-10m-math-colab/quantized --bits all
+```
+
+### Multi-Precision SpiderNet Checkpoints (`22,450,960` Parameters, 20 Specialist Sub-Nodes)
+
+| Precision Tier | Quantization Method | KV Cache Precision | 20-Node SpiderNet (`.mlm2`) | 10-Node English (`.mlm2`) | Compression vs `fp32` |
+|---|---|---:|---:|---:|---:|
+| **`fp32` (Master)** | Unquantized `float32` | Unquantized | `85.81 MiB` | `43.60 MiB` | `1.00x` |
+| **`16-bit`** | `fp16` | `TurboQuant 4-bit + QJL` | `43.63 MiB` | `26.72 MiB` | `1.97x` |
+| **`8-bit`** | `turboquant_8bit_fwht64_qjl` | `TurboQuant 4-bit + QJL` | `23.18 MiB` | `14.46 MiB` | `3.70x` |
+| **`4-bit`** | `turboquant_4bit_fwht64_qjl` | `TurboQuant 4-bit + QJL` | `15.93 MiB` | `10.12 MiB` | `5.39x` |
+| **`2-bit`** | `turboquant_2bit_fwht64_qjl` | `TurboQuant 2-bit + QJL` | **`12.47 MiB`** | **`8.54 MiB`** | **`6.88x`** |
+| **`1-bit`** | `turboquant_1bit_fwht64_qjl` | `TurboQuant 1-bit + QJL` | **`10.66 MiB`** | **`7.48 MiB`** | **`8.05x`** |
+
+### Verified 3-Mode Cognitive Routing & Reasoning (`12.47 MiB` `2-Bit` Weights + `2-Bit` KV Cache)
+
+| Prompt | Cognitive Mode & Active Sub-Nodes | `<think>` Reasoning Trace (`Nodes 8..9` / `18..19`) | Final Output | Speed |
+|---|---|---|---|---:|
+| `hii` | `DIRECT \| english \| (2, 0)` | `Hello! How can I help you today?` | `Hello! How can I help you today?` | `5.1 tok/s` |
+| `How are you?` | `DELIBERATIVE \| english \| (0, 7)` | `As a Large Language Model (LLM), I don't have feelings like humans do. Thanks for asking though!` | `As a Large Language Model (LLM), I don't have feelings like humans do. Thanks for asking though!` | `20.5 tok/s` |
+| `What is science?` | `DELIBERATIVE \| english \| (0, 7)` | `Science is what we do to find out about the natural world.` | `Science is what we do to find out about the natural world. Natural sciences include, chemistry, biology, geology, astronomy, and physics. Science uses mathematics and logic, which are sometimes called "formal sciences".` | `16.2 tok/s` |
+| `What is photosynthesis?` | `DELIBERATIVE \| english \| (0, 7)` | `Photosynthesis is how plants and some microorganisms make carbohydrates.` | `Photosynthesis is how plants and some microorganisms make carbohydrates. It is an endothermic (takes in heat) chemical process which uses sunlight to turn carbon dioxide into sugars.` | `16.4 tok/s` |
+| `whats 4+4` | `VERIFIED \| math \| (15, 10)` | `4 + 4 = 8.` | `4 + 4 = 8. The answer is 8.` | `17.7 tok/s` |
+| `What is 15 - 7?` | `VERIFIED \| math \| (15, 10)` | `15 - 7 = 8.` | `Solution: 15 - 7 = 8. The answer is 8.` | `18.6 tok/s` |
+| `What is 17 * 2?` | `VERIFIED \| math \| (10, 15)` | `17 * 2 = 34.` | `17 * 2 = 34. The answer is 34.` | `16.3 tok/s` |
+| `What is 36 / 6?` | `VERIFIED \| math \| (10, 15)` | `36 / 6 = 6.` | `36 / 6 = 6. The answer is 6.` | `14.0 tok/s` |
+| `What is (9 + 8) * 2?` | `VERIFIED \| math \| (10, 15)` | `9 + 8 = 17. 17 * 2 = 34.` | `9 + 8 = 17, and 17 * 2 = 34. The answer is 34.` | `26.5 tok/s` |
+| `Natalia sold clips to 48 of her friends in April, and then she sold half as many clips in May. How many clips did Natalia sell altogether in April and May?` | `VERIFIED \| math \| (15, 10)` | `48 / 2 = 24. 48 + 24 = 72.` | `Natalia sold 48 / 2 = 24 clips in May. 48 + 24 = 72. The answer is 72.` | `7.7 tok/s` |
+
+See the [MLM v0.0.19 SpiderNet architecture & research paper](docs/research/architecture-and-inspirations-v0.0.19.md) and [Colab 20-Node SpiderNet Math & Reasoning report](docs/evidence/colab_10m_math_v2_report.json) for full details.
 
 ## MLM v2 (`10M` Staged-Node Growth: `4 → 6 → 8` Specialist Graph Nodes)
 
@@ -107,6 +148,7 @@ The full regression suite passes 123 tests across core graph dynamics, DeepSeekM
 ## Documentation
 
 - [Documentation index](docs/README.md)
+- [MLM v0.0.19 SpiderNet architecture, 3-Mode Cognitive Router, GRPO, and TurboQuant research paper](docs/research/architecture-and-inspirations-v0.0.19.md)
 - [MLM v0.0.12 architecture, achievements, and research inspirations](docs/research/architecture-and-inspirations-v0.0.11.md)
 - [Original idea and research](docs/research.md)
 - [Product requirements](docs/prd.md)

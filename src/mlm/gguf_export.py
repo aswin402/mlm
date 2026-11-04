@@ -29,6 +29,94 @@ GGUF_TYPE_UINT64 = 10
 # GGML tensor element types
 GGML_TYPE_F32 = 0
 GGML_TYPE_F16 = 1
+GGML_TYPE_Q4_0 = 2
+GGML_TYPE_Q8_0 = 8
+GGML_TYPE_Q2_K = 10
+GGML_TYPE_TQ1_0 = 34
+
+
+def _pack_ggml_tq1_0(arr: np.ndarray) -> bytes:
+    """Pack float32 array into GGML `TQ1_0` 1-bit super-blocks (256 weights -> 50 bytes)."""
+    flat = arr.reshape(-1).astype(np.float32)
+    rem = flat.size % 256
+    if rem != 0:
+        flat = np.pad(flat, (0, 256 - rem))
+    sblocks = flat.reshape(-1, 256)
+    a1 = np.mean(np.abs(sblocks), axis=-1, keepdims=True)
+    b1_bits = np.packbits((sblocks >= 0.0).astype(np.uint8), axis=-1)  # (N, 32)
+    b1_dir = np.where(sblocks >= 0.0, 1.0, -1.0).astype(np.float32)
+    res = sblocks - a1 * b1_dir
+    qjl_bits = np.packbits((res >= 0.0).astype(np.uint8), axis=-1)[:, :16]  # (N, 16)
+    dt = np.dtype([("qs", "u1", (32,)), ("qh", "u1", (16,)), ("d", "<f2")])
+    out = np.zeros(sblocks.shape[0], dtype=dt)
+    out["qs"] = b1_bits
+    out["qh"] = qjl_bits
+    out["d"] = a1[:, 0].astype(np.float16)
+    return out.tobytes()
+
+
+def _pack_ggml_q8_0(arr: np.ndarray) -> bytes:
+    """Pack float32 array into GGML `Q8_0` blocks (32 weights: 2B fp16 scale + 32B int8)."""
+    flat = arr.reshape(-1).astype(np.float32)
+    rem = flat.size % 32
+    if rem != 0:
+        flat = np.pad(flat, (0, 32 - rem))
+    blocks = flat.reshape(-1, 32)
+    amax = np.max(np.abs(blocks), axis=-1, keepdims=True)
+    d = (amax / 127.0).astype(np.float16)
+    inv_d = np.where(d.astype(np.float32) > 0, 1.0 / d.astype(np.float32), 0.0)
+    qs = np.clip(np.round(blocks * inv_d), -127, 127).astype(np.int8)
+    dt = np.dtype([("d", "<f2"), ("qs", "i1", (32,))])
+    out = np.empty(blocks.shape[0], dtype=dt)
+    out["d"] = d[:, 0]
+    out["qs"] = qs
+    return out.tobytes()
+
+
+def _pack_ggml_q4_0(arr: np.ndarray) -> bytes:
+    """Pack float32 array into GGML `Q4_0` blocks (32 weights: 2B fp16 scale + 16B nibbles)."""
+    flat = arr.reshape(-1).astype(np.float32)
+    rem = flat.size % 32
+    if rem != 0:
+        flat = np.pad(flat, (0, 32 - rem))
+    blocks = flat.reshape(-1, 32)
+    amax = np.max(np.abs(blocks), axis=-1, keepdims=True)
+    d = (amax / 7.0).astype(np.float16)
+    inv_d = np.where(d.astype(np.float32) > 0, 1.0 / d.astype(np.float32), 0.0)
+    qi = np.clip(np.round(blocks * inv_d) + 8.0, 0, 15).astype(np.uint8)
+    packed = (qi[:, :16] & 0x0F) | ((qi[:, 16:] & 0x0F) << 4)
+    dt = np.dtype([("d", "<f2"), ("qs", "u1", (16,))])
+    out = np.empty(blocks.shape[0], dtype=dt)
+    out["d"] = d[:, 0]
+    out["qs"] = packed
+    return out.tobytes()
+
+
+def _pack_ggml_q2_k(arr: np.ndarray) -> bytes:
+    """Pack float32 array into GGML `Q2_K` super-blocks (256 weights -> 84 bytes)."""
+    flat = arr.reshape(-1).astype(np.float32)
+    rem = flat.size % 256
+    if rem != 0:
+        flat = np.pad(flat, (0, 256 - rem))
+    sblocks = flat.reshape(-1, 256)
+    fmin = np.min(sblocks, axis=-1, keepdims=True)
+    fmax = np.max(sblocks, axis=-1, keepdims=True)
+    d = np.maximum((fmax - fmin) / 3.0, 1e-8).astype(np.float16)
+    dmin = (-fmin).astype(np.float16)
+    qi = np.clip(np.round((sblocks - fmin) / d.astype(np.float32)), 0, 3).astype(np.uint8)
+    packed = (
+        (qi[:, 0::4] & 0x03)
+        | ((qi[:, 1::4] & 0x03) << 2)
+        | ((qi[:, 2::4] & 0x03) << 4)
+        | ((qi[:, 3::4] & 0x03) << 6)
+    )
+    dt = np.dtype([("scales", "u1", (16,)), ("qs", "u1", (64,)), ("d", "<f2"), ("dmin", "<f2")])
+    out = np.zeros(sblocks.shape[0], dtype=dt)
+    out["scales"] = 0x11
+    out["qs"] = packed
+    out["d"] = d[:, 0]
+    out["dmin"] = dmin[:, 0]
+    return out.tobytes()
 
 
 def _pack_string(s: str) -> bytes:
@@ -75,6 +163,34 @@ def _align_offset(offset: int, alignment: int = GGUF_DEFAULT_ALIGNMENT) -> int:
     return offset if rem == 0 else offset + (alignment - rem)
 
 
+def _encode_ggml_tensor(
+    name: str, arr: np.ndarray, bits: int
+) -> tuple[tuple[int, ...], bytes, int]:
+    """Encode a contiguous float32 array into GGML raw or block-quantized bytes."""
+    can_quant = (
+        arr.ndim >= 2
+        and arr.size >= 256
+        and name != "blt_token_ngrams"
+        and not name.endswith((".res", ".pre", ".post"))
+    )
+    if not can_quant or bits == 32:
+        f32 = arr.astype(np.float32)
+        return f32.shape, f32.tobytes(), GGML_TYPE_F32
+    if bits == 16:
+        f16 = arr.astype(np.float16)
+        return f16.shape, f16.tobytes(), GGML_TYPE_F16
+    if bits == 8 and arr.shape[-1] % 32 == 0:
+        return arr.shape, _pack_ggml_q8_0(arr), GGML_TYPE_Q8_0
+    if bits == 4 and arr.shape[-1] % 32 == 0:
+        return arr.shape, _pack_ggml_q4_0(arr), GGML_TYPE_Q4_0
+    if bits == 2 and arr.size % 256 == 0:
+        return arr.shape, _pack_ggml_q2_k(arr), GGML_TYPE_Q2_K
+    if bits == 1 and arr.size % 256 == 0:
+        return arr.shape, _pack_ggml_tq1_0(arr), GGML_TYPE_TQ1_0
+    f16 = arr.astype(np.float16)
+    return f16.shape, f16.tobytes(), GGML_TYPE_F16
+
+
 def export_gguf_v2(
     path: Path | str,
     params: dict[str, jnp.ndarray],
@@ -82,10 +198,12 @@ def export_gguf_v2(
     tokenizer: BPETokenizer,
     *,
     use_f16: bool = False,
+    bits: int = 32,
 ) -> dict[str, Any]:
     """Export an MLM v2 model and BPE tokenizer to a `llama.cpp`-compatible `.gguf` v3 file."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
+    eff_bits = 16 if (use_f16 and bits == 32) else int(bits)
 
     arch = "llama" if config.arch_version == "v2_llama" else "lfm2"
     tokens, scores, token_types = tokenizer.get_vocab_tokens_and_scores()
@@ -94,6 +212,7 @@ def export_gguf_v2(
         ("general.architecture", GGUF_TYPE_STRING, arch),
         ("general.name", GGUF_TYPE_STRING, f"mlm-{config.arch_version}"),
         ("general.alignment", GGUF_TYPE_UINT32, GGUF_DEFAULT_ALIGNMENT),
+        ("general.quantization_bits", GGUF_TYPE_UINT32, eff_bits),
         (f"{arch}.context_length", GGUF_TYPE_UINT32, config.max_seq_len),
         (f"{arch}.embedding_length", GGUF_TYPE_UINT32, config.d_model),
         (f"{arch}.block_count", GGUF_TYPE_UINT32, config.n_layers),
@@ -117,32 +236,22 @@ def export_gguf_v2(
         kvs.append((f"{arch}.shortconv.l_cache", GGUF_TYPE_UINT32, config.conv_kernel))
 
     # Prepare GGML tensors (converting JAX `(in, out)` linear matrices to GGML `(out, in)`)
-    gguf_tensors: list[tuple[str, np.ndarray, int]] = []
+    gguf_tensors: list[tuple[str, tuple[int, ...], bytes, int]] = []
     for k, v in sorted(params.items()):
         arr = np.asarray(v, dtype=np.float32)
         name = "token_embd.weight" if k == "tok_embeddings.weight" else k
         if arr.ndim == 2 and name not in ("token_embd.weight", "output.weight"):
-            if not name.endswith(".conv.weight"):
-                arr = np.ascontiguousarray(arr.T)
-            else:
-                arr = np.ascontiguousarray(arr.T)
+            arr = np.ascontiguousarray(arr.T)
         else:
             arr = np.ascontiguousarray(arr)
 
-        if use_f16 and arr.ndim >= 2:
-            arr_out = arr.astype(np.float16)
-            ttype = GGML_TYPE_F16
-        else:
-            arr_out = arr.astype(np.float32)
-            ttype = GGML_TYPE_F32
-        gguf_tensors.append((name, arr_out, ttype))
+        t_shape, raw_bytes, ttype = _encode_ggml_tensor(name, arr, eff_bits)
+        gguf_tensors.append((name, t_shape, raw_bytes, ttype))
 
     if config.tie_embeddings and "output.weight" not in params:
         emb = np.ascontiguousarray(np.asarray(params["tok_embeddings.weight"], dtype=np.float32))
-        if use_f16:
-            gguf_tensors.append(("output.weight", emb.astype(np.float16), GGML_TYPE_F16))
-        else:
-            gguf_tensors.append(("output.weight", emb, GGML_TYPE_F32))
+        t_shape, raw_bytes, ttype = _encode_ggml_tensor("output.weight", emb, eff_bits)
+        gguf_tensors.append(("output.weight", t_shape, raw_bytes, ttype))
 
     header_And_meta = bytearray()
     header_And_meta.extend(GGUF_MAGIC)
@@ -155,17 +264,17 @@ def export_gguf_v2(
     tensor_infos = bytearray()
     data_offsets: list[int] = []
     running_offset = 0
-    for name, arr_out, ttype in gguf_tensors:
+    for name, t_shape, raw_bytes, ttype in gguf_tensors:
         running_offset = _align_offset(running_offset, GGUF_DEFAULT_ALIGNMENT)
         data_offsets.append(running_offset)
         tensor_infos.extend(_pack_string(name))
-        n_dims = arr_out.ndim
+        n_dims = len(t_shape)
         tensor_infos.extend(struct.pack("<I", n_dims))
         # GGML dimensions are ordered innermost-first (reverse of NumPy shape)
-        for dim in reversed(arr_out.shape):
+        for dim in reversed(t_shape):
             tensor_infos.extend(struct.pack("<Q", int(dim)))
         tensor_infos.extend(struct.pack("<IQ", ttype, running_offset))
-        running_offset += arr_out.nbytes
+        running_offset += len(raw_bytes)
 
     pre_data_len = len(header_And_meta) + len(tensor_infos)
     aligned_pre_len = _align_offset(pre_data_len, GGUF_DEFAULT_ALIGNMENT)
@@ -177,11 +286,10 @@ def export_gguf_v2(
         f.write(tensor_infos)
         f.write(pad_header)
         curr_data_pos = 0
-        for (_, arr_out, _), target_off in zip(gguf_tensors, data_offsets, strict=True):
+        for (_, _, raw_bytes, _), target_off in zip(gguf_tensors, data_offsets, strict=True):
             if target_off > curr_data_pos:
                 f.write(b"\x00" * (target_off - curr_data_pos))
                 curr_data_pos = target_off
-            raw_bytes = arr_out.tobytes()
             f.write(raw_bytes)
             curr_data_pos += len(raw_bytes)
     tmp_path.replace(path)
@@ -189,6 +297,7 @@ def export_gguf_v2(
     return {
         "path": str(path),
         "architecture": arch,
+        "bits": eff_bits,
         "tensor_count": len(gguf_tensors),
         "metadata_kv_count": len(kvs),
         "file_size_bytes": path.stat().st_size,

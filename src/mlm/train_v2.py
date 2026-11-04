@@ -145,8 +145,10 @@ def run_train_v2(
                 "learning_rate": config.learning_rate,
                 "batch_size": config.batch_size,
                 "max_seq_len": config.max_seq_len,
+                "mature_experts": config.mature_experts,
                 "mature_lr_scale": config.mature_lr_scale,
                 "shared_lr_scale": config.shared_lr_scale,
+                "active_subnodes": config.active_subnodes,
                 "router_bias_gamma": config.router_bias_gamma,
                 "mtp_weight": config.mtp_weight,
                 "kd_weight": config.kd_weight,
@@ -865,3 +867,260 @@ def run_grpo_v2(
         "checkpoint": str(out_dir / "latest.mlm2"),
         "gguf": gguf_info,
     }
+
+
+def calibrate_spidernet_router_v2(
+    params: dict[str, jnp.ndarray],
+    config: ConfigV2,
+    tokenizer: BPETokenizer,
+    skill_buckets: list[tuple[tuple[int, ...], float, list[dict]]],
+    steps: int = 80,
+    learning_rate: float = 1.5e-3,
+) -> dict[str, jnp.ndarray]:
+    """Calibrate `blk.*.nodes.router.weight` jointly across all SpiderNet skill sub-nodes.
+
+    All Main Core Trunk weights and all 20 Sub-Node SwiGLU weights (`gate, up, down`) remain
+    100% frozen; only `blk.{0..7}.nodes.router.weight` is updated so each skill routes cleanly
+    to its dedicated Sub-Node pair while preserving strict English vs. Math domain separation.
+    """
+    from mlm.model_v2 import _forward_core_v2, rms_norm
+
+    all_records: list[dict] = []
+    domain_labels: list[float] = []
+    subnode_masks: list[np.ndarray] = []
+
+    for subnodes, is_math, recs in skill_buckets:
+        mask_vec = np.zeros((config.n_experts,), dtype=np.float32)
+        for s_idx in subnodes:
+            if 0 <= int(s_idx) < config.n_experts:
+                mask_vec[int(s_idx)] = 1.0
+        for r in recs:
+            all_records.append(r)
+            domain_labels.append(float(is_math))
+            subnode_masks.append(mask_vec)
+
+    ds = build_tokenized_dataset(all_records, tokenizer, config.max_seq_len)
+    dom_arr = np.asarray(domain_labels, dtype=np.float32)
+    sub_arr = np.stack(subnode_masks, axis=0)
+    n_total = len(all_records)
+    bsz = min(config.batch_size, n_total)
+
+    cfg_cal = config.model_copy(update={"active_subnodes": ()})
+    tx = optax.chain(
+        optax.clip_by_global_norm(1.0),
+        optax.adamw(learning_rate=learning_rate, weight_decay=0.01),
+    )
+    opt_state = tx.init(params)
+
+    @jax.jit
+    def router_step(p, o_st, inp, tgt, msk, dom_lbl, sub_msk):
+        def loss_fn(cur_p):
+            logits, _, mean_dl, layer_rl = _forward_core_v2(
+                cur_p, inp, cfg_cal, return_layer_router_logits=True
+            )
+            log_probs = jax.nn.log_softmax(logits, axis=-1)
+            tok_loss = -jnp.take_along_axis(log_probs, tgt[..., None], axis=-1)[..., 0]
+            lm_loss = jnp.sum(tok_loss * msk) / jnp.maximum(jnp.sum(msk), 1.0)
+
+            # Entrance prompt_seq_dl supervision + within-bank sub-node routing supervision
+            raw_emb = cur_p["tok_embeddings.weight"][inp]
+            h0 = rms_norm(raw_emb, cur_p["blk.0.ffn_norm.weight"], cfg_cal.rms_eps)
+            h0_u = h0 * jax.lax.rsqrt(jnp.sum(jnp.square(h0), axis=-1, keepdims=True) + 1e-6)
+
+            valid_tok = (inp != tokenizer.pad_id).astype(jnp.float32)
+            is_close = (inp == cfg_cal.think_close_id).astype(jnp.int32)
+            before_think = (jnp.cumsum(is_close, axis=1) == 0) & (inp != cfg_cal.think_open_id)
+            p_mask = (before_think & (inp != tokenizer.pad_id)).astype(jnp.float32)
+
+            r0_w = cur_p["blk.0.nodes.router.weight"]
+            r0_u = r0_w * jax.lax.rsqrt(jnp.sum(jnp.square(r0_w), axis=0, keepdims=True) + 1e-6)
+            r0_logits = 8.0 * jnp.matmul(h0_u, r0_u)
+            r0_e = jax.scipy.special.logsumexp(r0_logits[..., :8], axis=-1) - jnp.log(8.0)
+            r0_m = jax.scipy.special.logsumexp(r0_logits[..., 10:18], axis=-1) - jnp.log(8.0)
+            r0_dl = 2.0 * (r0_m - r0_e)
+            seq_dl = jnp.sum(r0_dl * p_mask, axis=1) / jnp.maximum(jnp.sum(p_mask, axis=1), 1.0)
+
+            # Margin loss: seq_dl <= -1.4 for English (0), seq_dl >= +0.4 for Math (1)
+            eng_hinge = jax.nn.relu(seq_dl - (-1.40)) * (1.0 - dom_lbl)
+            math_hinge = jax.nn.relu(0.40 - seq_dl) * dom_lbl
+            dom_bce = optax.sigmoid_binary_cross_entropy(
+                mean_dl, jnp.broadcast_to(dom_lbl[:, None], mean_dl.shape)
+            )
+            dom_loss = jnp.mean(eng_hinge + math_hinge) + (
+                jnp.sum(dom_bce * valid_tok) / jnp.maximum(jnp.sum(valid_tok), 1.0)
+            )
+
+            # Sub-node pair routing loss across all layers using real layer ffn_normed states
+            sub_loss_sum = jnp.array(0.0, dtype=jnp.float32)
+            for rl in layer_rl:
+                p_eng_b = jax.nn.softmax(rl[..., :8], axis=-1)
+                p_math_b = jax.nn.softmax(rl[..., 10:18], axis=-1)
+                prob_e = jnp.sum(p_eng_b * sub_msk[:, None, :8], axis=-1)
+                prob_m = jnp.sum(p_math_b * sub_msk[:, None, 10:18], axis=-1)
+                target_prob = jnp.where(dom_lbl[:, None] > 0.5, prob_m, prob_e)
+                nll = -jnp.log(jnp.maximum(target_prob, 1e-5))
+                sub_loss_sum = sub_loss_sum + (
+                    jnp.sum(nll * valid_tok) / jnp.maximum(jnp.sum(valid_tok), 1.0)
+                )
+            sub_loss = sub_loss_sum / float(max(len(layer_rl), 1))
+            return lm_loss + 0.8 * dom_loss + 0.6 * sub_loss
+
+        loss_val, grads = jax.value_and_grad(loss_fn)(p)
+        masked_grads = {
+            k: (g if k.endswith(".nodes.router.weight") else jnp.zeros_like(g))
+            for k, g in grads.items()
+        }
+        updates, next_opt = tx.update(masked_grads, o_st, p)
+        masked_updates = {
+            k: (u if k.endswith(".nodes.router.weight") else jnp.zeros_like(u))
+            for k, u in updates.items()
+        }
+        next_p = optax.apply_updates(p, masked_updates)
+        return next_p, next_opt, loss_val
+
+    rng = np.random.default_rng(config.seed + 77)
+    cur_params = params
+    for s in range(1, steps + 1):
+        idx = rng.choice(n_total, size=bsz, replace=n_total < bsz)
+        cur_params, opt_state, l_val = router_step(
+            cur_params,
+            opt_state,
+            jnp.asarray(ds["inputs"][idx]),
+            jnp.asarray(ds["targets"][idx]),
+            jnp.asarray(ds["mask"][idx]),
+            jnp.asarray(dom_arr[idx]),
+            jnp.asarray(sub_arr[idx]),
+        )
+        if s % max(1, steps // 2) == 0 or s == steps:
+            print(json.dumps({"router_cal_step": s, "loss": float(l_val)}), flush=True)
+    return cur_params
+
+
+def run_grpo_reasoning_v2(
+    params: dict[str, jnp.ndarray],
+    config: ConfigV2,
+    tokenizer: BPETokenizer,
+    positive_records: list[dict],
+    negative_records: list[dict],
+    active_think_subnodes: tuple[int, ...] = (18, 19),
+    steps: int = 60,
+    learning_rate: float = 6.0e-4,
+    grpo_beta_kl: float = 0.04,
+) -> dict[str, jnp.ndarray]:
+    """DeepSeek-R1 Group Relative Policy Optimization (`GRPO`) + Process Verification (`PRM`).
+
+    Trains ONLY the `<|think|>` Sub-Nodes (`active_think_subnodes`, e.g., `(8, 9)` for English
+    Deliberative or `(18, 19)` for Math Verified) AFTER router calibration, keeping the Main Core
+    Trunk and all Base Sub-Nodes (`0..7` and `10..17`) and base router columns 100% frozen.
+    """
+    from mlm.model_v2 import _forward_core_v2
+
+    pos_ds = build_tokenized_dataset(positive_records, tokenizer, config.max_seq_len)
+    neg_ds = build_tokenized_dataset(negative_records, tokenizer, config.max_seq_len)
+    n_pos = len(positive_records)
+    n_neg = len(negative_records)
+    bsz = min(config.batch_size, n_pos, n_neg)
+
+    cfg_grpo = config.model_copy(update={"active_subnodes": ()})
+    ref_params = {k: jax.lax.stop_gradient(v) for k, v in params.items()}
+
+    active_set = {idx for idx in active_think_subnodes if 0 <= int(idx) < config.n_experts}
+    tx = optax.chain(
+        optax.clip_by_global_norm(1.0),
+        optax.adamw(learning_rate=learning_rate, weight_decay=0.01),
+    )
+    opt_state = tx.init(params)
+
+    @jax.jit
+    def grpo_step(p, o_st, p_inp, p_tgt, p_msk, n_inp, n_tgt, n_msk):
+        logits_ref_p, _, _ = _forward_core_v2(ref_params, p_inp, cfg_grpo)
+        logits_ref_n, _, _ = _forward_core_v2(ref_params, n_inp, cfg_grpo)
+        lp_ref_p = jax.nn.log_softmax(logits_ref_p, axis=-1)
+        lp_ref_n = jax.nn.log_softmax(logits_ref_n, axis=-1)
+        tok_ref_p = jnp.take_along_axis(lp_ref_p, p_tgt[..., None], axis=-1)[..., 0]
+        tok_ref_n = jnp.take_along_axis(lp_ref_n, n_tgt[..., None], axis=-1)[..., 0]
+
+        def loss_fn(cur_p):
+            logits_p, _, _ = _forward_core_v2(cur_p, p_inp, cfg_grpo)
+            logits_n, _, _ = _forward_core_v2(cur_p, n_inp, cfg_grpo)
+            lp_p = jax.nn.log_softmax(logits_p, axis=-1)
+            lp_n = jax.nn.log_softmax(logits_n, axis=-1)
+
+            tok_lp_p = jnp.take_along_axis(lp_p, p_tgt[..., None], axis=-1)[..., 0]
+            tok_lp_n = jnp.take_along_axis(lp_n, n_tgt[..., None], axis=-1)[..., 0]
+
+            # Verified process SFT anchor on positive trajectories (A^+ = +1.0)
+            sft_pos = -jnp.sum(tok_lp_p * p_msk) / jnp.maximum(jnp.sum(p_msk), 1.0)
+
+            # Group-relative log-ratio advantage between verified (A=+1) and corrupted (A=-1) steps
+            seq_logr_p = jnp.sum((tok_lp_p - tok_ref_p) * p_msk, axis=-1) / jnp.maximum(
+                jnp.sum(p_msk, axis=-1), 1.0
+            )
+            seq_logr_n = jnp.sum((tok_lp_n - tok_ref_n) * n_msk, axis=-1) / jnp.maximum(
+                jnp.sum(n_msk, axis=-1), 1.0
+            )
+            grpo_margin = -jax.nn.log_sigmoid(2.0 * (seq_logr_p - seq_logr_n))
+            grpo_obj = jnp.mean(grpo_margin)
+
+            # DeepSeek-R1 unbiased per-token KL penalty to reference policy
+            ratio_p = jnp.exp(jnp.clip(tok_ref_p - tok_lp_p, -5.0, 5.0))
+            kl_tok = ratio_p - (tok_ref_p - tok_lp_p) - 1.0
+            kl_loss = jnp.sum(kl_tok * p_msk) / jnp.maximum(jnp.sum(p_msk), 1.0)
+
+            return sft_pos + 0.35 * grpo_obj + float(grpo_beta_kl) * kl_loss
+
+        loss_val, grads = jax.value_and_grad(loss_fn)(p)
+        updates, next_opt = tx.update(grads, o_st, p)
+        masked_updates = {}
+        for k, u in updates.items():
+            if k.endswith(".nodes.edge_scale"):
+                m = np.zeros((config.n_experts,), dtype=np.float32)
+                for a_i in active_set:
+                    m[int(a_i)] = 1.0
+                masked_updates[k] = u * jnp.asarray(m)
+            elif (
+                ".nodes." in k
+                and not k.endswith(".router.weight")
+                and not k.endswith(".router_bias")
+            ):
+                m = np.zeros((config.n_experts, 1, 1), dtype=np.float32)
+                for a_i in active_set:
+                    m[int(a_i)] = 1.0
+                masked_updates[k] = u * jnp.asarray(m)
+            elif k.endswith(".nodes.router.weight"):
+                m = np.zeros((1, config.n_experts), dtype=np.float32)
+                for a_i in active_set:
+                    m[:, int(a_i)] = 1.0
+                masked_updates[k] = u * jnp.asarray(m)
+            else:
+                masked_updates[k] = jnp.zeros_like(u)
+        next_p = optax.apply_updates(p, masked_updates)
+        return next_p, next_opt, loss_val
+
+    rng = np.random.default_rng(config.seed + 101)
+    cur_params = params
+    for s in range(1, steps + 1):
+        idx_p = rng.choice(n_pos, size=bsz, replace=n_pos < bsz)
+        idx_n = rng.choice(n_neg, size=bsz, replace=n_neg < bsz)
+        cur_params, opt_state, l_val = grpo_step(
+            cur_params,
+            opt_state,
+            jnp.asarray(pos_ds["inputs"][idx_p]),
+            jnp.asarray(pos_ds["targets"][idx_p]),
+            jnp.asarray(pos_ds["mask"][idx_p]),
+            jnp.asarray(neg_ds["inputs"][idx_n]),
+            jnp.asarray(neg_ds["targets"][idx_n]),
+            jnp.asarray(neg_ds["mask"][idx_n]),
+        )
+        if s % max(1, steps // 2) == 0 or s == steps:
+            print(
+                json.dumps(
+                    {
+                        "grpo_step": s,
+                        "subnodes": list(active_think_subnodes),
+                        "loss": float(l_val),
+                    }
+                ),
+                flush=True,
+            )
+    return cur_params

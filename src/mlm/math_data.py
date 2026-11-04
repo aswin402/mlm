@@ -114,9 +114,9 @@ def _build_complete_arithmetic_foundation() -> list[tuple[str, str]]:
     and operator (`+`, `-`, `*`, `/`) phrasings to generalize reliably without parenthetical bias.
     """
     pairs: list[tuple[str, str]] = []
-    # 1. Complete 0..15 addition & subtraction tables across natural phrasings
-    for a in range(0, 16):
-        for b in range(0, 16):
+    # 1. Complete 0..20 addition & subtraction tables across natural phrasings
+    for a in range(0, 21):
+        for b in range(0, 21):
             s = a + b
             ans_add = f"{a} + {b} = {s}. The answer is {s}."
             for q_add in (
@@ -140,8 +140,8 @@ def _build_complete_arithmetic_foundation() -> list[tuple[str, str]]:
                 ):
                     pairs.append((q_sub, ans_sub))
 
-    # 2. Complete 0..12 multiplication & exact division tables
-    for a in range(0, 13):
+    # 2. Complete 0..25 * 0..12 multiplication & exact division tables
+    for a in range(0, 26):
         for b in range(0, 13):
             p = a * b
             ans_mul = f"{a} * {b} = {p}. The answer is {p}."
@@ -153,22 +153,40 @@ def _build_complete_arithmetic_foundation() -> list[tuple[str, str]]:
             ):
                 pairs.append((q_mul, ans_mul))
             if a >= 1 and b >= 1:
-                ans_div = f"{p} / {a} = {b}. The answer is {b}."
-                pairs.append((f"What is {p} divided by {a}?", ans_div))
-                pairs.append((f"whats {p}/{a}", ans_div))
+                ans_div = f"{p} / {b} = {a}. The answer is {a}."
+                for q_div in (
+                    f"What is {p} divided by {b}?",
+                    f"What is {p} / {b}?",
+                    f"whats {p}/{b}",
+                ):
+                    pairs.append((q_div, ans_div))
 
-    # 3. Two-digit addition & subtraction carry/borrow grid (10..50)
-    for a in range(10, 50, 3):
-        for b in range(4, 45, 3):
+    # 3. Dense two-digit addition & subtraction carry/borrow grid (10..55)
+    for a in range(10, 56):
+        for b in range(5, 42):
+            has_carry = ((a % 10) + (b % 10)) >= 10
+            if not has_carry and ((a + b) % 2 != 0):
+                continue
             s = a + b
             ans_add = f"{a} + {b} = {s}. The answer is {s}."
             pairs.append((f"What is {a} plus {b}?", ans_add))
+            pairs.append((f"What is {a} + {b}?", ans_add))
             pairs.append((f"whats {a}+{b}", ans_add))
-            if a >= b:
+            if a >= b and ((a % 10) < (b % 10) or (a - b) % 3 == 0):
                 d = a - b
                 ans_sub = f"{a} - {b} = {d}. The answer is {d}."
                 pairs.append((f"What is {a} minus {b}?", ans_sub))
-                pairs.append((f"whats {a}-{b}", ans_sub))
+                pairs.append((f"What is {a} - {b}?", ans_sub))
+
+    # 4. Multi-step parenthesized expressions `(a + b) * c` with 2-step derivation
+    for a in range(2, 12):
+        for b in range(2, 12):
+            s = a + b
+            for c in (2, 3, 4, 5):
+                p = s * c
+                ans_comp = f"{a} + {b} = {s}, and {s} * {c} = {p}. The answer is {p}."
+                pairs.append((f"What is ({a} + {b}) * {c}?", ans_comp))
+                pairs.append((f"whats ({a}+{b})*{c}", ans_comp))
     return pairs
 
 
@@ -277,9 +295,9 @@ def prepare_curated_math(
     s1_train: list[dict] = []
     s1_val: list[dict] = []
 
-    for idx, (q, ans) in enumerate(arith_pairs[:3200]):
+    for idx, (q, ans) in enumerate(arith_pairs):
         rec = {"text": f"Question: {q}\nSolution: {ans}"}
-        if idx % 45 == 0 and len(s1_val) < 64:
+        if idx % 180 == 0 and len(s1_val) < 64:
             s1_val.append(rec)
         else:
             s1_train.append(rec)
@@ -399,7 +417,7 @@ def prepare_curated_math(
                 s3_train.append(rec)
 
     # Replay complete base arithmetic & Orca short equations in Stage 3
-    for q, ans in arith_pairs[:3200]:
+    for q, ans in arith_pairs:
         s3_train.append(_make_supervised_chat_record(q, ans))
     for r in orca_short[:600]:
         q = " ".join(str(r.get("question", "")).strip().split())
@@ -408,8 +426,8 @@ def prepare_curated_math(
             s3_train.append(_make_supervised_chat_record(q, a))
 
     # Replay digit-free English Chat + Science so Bank 0 vs Bank 1 routing stays sharp
-    s3_train.extend(_filter_pure_english_replay(eng_s3_raw, 800))
-    s3_train.extend(_filter_pure_english_replay(eng_s2_raw, 300))
+    s3_train.extend(_filter_pure_english_replay(eng_s3_raw, 1000))
+    s3_train.extend(_filter_pure_english_replay(eng_s2_raw, 400))
 
     # =========================================================================
     # STAGE 4: Ornith-1.5 `<|think|>` Math Reasoning (Nodes 18..19 — 10 Math Nodes)
@@ -418,10 +436,10 @@ def prepare_curated_math(
     s4_train: list[dict] = []
     s4_val: list[dict] = []
 
-    for idx, (q, ans) in enumerate(arith_pairs[:2800]):
+    for idx, (q, ans) in enumerate(arith_pairs):
         calc_part = ans.split(". The answer is")[0].strip() + "."
         rec = _make_supervised_think_record(q, calc_part, ans)
-        if idx % 95 == 0 and len(s4_val) < 20:
+        if idx % 350 == 0 and len(s4_val) < 20:
             s4_val.append(rec)
         else:
             s4_train.append(rec)

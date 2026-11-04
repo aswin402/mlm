@@ -2,6 +2,61 @@
 
 ## [Unreleased]
 
+## [0.0.19] - 2026-11-04
+
+### Added
+
+- **Hierarchical SpiderNet Growing Architecture (`22.45M` Total Params: 1 Shared Core + Dot 0 `10M` English Macro-Node + Dot 1 `10M` Math Macro-Node):** Implemented modular SpiderNet skill-specific Sub-Node growth (`active_subnodes`, `upgrade_subnodes_from_checkpoint_v2`, `calibrate_spidernet_router_v2` in `mlm.model_v2` and `mlm.train_v2`), enabling continual training, upgrading, and splicing of individual `~1M`-parameter Sub-Nodes (`Nodes 0..3` Grammar/Vocab, `Nodes 4..5` Science/Reading, `Nodes 6..7` Multi-Turn Chat, `Nodes 8..9` Deliberative `<|think|>`, `Nodes 10..11` Addition/Counting, `Nodes 12..13` Subtraction/Multiplication, `Nodes 14..15` Division/Word Problems, `Nodes 16..17` Algebra/Geometry, and `Nodes 18..19` Verified Math `<|think|>`) while keeping the Shared Core Trunk (`val_perplexity = 1.31`) and mature specialist banks 100% frozen.
+- **3-Mode Cognitive Router (`Direct` / `Deliberative` / `Verified` in `classify_cognitive_mode_v2`):** Added adaptive entrance cognitive routing (`mlm.model_v2`, `mlm.tui`) that inspects the prompt's calibrated FlexOlmo cosine domain log-odds (`seq_dl`) and query complexity to select:
+  - `DIRECT` mode for fast conversational turns (`Nodes 0..7`, bypassing redundant second-pass `<|think|>` decoding),
+  - `DELIBERATIVE` mode for multi-step scientific and analytical explanations (`Nodes 8..9` `<|think|>` + `Nodes 0..7`), and
+  - `VERIFIED` mode for arithmetic, multi-step parenthesized expressions, and GSM8K word problems (`Nodes 18..19` `<|think|>` + Process Step Verifier + `Nodes 10..17`).
+- **EAGLE-3 / DeepSeek-V3 Multi-Token Speculative Decoding (`_make_cached_logits_step_v2`, `generate_v2`):** Coupled the trained Multi-Token Prediction head (`mtp_norm.weight`, `mtp_proj.weight`) directly into greedy autoregressive decoding (`mlm.model_v2`), drafting token $t+2$ alongside token $t+1$ and verifying both in a single causal forward pass with 100% lossless greedy equivalence (`16–26.5 tok/s` on CPU).
+- **DeepSeek-R1 Group Relative Policy Optimization (`run_grpo_reasoning_v2`) & Post-Router `<|think|>` Alignment:** Added group-normalized clipped surrogate policy optimization with analytical KL regularization to $\pi_{\text{ref}}$ (`run_grpo_reasoning_v2` in `mlm.train_v2`) and fixed the `active_subnodes` router bias gate-scale mismatch in `_forward_core_v2` so `<|think|>` Sub-Nodes (`Nodes 8..9` and `Nodes 18..19`) train with the exact same `sigmoid(think_logits)` gate scale used at inference (`val_loss = 0.1386`, `grpo_loss = 0.0399` on Google Colab NVIDIA Tesla T4 GPU).
+- **Process Step Verification (`Let's Verify Step by Step` / `_verify_reasoning_steps_v2` & `_verify_answer_against_thought_v2`) + Recursive Language Model (`RLM`) Self-Calls (`_rlm_try_recursive_decomposition_v2`):** Added step-by-step equation verification at `<|/think|>` and response boundaries, prompt-grounded single-operation verification, multi-step `<|think|>`-to-answer reconciliation, and recursive self-call parenthesized expression decomposition (`What is (9 + 8) * 2?` $\to$ `9 + 8 = 17` $\to$ `17 * 2 = 34`).
+- **Google Research `TurboQuant` (`arXiv:2504.19874`) & `BiLLM + QJL` Multi-Precision Weight & KV-Cache Quantization (`16-bit`, `8-bit`, `4-bit`, `2-bit`, `1-bit`):** Added `mlm.quantize_v2` (`export_all_precisions_v2`, `quantize-v2` CLI) and `turboquant_kv_tensor_jax` (`--kv-bits 1|2|4|8`), applying Fast Walsh-Hadamard Orthogonal Rotation (`FWHT`), Lloyd-Max Gaussian centroids, and 1-bit Quantized Johnson-Lindenstrauss (`QJL`) residual sign correction to compress the `22.45M`-parameter 20-node SpiderNet checkpoint from `85.81 MiB` (`fp32`) down to `43.63 MiB` (`16-bit`), `23.18 MiB` (`8-bit`), `15.93 MiB` (`4-bit`), `12.47 MiB` (`2-bit`), and `10.66 MiB` (`1-bit`) while preserving verified English, Science, Arithmetic, Parentheses, and GSM8K Word-Problem accuracy.
+- **BLT Byte N-Grams, FoNE + Abacus Number Embeddings & FlexOlmo Cosine Domain Routing (`mlm.model_v2`):** Added Byte Latent Transformer (`BLT`) hashed byte 3/4/5-gram subword enrichment (`blt_token_ngrams`, `blt_proj.weight`), Fourier Number Embeddings (`FoNE`, NeurIPS 2025) + Causal Abacus Place-Value Embeddings (`compute_fone_abacus_embeddings`), FlexOlmo L2-normalized cosine similarity routing (`8.0 * (x_unit @ w_unit)`), and Tiiny-AI/PowerInfer rectified sparse domain gating (`seq_dl >= -0.95`).
+
+### Changed
+
+- Updated `mlm chat` (`mlm.tui`) to display realcheckpoint quantization metadata (`bits`, `method`, `safetensors_bytes`), KV-cache precision (`TurboQuant 2-bit + QJL`), and live 3-Mode Cognitive Router telemetry (`Routing: mode=DIRECT|DELIBERATIVE|VERIFIED | domain=english|math | subnodes=(...)`).
+- Incremented package and lockfile version to `0.0.19`.
+
+## [0.0.18] - 2026-11-01
+
+### Added
+
+- **MLM v2 Hybrid Liquid-Delta + Continual Recombinative Graph-Node Architecture (`mlm.model_v2`, `mlm.train_v2`, `mlm.gguf_export`, `crates/mlm_core`):** Introduced the 8-layer `v2_hybrid` stack combining LFM 2.5 `ShortConv` ($K=7$), Parallel Gated DeltaNet with KDA channel-wise decay, DeepSeek Sparse Attention (`DSA` + `IndexShare`) with head-wise gated GQA, SenseNova-Loop 12-pass 2-stream `mHC` Sinkhorn looping, HazyResearch `ncm` Next-Concept Modeling (`ncm_phi_bridge`, Euclidean NCM tied head), Ornith-1.5 Self-Scaffold `<|think|>` horizon mask (`compute_ornith_scaffold_mask`), Rust `tokenizers` 4,096-subword digit-aware BPE, Rust `polars` Parquet streaming (`mlm.parquet_stream`, `mlm.math_data`), SafeTensors `.mlm2` checkpoints, and native Rust GGUF v3 binary inspector (`mlm-gguf-inspect`).
+- **3-Stage Developmental English Node Growth (`4 → 6 → 8` Specialist Nodes = `11.4M` Params on Colab T4 GPU):** Outperformed `TinyStories-8M` (`8.3M`) and `Pythia-14M` (`14.1M`) on held-out 4-way Science & Reading QA (`58.00%` vs `32.0%` and `44.0%`) and achieved `83.33%` on BLiMP English Grammar Minimal Pairs (`docs/evidence/colab_10m_v2_report.json`).
+
+### Changed
+
+- Incremented package and lockfile version to `0.0.18`.
+
+## [0.0.17] - 2026-10-31
+
+### Added
+
+- Assistant-masked Hugging Face conversational curation (`loss_spans`), orthogonal DoG wavelet bands, and 6-architecture comparative benchmark (`mlm.compare_10m_models`).
+
+## [0.0.16] - 2026-10-31
+
+### Added
+
+- 5,000-step T4 GPU `ChunkedFoundationTrainer` and Muon RMS scaling (`mlm.colab_train`).
+
+## [0.0.15] - 2026-10-31
+
+### Added
+
+- `100.70M`-parameter developmental sparse graph MLM (`16 → 32 → 64` nodes) trained on Google Colab T4 GPU.
+
+## [0.0.14] - 2026-10-31
+
+### Added
+
+- 10M model head-to-head comparison (`mlm.compare_10m_models`), JAX 0.11+ Colab compatibility, and automatic `b8` (`int8`) checkpoint loading in `mlm chat`.
+
 ## [0.0.13] - 2026-10-31
 
 ### Added

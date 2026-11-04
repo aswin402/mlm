@@ -83,6 +83,9 @@ def format_model_banner(
     top_border = "╭" + "─" * 78 + "╮"
     mid_border = "├" + "─" * 78 + "┤"
     bot_border = "╰" + "─" * 78 + "╯"
+    actual_bytes = sum(int(np.asarray(p).nbytes) for p in jax.tree.leaves(params))
+    first_leaf = next(iter(jax.tree.leaves(params)), None)
+    dtype_label = str(first_leaf.dtype) if first_leaf is not None else "unknown"
     lines = [
         _c(top_border, CYAN, color),
         _c("│ ", CYAN, color)
@@ -91,7 +94,7 @@ def format_model_banner(
         _c(mid_border, CYAN, color),
         (
             f"  {_c('model_load_meta:', BOLD, color)}  arch={arch_str} | "
-            f"params={param_str} ({n_params * 4 / 1024:.1f} KiB fp32) | "
+            f"params={param_str} ({actual_bytes / 1024:.1f} KiB {dtype_label}) | "
             f"step={step} | src={ckpt_label}"
         ),
         (
@@ -514,11 +517,12 @@ def run_chat_tui_v2(
     input_stream=None,
     output_stream=None,
     color: bool | None = None,
+    kv_cache_bits: int | None = None,
 ) -> None:
     """Interactive llama.cpp-style TUI for MLM v2 (.mlm2) checkpoints."""
     import time
 
-    from mlm.model_v2 import generate_v2, load_checkpoint_v2
+    from mlm.model_v2 import classify_cognitive_mode_v2, generate_v2, load_checkpoint_v2
     from mlm.train_v2 import format_chat_prompt_v2
 
     in_s = input_stream if input_stream is not None else sys.stdin
@@ -526,6 +530,31 @@ def run_chat_tui_v2(
     use_color = color if color is not None else (hasattr(out_s, "isatty") and bool(out_s.isatty()))
 
     params_v2, cfg_v2, tok_v2, manifest = load_checkpoint_v2(checkpoint_path)
+    if kv_cache_bits is not None:
+        cfg_v2 = cfg_v2.model_copy(update={"kv_cache_bits": int(kv_cache_bits)})
+    q_info = manifest.get("quantization", {})
+    w_bits = int(
+        q_info.get("bits", manifest.get("metadata", {}).get("quantization_bits", 32))
+    )
+    q_method = q_info.get("method", manifest.get("metadata", {}).get("quantization_method", ""))
+    st_bytes = int(
+        manifest.get(
+            "safetensors_bytes",
+            sum(int(np.asarray(p).nbytes) for p in jax.tree.leaves(params_v2)),
+        )
+    )
+    st_mib = st_bytes / (1024.0 * 1024.0)
+    if q_method:
+        size_desc = f"{st_mib:.2f} MiB {w_bits}-bit {q_method}"
+    else:
+        first_leaf = next(iter(jax.tree.leaves(params_v2)), None)
+        dt_str = str(first_leaf.dtype) if first_leaf is not None else "float32"
+        size_desc = f"{st_mib:.2f} MiB {dt_str}"
+    kv_str = (
+        f"TurboQuant {cfg_v2.kv_cache_bits}-bit + QJL"
+        if cfg_v2.kv_cache_bits in (1, 2, 4, 8)
+        else "unquantized"
+    )
     n_params = parameter_count(params_v2)
     step = int(manifest.get("step", 0))
     devs = ", ".join(str(d) for d in jax.devices())
@@ -547,7 +576,7 @@ def run_chat_tui_v2(
         _c(mid_border, CYAN, use_color),
         (
             f"  {_c('model_load_meta:', BOLD, use_color)}  arch={arch_str} | "
-            f"params={param_str} ({n_params * 4 / (1024 * 1024):.2f} MiB fp32) | "
+            f"params={param_str} ({size_desc}) | kv={kv_str} | "
             f"step={step} | src={checkpoint_path}"
         ),
         (
@@ -616,13 +645,21 @@ def run_chat_tui_v2(
             reply = raw_reply.replace("<|think|>", "").replace("<|/think|>", "").strip()
 
         if show_thinking:
+            cog_meta = classify_cognitive_mode_v2(params_v2, cfg_v2, tok_v2, prompt)
             hdr = "╭─ 🧠 MLM v2 Hybrid Telemetry (<think>) " + "─" * 30 + "╮"
             ftr = "╰" + "─" * 69 + "╯"
             writeln(_c(hdr, MAGENTA, use_color))
             writeln(
                 _c("│ ", MAGENTA, use_color)
                 + _c("Stack: ", BOLD, use_color)
-                + f"{cfg_v2.n_layers} layers (LFM2 ShortConv + Parallel Gated DeltaNet + GQA)"
+                + f"{cfg_v2.n_layers} layers (LFM2 ShortConv + Parallel Gated DeltaNet + GQA) | "
+                + f"weights={w_bits}b | kv={kv_str}"
+            )
+            writeln(
+                _c("│ ", MAGENTA, use_color)
+                + _c("Routing: ", BOLD, use_color)
+                + f"mode={str(cog_meta['mode']).upper()} | domain={cog_meta['domain']} | "
+                + f"subnodes={cog_meta['active_subnodes']}"
             )
             if think_trace:
                 writeln(
@@ -723,6 +760,13 @@ def chat_main(argv: list[str] | None = None) -> None:
         "--no-think", action="store_true", help="Start TUI with <think> panel hidden"
     )
     parser.add_argument("--no-color", action="store_true", help="Disable ANSI colors in TUI")
+    parser.add_argument(
+        "--kv-bits",
+        type=int,
+        default=None,
+        choices=[0, 1, 2, 4, 8],
+        help="TurboQuant KV cache bitwidth (4, 2, or 1 for 4-bit/2-bit/1-bit KV cache)",
+    )
     parser.add_argument("--save", type=Path, default=None, help="Save updated checkpoint on exit")
     parser.add_argument("--stats", type=Path, default=None, help="Write JSON stats on exit")
     args = parser.parse_args(argv)
@@ -733,6 +777,8 @@ def chat_main(argv: list[str] | None = None) -> None:
 
         if args.message is not None:
             params_v2, cfg_v2, tok_v2, _ = load_checkpoint_v2(args.checkpoint)
+            if args.kv_bits is not None:
+                cfg_v2 = cfg_v2.model_copy(update={"kv_cache_bits": int(args.kv_bits)})
             prompt = format_chat_prompt_v2(args.message.replace("\\n", "\n"), args.context)
             reply = generate_v2(
                 params_v2, cfg_v2, tok_v2, prompt, max_new_tokens=max(16, args.max_bytes // 2)
@@ -745,6 +791,7 @@ def chat_main(argv: list[str] | None = None) -> None:
             show_thinking=not args.no_think,
             initial_context=args.context,
             color=False if args.no_color else None,
+            kv_cache_bits=args.kv_bits,
         )
         return
 
