@@ -518,17 +518,20 @@ def format_memory_inspector_v2(
     t1 = info["tier1_immediate_kv"]
     t2 = info["tier2_working_deltanet"]
     t3 = info["tier3_persistent_episodic"]
+    lmc = info["lmcache_hybrid"]
     hdr = "╭─ 💾 MLM v2 3-Tier Persistent Memory Hierarchy Inspector (/memory) " + "─" * 4 + "╮"
     ftr = "╰" + "─" * 71 + "╯"
     lines = [
         _c(hdr, CYAN, color),
         (
             f"  {_c('Tier 1 (Immediate Context):', BOLD + BRIGHT_GREEN, color)} "
-            f"{t1['mechanism']} (TurboQuant {t1['kv_bits']}-bit + QJL)"
+            f"{t1['mechanism']} (TurboQuant {t1['kv_bits']}-bit + CacheGen + QJL)"
         ),
         (
             f"     active_tokens={t1['active_tokens']} | "
-            f"||KV||_F={t1['kv_norm']:.3f} | ||K_idx||_F={t1['dsa_idx_norm']:.3f}"
+            f"||KV||_F={t1['kv_norm']:.3f} | ||K_idx||_F={t1['dsa_idx_norm']:.3f} | "
+            f"LMCache(chunks={lmc['cached_chunks']}, hits={lmc['prefix_hits'] + lmc['full_hits']}, "
+            f"saved={lmc['saved_prefill_tokens']} tok)"
         ),
         (
             f"  {_c('Tier 2 (Working State):    ', BOLD + BRIGHT_YELLOW, color)} "
@@ -767,7 +770,8 @@ def run_chat_tui_v2(
                 + f"||KV||={mem_h.tier1_kv_norm:.1f}] | "
                 + f"T2(DeltaNet ||S||_F)={mem_h.tier2_delta_norm:.2f} | "
                 + f"T3(Episodic)={len(mem_h.slots)}/{mem_h.max_slots} slots "
-                + f"(hits={mem_h.total_hits}, sao={mem_h.total_overwrites})"
+                + f"(hits={mem_h.total_hits}, sao={mem_h.total_overwrites}) | "
+                + f"LMCache(saved={mem_h.lmcache.saved_prefill_tokens} tok)"
             )
             if think_trace:
                 writeln(

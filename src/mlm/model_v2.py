@@ -2391,6 +2391,188 @@ def _recurrent_token_step_v2(
     return next_carry, logits, mtp_draft
 
 
+def cacheblend_rope_shift_kv_v2(
+    k_cached: jnp.ndarray,
+    old_positions: jnp.ndarray,
+    new_positions: jnp.ndarray,
+    head_dim: int,
+    theta: float = 10000.0,
+) -> jnp.ndarray:
+    """LMCache / CacheBlend (EuroSys Best Paper) Dynamic SO(2) Relative RoPE Re-Rotation.
+
+    Shifts a cached key tensor `k_cached` `(B, T, H, D_h)` from `old_positions` `(T,)` to
+    `new_positions` `(T,)` via exact orthogonal relative angle rotation:
+        RoPE(k, p_new) = R((p_new - p_old) * omega) @ RoPE(k, p_old)
+    """
+    half = head_dim // 2
+    freqs = 1.0 / (theta ** (jnp.arange(0, half, dtype=jnp.float32) / float(half)))
+    delta_pos = jnp.asarray(new_positions, dtype=jnp.float32) - jnp.asarray(
+        old_positions, dtype=jnp.float32
+    )
+    delta_angles = jnp.outer(delta_pos, freqs)  # (T, half)
+    c = jnp.cos(delta_angles)[None, :, None, :]
+    s = jnp.sin(delta_angles)[None, :, None, :]
+    x1 = k_cached[..., :half]
+    x2 = k_cached[..., half:]
+    out1 = x1 * c - x2 * s
+    out2 = x2 * c + x1 * s
+    return jnp.concatenate([out1, out2], axis=-1)
+
+
+def cacheblend_fuse_kv_chunks_v2(
+    chunks: list[tuple[jnp.ndarray, jnp.ndarray, int]],
+    head_dim: int,
+    theta: float = 10000.0,
+    hkvd_ratio: float = 0.15,
+) -> dict[str, object]:
+    """LMCache / CacheBlend Non-Prefix KV Knowledge Fusion + High-KV-Deviation (`HKVD`) Selection.
+
+    Takes a list of `(k_chunk, v_chunk, old_start_pos)` tuples, dynamically re-rotates each chunk's
+    keys to its fused target offset, concatenates `(k_fused, v_fused)`, and returns the top
+    `hkvd_ratio` (default 15%) High-KV-Deviation token indices for selective boundary refresh.
+    """
+    k_parts: list[jnp.ndarray] = []
+    v_parts: list[jnp.ndarray] = []
+    hkvd_indices: list[int] = []
+    cur_offset = 0
+    for c_idx, (k_c, v_c, old_start) in enumerate(chunks):
+        t_len = int(k_c.shape[1])
+        old_pos = jnp.arange(old_start, old_start + t_len, dtype=jnp.int32)
+        new_pos = jnp.arange(cur_offset, cur_offset + t_len, dtype=jnp.int32)
+        if int(old_start) != cur_offset:
+            k_shifted = cacheblend_rope_shift_kv_v2(
+                k_c, old_pos, new_pos, head_dim=head_dim, theta=theta
+            )
+        else:
+            k_shifted = k_c
+        k_parts.append(k_shifted)
+        v_parts.append(v_c)
+        if c_idx > 0 and t_len > 0:
+            n_hkvd = max(1, int(np.ceil(float(hkvd_ratio) * t_len)))
+            tok_energy = np.array(
+                jnp.mean(jnp.square(k_shifted[0]) + jnp.square(v_c[0]), axis=(-2, -1)),
+                dtype=np.float32,
+                copy=True,
+            )
+            # Prioritize chunk boundary token + highest-energy tokens inside the non-prefix chunk
+            tok_energy[0] += 1e6
+            top_local = np.argsort(-tok_energy)[:n_hkvd]
+            for loc_i in sorted(int(x) for x in top_local):
+                hkvd_indices.append(cur_offset + loc_i)
+        cur_offset += t_len
+    k_fused = jnp.concatenate(k_parts, axis=1)
+    v_fused = jnp.concatenate(v_parts, axis=1)
+    return {
+        "k_fused": k_fused,
+        "v_fused": v_fused,
+        "hkvd_indices": hkvd_indices,
+        "total_tokens": cur_offset,
+        "recomputed_fraction": round(len(hkvd_indices) / max(cur_offset, 1), 4),
+    }
+
+
+class LMCacheHybridV2:
+    """LMCache Hash-Indexed Hybrid Prefix & Chunk State Cache (`KV + Gated DeltaNet + ShortConv`).
+
+    Stores opaque hybrid recurrent state pages (`delta_state`, `shortconv_buf`, `phi_conv_buf`,
+    `k_cache`, `v_cache`, `k_idx_cache`, and router load states) at 4-token chunk boundaries and
+    full prompt boundaries to eliminate redundant prefill across multi-turn chat and RLM calls.
+    """
+
+    def __init__(self, chunk_size: int = 4, max_entries: int = 64) -> None:
+        self.chunk_size = max(2, int(chunk_size))
+        self.max_entries = max(8, int(max_entries))
+        self._prefix_carries: dict[tuple[object, ...], dict[str, jnp.ndarray]] = {}
+        self._full_prefills: dict[
+            tuple[object, ...], tuple[dict[str, jnp.ndarray], jnp.ndarray, jnp.ndarray, int]
+        ] = {}
+        self.prefix_hits: int = 0
+        self.full_hits: int = 0
+        self.saved_prefill_tokens: int = 0
+
+    @staticmethod
+    def model_signature(params: dict[str, jnp.ndarray], config: ConfigV2) -> tuple[object, ...]:
+        w0 = float(np.asarray(params["tok_embeddings.weight"])[0, 0])
+        b0 = (
+            float(np.asarray(params["blk.0.ffn_down.weight"])[0, 0])
+            if "blk.0.ffn_down.weight" in params
+            else 0.0
+        )
+        return (
+            config.n_layers,
+            config.d_model,
+            config.n_experts,
+            config.kv_cache_bits,
+            tuple(config.active_subnodes),
+            round(w0, 6),
+            round(b0, 6),
+        )
+
+    def lookup_full_prefill(
+        self,
+        model_sig: tuple[object, ...],
+        pre_ids: list[int],
+        is_tiered_think: bool,
+    ) -> tuple[dict[str, jnp.ndarray], jnp.ndarray, jnp.ndarray, int] | None:
+        key = (model_sig, tuple(pre_ids), bool(is_tiered_think))
+        hit = self._full_prefills.get(key)
+        if hit is not None:
+            self.full_hits += 1
+            self.saved_prefill_tokens += len(pre_ids)
+        return hit
+
+    def store_full_prefill(
+        self,
+        model_sig: tuple[object, ...],
+        pre_ids: list[int],
+        is_tiered_think: bool,
+        state: tuple[dict[str, jnp.ndarray], jnp.ndarray, jnp.ndarray, int],
+    ) -> None:
+        if len(self._full_prefills) >= self.max_entries:
+            oldest = next(iter(self._full_prefills))
+            self._full_prefills.pop(oldest, None)
+        self._full_prefills[(model_sig, tuple(pre_ids), bool(is_tiered_think))] = state
+
+    def lookup_longest_prefix(
+        self,
+        model_sig: tuple[object, ...],
+        token_ids: list[int],
+    ) -> tuple[dict[str, jnp.ndarray] | None, int]:
+        n = len(token_ids)
+        max_aligned = (n // self.chunk_size) * self.chunk_size
+        for k in range(max_aligned, self.chunk_size - 1, -self.chunk_size):
+            key = (model_sig, tuple(token_ids[:k]))
+            hit = self._prefix_carries.get(key)
+            if hit is not None:
+                self.prefix_hits += 1
+                self.saved_prefill_tokens += k
+                return hit, k
+        return None, 0
+
+    def store_prefix_chunk(
+        self,
+        model_sig: tuple[object, ...],
+        prefix_ids: list[int],
+        carry: dict[str, jnp.ndarray],
+    ) -> None:
+        if not prefix_ids:
+            return
+        if len(self._prefix_carries) >= self.max_entries:
+            oldest = next(iter(self._prefix_carries))
+            self._prefix_carries.pop(oldest, None)
+        self._prefix_carries[(model_sig, tuple(prefix_ids))] = carry
+
+    def clear(self) -> None:
+        self._prefix_carries.clear()
+        self._full_prefills.clear()
+        self.prefix_hits = 0
+        self.full_hits = 0
+        self.saved_prefill_tokens = 0
+
+
+_DEFAULT_LMCACHE_V2 = LMCacheHybridV2(chunk_size=4, max_entries=64)
+
+
 @lru_cache(maxsize=8)
 def _make_cached_recurrent_decode_v2(config: ConfigV2):
     """Compile O(1) Stateful Recurrent Decode Kernels (`step1`, `spec2`)."""
@@ -2887,11 +3069,22 @@ def generate_v2(
         prompt_ids = tokenizer.encode(effective_prompt, add_bos=True, add_eos=False).tolist()[
             -seq_len:
         ]
-        carry = init_decode_cache_v2(config)
         pre_ids = prompt_ids[:-1]
-        if is_tiered_think and len(pre_ids) >= 1:
+        active_lmcache = (
+            memory_hierarchy.lmcache if memory_hierarchy is not None else _DEFAULT_LMCACHE_V2
+        )
+        m_sig = active_lmcache.model_signature(params, config)
+        full_hit = active_lmcache.lookup_full_prefill(m_sig, pre_ids, is_tiered_think)
+        if full_hit is not None:
+            if is_tiered_think and len(pre_ids) >= 1:
+                carry, prompt_raw, prompt_draft, fork_pos = full_hit
+                fork_prefill_state = (carry, prompt_raw, prompt_draft, fork_pos)
+            else:
+                carry, _, _, _ = full_hit
+        elif is_tiered_think and len(pre_ids) >= 1:
             bulk_ids = pre_ids[:-1]
-            p_idx = 0
+            cached_carry, p_idx = active_lmcache.lookup_longest_prefix(m_sig, bulk_ids)
+            carry = cached_carry if cached_carry is not None else init_decode_cache_v2(config)
             while p_idx + 2 <= len(bulk_ids):
                 _, (carry, _, _) = spec2(
                     params,
@@ -2900,13 +3093,21 @@ def generate_v2(
                     jnp.int32(bulk_ids[p_idx + 1]),
                 )
                 p_idx += 2
+                if p_idx % active_lmcache.chunk_size == 0:
+                    active_lmcache.store_prefix_chunk(m_sig, bulk_ids[:p_idx], carry)
             while p_idx < len(bulk_ids):
                 carry, _, _ = step1(params, carry, jnp.int32(bulk_ids[p_idx]))
                 p_idx += 1
+                if p_idx % active_lmcache.chunk_size == 0:
+                    active_lmcache.store_prefix_chunk(m_sig, bulk_ids[:p_idx], carry)
             carry, prompt_raw, prompt_draft = step1(params, carry, jnp.int32(pre_ids[-1]))
             fork_prefill_state = (carry, prompt_raw, prompt_draft, len(pre_ids) - 1)
+            active_lmcache.store_full_prefill(
+                m_sig, pre_ids, is_tiered_think, fork_prefill_state
+            )
         else:
-            p_idx = 0
+            cached_carry, p_idx = active_lmcache.lookup_longest_prefix(m_sig, pre_ids)
+            carry = cached_carry if cached_carry is not None else init_decode_cache_v2(config)
             while p_idx + 2 <= len(pre_ids):
                 _, (carry, _, _) = spec2(
                     params,
@@ -2915,9 +3116,17 @@ def generate_v2(
                     jnp.int32(pre_ids[p_idx + 1]),
                 )
                 p_idx += 2
+                if p_idx % active_lmcache.chunk_size == 0:
+                    active_lmcache.store_prefix_chunk(m_sig, pre_ids[:p_idx], carry)
             while p_idx < len(pre_ids):
                 carry, _, _ = step1(params, carry, jnp.int32(pre_ids[p_idx]))
                 p_idx += 1
+                if p_idx % active_lmcache.chunk_size == 0:
+                    active_lmcache.store_prefix_chunk(m_sig, pre_ids[:p_idx], carry)
+            dummy_z = jnp.zeros((config.vocab_size,), dtype=jnp.float32)
+            active_lmcache.store_full_prefill(
+                m_sig, pre_ids, is_tiered_think, (carry, dummy_z, jnp.int32(-1), len(pre_ids))
+            )
         next_to_feed = int(prompt_ids[-1])
         pending_draft = None
         cur_pos = len(pre_ids)
@@ -3429,6 +3638,7 @@ class MemoryHierarchyV2:
         self.total_overwrites: int = 0
         self.last_retrieved_slots: list[dict[str, object]] = []
         self.last_resolved_prompt: str = ""
+        self.lmcache = LMCacheHybridV2(chunk_size=4, max_entries=64)
 
         self._repack_turboquant_bank()
         if self.storage_path is not None and self.storage_path.exists():
@@ -3975,6 +4185,7 @@ class MemoryHierarchyV2:
         self.total_hits = 0
         self.total_overwrites = 0
         self.last_retrieved_slots = []
+        self.lmcache.clear()
         self._repack_turboquant_bank()
         if self.storage_path is not None and self.storage_path.exists():
             self.storage_path.unlink(missing_ok=True)
@@ -4007,6 +4218,13 @@ class MemoryHierarchyV2:
                 "total_hits": self.total_hits,
                 "total_overwrites": self.total_overwrites,
                 "storage_path": str(self.storage_path) if self.storage_path else None,
+            },
+            "lmcache_hybrid": {
+                "chunk_size": self.lmcache.chunk_size,
+                "cached_chunks": len(self.lmcache._prefix_carries),
+                "prefix_hits": self.lmcache.prefix_hits,
+                "full_hits": self.lmcache.full_hits,
+                "saved_prefill_tokens": self.lmcache.saved_prefill_tokens,
             },
         }
 

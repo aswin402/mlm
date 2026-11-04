@@ -415,14 +415,59 @@ def dequantize_params_turboquant(
     return params
 
 
+def _encode_cachegen_anchor_delta(
+    arr: np.ndarray, anchor_stride: int = 8
+) -> tuple[np.ndarray, int]:
+    """LMCache / CacheGen Anchor-Token Temporal Delta Encoding along the sequence axis.
+
+    Divides token sequence into contiguous chunks of `anchor_stride` tokens:
+      - Anchor token `t = g * G` stores absolute value `K_{g*G}`
+      - Subsequent tokens `t = g * G + r` (`r = 1..G-1`) store temporal delta `K_t - K_{g*G}`
+    """
+    if arr.ndim == 4 and arr.shape[1] >= 2:
+        seq_axis = 1
+    elif arr.ndim == 3 and arr.shape[1] >= 2:
+        seq_axis = 1
+    else:
+        return arr, 0
+    seq_len = arr.shape[seq_axis]
+    stride = max(2, min(int(anchor_stride), seq_len))
+    out = arr.copy()
+    for t in range(seq_len):
+        anchor_t = (t // stride) * stride
+        if t != anchor_t:
+            if seq_axis == 1:
+                out[:, t] = arr[:, t] - arr[:, anchor_t]
+    return out, stride
+
+
+def _decode_cachegen_anchor_delta(
+    arr: jnp.ndarray, seq_axis: int, stride: int
+) -> jnp.ndarray:
+    """Reconstruct full KV sequence from CacheGen Anchor-Token + Temporal Delta representation."""
+    if stride <= 1 or seq_axis != 1:
+        return arr
+    out_np = np.asarray(arr, dtype=np.float32).copy()
+    seq_len = out_np.shape[1]
+    for t in range(seq_len):
+        anchor_t = (t // stride) * stride
+        if t != anchor_t:
+            out_np[:, t] = out_np[:, anchor_t] + out_np[:, t]
+    return jnp.asarray(out_np, dtype=jnp.float32)
+
+
 def quantize_kv_cache_turboquant(
     k: np.ndarray | jnp.ndarray,
     v: np.ndarray | jnp.ndarray,
     bits: int = 4,
+    anchor_stride: int = 8,
+    use_anchor_delta: bool = True,
 ) -> dict[str, Any]:
-    """Bit-pack `(K, V)` KV Cache tensors into `4-bit` or `2-bit` TurboQuant + 1-Bit QJL format.
+    """Bit-pack `(K, V)` KV Cache tensors into `TurboQuant + CacheGen + QJL` format.
 
-    Implements Google Research ICLR 2026 `TurboQuant` (`arXiv:2504.19874`) for KV caches:
+    Combines Google Research ICLR 2026 `TurboQuant` (`arXiv:2504.19874`) with `LMCache / CacheGen`
+    Anchor-Token Temporal Delta Encoding:
+      - CacheGen Anchor-Token Temporal Delta (`Delta K_t = K_t - K_{anchor}`) along token axis
       - Fast Walsh-Hadamard Orthogonal Rotation (`FWHT`)
       - Gaussian Lloyd-Max `4-bit` (16-centroid) or `2-bit` (4-centroid) scalar quantization
       - `1-Bit QJL` (Quantized Johnson-Lindenstrauss) residual signs for unbiased inner products
@@ -432,11 +477,21 @@ def quantize_kv_cache_turboquant(
     k_np = np.asarray(k, dtype=np.float32)
     v_np = np.asarray(v, dtype=np.float32)
     raw_bytes = k_np.nbytes + v_np.nbytes
-    q_tensors, meta = quantize_params_turboquant({"k": k_np, "v": v_np}, bits=bits)
+    if use_anchor_delta:
+        k_enc, k_stride = _encode_cachegen_anchor_delta(k_np, anchor_stride=anchor_stride)
+        v_enc, _ = _encode_cachegen_anchor_delta(v_np, anchor_stride=anchor_stride)
+    else:
+        k_enc, k_stride = k_np, 0
+        v_enc = v_np
+    q_tensors, meta = quantize_params_turboquant({"k": k_enc, "v": v_enc}, bits=bits)
+    meta["cachegen_anchor_stride"] = int(k_stride)
+    meta["cachegen_seq_axis"] = 1 if k_stride > 0 else -1
     packed_bytes = sum(int(arr.nbytes) for arr in q_tensors.values())
+    method_sfx = "_cachegen_delta" if k_stride > 0 else ""
     return {
         "bits": bits,
-        "method": f"turboquant_kv_{bits}bit_fwht_qjl",
+        "method": f"turboquant_kv_{bits}bit_fwht_qjl{method_sfx}",
+        "anchor_stride": int(k_stride),
         "tensors": q_tensors,
         "meta": meta,
         "raw_fp32_bytes": raw_bytes,
@@ -450,8 +505,15 @@ def quantize_kv_cache_turboquant(
 def dequantize_kv_cache_turboquant(
     packed_kv: dict[str, Any],
 ) -> tuple[jnp.ndarray, jnp.ndarray]:
-    """Dequantize a `4-bit` or `2-bit` `TurboQuant` bit-packed KV Cache back into `(K, V)`."""
-    deq = dequantize_params_turboquant(packed_kv["tensors"], packed_kv["meta"])
+    """Dequantize a `TurboQuant + CacheGen` bit-packed KV Cache back into `(K, V)`."""
+    meta = packed_kv["meta"]
+    deq = dequantize_params_turboquant(packed_kv["tensors"], meta)
+    stride = int(meta.get("cachegen_anchor_stride", 0))
+    seq_axis = int(meta.get("cachegen_seq_axis", -1))
+    if stride > 1 and seq_axis == 1:
+        k_out = _decode_cachegen_anchor_delta(deq["k"], seq_axis=seq_axis, stride=stride)
+        v_out = _decode_cachegen_anchor_delta(deq["v"], seq_axis=seq_axis, stride=stride)
+        return k_out, v_out
     return deq["k"], deq["v"]
 
 

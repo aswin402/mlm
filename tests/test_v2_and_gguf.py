@@ -281,6 +281,47 @@ def test_model_v2_hybrid_train_grow_and_gguf(tmp_path: Path):
     assert "[Tier-3 Memory: x=20, y=7]" in out_math
     assert mem2.summary_dict()["tier3_persistent_episodic"]["compression_vs_fp32"] >= 4.0
 
+    # Verify LMCache Hybrid Prefix/Full State Cache & CacheBlend Dynamic SO(2) RoPE Re-Rotation
+    from mlm.model_v2 import (
+        apply_rope,
+        cacheblend_fuse_kv_chunks_v2,
+        cacheblend_rope_shift_kv_v2,
+        precompute_rope_freqs,
+    )
+
+    out_math_repeat = generate_v2(
+        loaded_params,
+        loaded_cfg,
+        loaded_tok,
+        format_chat_prompt_v2("What is x + y?"),
+        max_new_tokens=16,
+        include_think=True,
+        memory_hierarchy=mem2,
+    )
+    assert out_math_repeat == out_math
+    assert mem2.lmcache.full_hits + mem2.lmcache.prefix_hits >= 1
+    assert mem2.lmcache.saved_prefill_tokens > 0
+
+    cos_tbl, sin_tbl = precompute_rope_freqs(32, loaded_cfg.head_dim, loaded_cfg.rope_theta)
+    raw_k = jnp.ones((1, 6, loaded_cfg.n_kv_heads, loaded_cfg.head_dim), dtype=jnp.float32)
+    k_at_0 = apply_rope(raw_k, cos_tbl[:6], sin_tbl[:6])
+    k_at_10 = apply_rope(raw_k, cos_tbl[10:16], sin_tbl[10:16])
+    k_shifted = cacheblend_rope_shift_kv_v2(
+        k_at_0,
+        jnp.arange(0, 6, dtype=jnp.int32),
+        jnp.arange(10, 16, dtype=jnp.int32),
+        head_dim=loaded_cfg.head_dim,
+        theta=loaded_cfg.rope_theta,
+    )
+    assert float(jnp.max(jnp.abs(k_shifted - k_at_10))) < 1e-5
+    fused = cacheblend_fuse_kv_chunks_v2(
+        [(k_at_0[:, :4], raw_k[:, :4], 0), (k_at_10[:, :4], raw_k[:, :4], 10)],
+        head_dim=loaded_cfg.head_dim,
+        theta=loaded_cfg.rope_theta,
+    )
+    assert fused["k_fused"].shape == (1, 8, loaded_cfg.n_kv_heads, loaded_cfg.head_dim)
+    assert len(fused["hkvd_indices"]) >= 1
+
     # Export to GGUF v3 and verify with Rust `mlm-gguf-inspect`
     gguf_path = tmp_path / "model.gguf"
     info = export_gguf_v2(gguf_path, loaded_params, loaded_cfg, loaded_tok)
