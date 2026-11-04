@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [0.0.20] - 2026-11-04
+
+### Added
+
+- **Stateful $O(1)$ Recurrent Decode Cache (`init_decode_cache_v2`, `_recurrent_token_step_v2`, `_make_cached_recurrent_decode_v2` in `mlm.model_v2`):** Replaced full-sequence (`256`-token) recomputation during autoregressive decoding with an exact static-shape recurrent carry state across all 12 effective hybrid passes (`ShortConv` $K=7$ ring buffer `shortconv_buf`, `ncm_phi_bridge` ring buffer `phi_conv_buf`, exact rank-1 Gated DeltaNet recurrent state matrix $S_{t,h} = \alpha_{t,h} S_{t-1,h} + k_{t,h} v_{t,h}^\top \in \mathbb{R}^{H \times D_h \times D_h}$ with 1-step key/value shift buffers, incremental GQA + `DSA` + `TurboQuant` KV cache slots `k_cache`/`v_cache`/`k_idx_cache`, and causal cumulative router load/domain-energy trackers `_route_single_bank_step_v2`), matching full-sequence `forward_with_hidden_v2` logits within `< 2e-6` (`100%` greedy equivalence) while accelerating CPU inference by **3×–7×** (`28.4–78.7 tok/s`, up from `~11 tok/s`).
+- **2-Token MTP Speculative Recurrent Verification (`spec2`) with Zero-Recomputation Rollback:** Extended `_make_cached_recurrent_decode_v2` with a compiled 2-token recurrent kernel `spec2(params, carry, tok_a, draft_b)` that returns both `(carry_a, logits_a, draft_a)` and `(carry_b, logits_b, draft_b)` in a single XLA call; on draft acceptance `generate_v2` advances 2 tokens to `carry_b`, and on draft rejection it rolls back to `carry_a` with zero recomputation.
+- **Single-Prefill Dual-Stream Fork (`_prefill_state` in `generate_v2`):** In `DELIBERATIVE` and `VERIFIED` modes (`include_think=True`), `generate_v2` prefills the prompt once in 2-token `spec2` pairs and forks the post-prompt recurrent state `fork_prefill_state = (carry, prompt_raw, prompt_draft, pos)` into both the `<|think|>` reasoning pass and the final response pass, eliminating 100% of duplicate prompt prefill.
+
+### Changed
+
+- Updated unit tests (`tests/test_v2_and_gguf.py`) to verify numerical and `argmax` equivalence between `_make_cached_recurrent_decode_v2` (`spec2`) and full-sequence `forward_with_hidden_v2`.
+- Incremented package and lockfile version to `0.0.20`.
+
 ## [0.0.19] - 2026-11-04
 
 ### Added

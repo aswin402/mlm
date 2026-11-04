@@ -4,6 +4,7 @@ Start with the [release overview](../README.md) and [changelog](../CHANGELOG.md)
 
 ## Project
 
+- [MLM v0.0.20 SpiderNet architecture, Stateful O(1) Recurrent Decode Cache, 3-Mode Cognitive Router, GRPO & TurboQuant research paper](research/architecture-and-inspirations-v0.0.20.md)
 - [MLM v0.0.19 SpiderNet architecture, 3-Mode Cognitive Router, GRPO & TurboQuant research paper](research/architecture-and-inspirations-v0.0.19.md)
 - [MLM v0.0.12 architecture, achievements, and research inspirations](research/architecture-and-inspirations-v0.0.11.md)
 - [Original idea, research and measured progress](research.md)

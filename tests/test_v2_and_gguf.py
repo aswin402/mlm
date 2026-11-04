@@ -181,6 +181,25 @@ def test_model_v2_hybrid_train_grow_and_gguf(tmp_path: Path):
     assert loaded_cfg.n_layers == 6
     assert manifest["step"] == 12
 
+    # Verify Stateful O(1) Recurrent Decode Cache matches full-sequence forward_with_hidden_v2
+    from mlm.model_v2 import _make_cached_recurrent_decode_v2, init_decode_cache_v2
+
+    seq_ids = ds["inputs"][:1, :10]
+    full_logits, _ = forward_with_hidden_v2(loaded_params, seq_ids, loaded_cfg)
+    _, spec2_fn = _make_cached_recurrent_decode_v2(loaded_cfg)
+    carry = init_decode_cache_v2(loaded_cfg)
+    for idx in range(0, 8, 2):
+        _, (carry, _, _) = spec2_fn(
+            loaded_params, carry, seq_ids[0, idx], seq_ids[0, idx + 1]
+        )
+    (_, logits_a, _), (_, logits_b, _) = spec2_fn(
+        loaded_params, carry, seq_ids[0, 8], seq_ids[0, 9]
+    )
+    assert float(jnp.max(jnp.abs(logits_a - full_logits[0, 8]))) < 1e-4
+    assert float(jnp.max(jnp.abs(logits_b - full_logits[0, 9]))) < 1e-4
+    assert int(jnp.argmax(logits_a)) == int(jnp.argmax(full_logits[0, 8]))
+    assert int(jnp.argmax(logits_b)) == int(jnp.argmax(full_logits[0, 9]))
+
     reply = generate_v2(
         loaded_params,
         loaded_cfg,

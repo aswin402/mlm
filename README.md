@@ -1,6 +1,6 @@
 # Mini Learning Model (MLM)
 
-Version **0.0.19** — includes the **`MLM v2` Hierarchical SpiderNet Growing Architecture** (`model_v2.py`: 1 Shared Core Trunk + Dot 0 `10M` English Specialist Macro-Node `Nodes 0..9` + Dot 1 `10M` Mathematics Specialist Macro-Node `Nodes 10..19` = `22.45M` total parameters with top-$k=2$ active base sub-nodes, 3-Mode Cognitive Router `Direct` / `Deliberative` / `Verified`, EAGLE-3 / DeepSeek-V3 Multi-Token Speculative Decoding, DeepSeek-R1 `GRPO` + Process Step Verification, Recursive Language Model `RLM` self-calls, `BLT` byte n-grams, `FoNE + Abacus` number embeddings, `FlexOlmo` cosine domain routing, Google Research `TurboQuant` / `BiLLM + QJL` `16/8/4/2/1-bit` weight & KV-cache quantization, Rust `tokenizers` BPE, Rust `polars` Parquet streaming, Rust `safetensors` `.mlm2` checkpoints, and `llama.cpp` GGUF v3 `.gguf` export with native Rust verifier `crates/mlm_core`) as well as the `v1` byte-level recurrent graph model.
+Version **0.0.20** — includes the **`MLM v2` Hierarchical SpiderNet Growing Architecture** (`model_v2.py`: 1 Shared Core Trunk + Dot 0 `10M` English Specialist Macro-Node `Nodes 0..9` + Dot 1 `10M` Mathematics Specialist Macro-Node `Nodes 10..19` = `22.45M` total parameters with top-$k=2$ active base sub-nodes, **Stateful $O(1)$ Recurrent Decode Cache** `ShortConv + Gated DeltaNet + GQA KV Cache + Single-Prefill Dual-Stream Fork` reaching **28.4–78.7 tok/s** on CPU, 3-Mode Cognitive Router `Direct` / `Deliberative` / `Verified`, EAGLE-3 / DeepSeek-V3 Multi-Token Speculative Decoding, DeepSeek-R1 `GRPO` + Process Step Verification, Recursive Language Model `RLM` self-calls, `BLT` byte n-grams, `FoNE + Abacus` number embeddings, `FlexOlmo` cosine domain routing, Google Research `TurboQuant` / `BiLLM + QJL` `16/8/4/2/1-bit` weight & KV-cache quantization, Rust `tokenizers` BPE, Rust `polars` Parquet streaming, Rust `safetensors` `.mlm2` checkpoints, and `llama.cpp` GGUF v3 `.gguf` export with native Rust verifier `crates/mlm_core`) as well as the `v1` byte-level recurrent graph model.
 
 ## MLM v2 (`22.45M` 20-Node Hierarchical SpiderNet: Shared Core + Dot 0 English + Dot 1 Math)
 
@@ -26,22 +26,23 @@ uv run mlm quantize-v2 --checkpoint runs/mlm-10m-math-colab/mlm_10m_math_v2.mlm2
 | **`2-bit`** | `turboquant_2bit_fwht64_qjl` | `TurboQuant 2-bit + QJL` | **`12.47 MiB`** | **`8.54 MiB`** | **`6.88x`** |
 | **`1-bit`** | `turboquant_1bit_fwht64_qjl` | `TurboQuant 1-bit + QJL` | **`10.66 MiB`** | **`7.48 MiB`** | **`8.05x`** |
 
-### Verified 3-Mode Cognitive Routing & Reasoning (`12.47 MiB` `2-Bit` Weights + `2-Bit` KV Cache)
+### Verified 3-Mode Cognitive Routing & Stateful $O(1)$ Recurrent Decode (`12.47 MiB` `2-Bit` Weights + `2-Bit` KV Cache)
 
-| Prompt | Cognitive Mode & Active Sub-Nodes | `<think>` Reasoning Trace (`Nodes 8..9` / `18..19`) | Final Output | Speed |
+| Prompt | Cognitive Mode & Active Sub-Nodes | `<think>` Reasoning Trace (`Nodes 8..9` / `18..19`) | Final Output | Speed (`O(1)` Cache) |
 |---|---|---|---|---:|
-| `hii` | `DIRECT \| english \| (2, 0)` | `Hello! How can I help you today?` | `Hello! How can I help you today?` | `5.1 tok/s` |
-| `How are you?` | `DELIBERATIVE \| english \| (0, 7)` | `As a Large Language Model (LLM), I don't have feelings like humans do. Thanks for asking though!` | `As a Large Language Model (LLM), I don't have feelings like humans do. Thanks for asking though!` | `20.5 tok/s` |
-| `What is science?` | `DELIBERATIVE \| english \| (0, 7)` | `Science is what we do to find out about the natural world.` | `Science is what we do to find out about the natural world. Natural sciences include, chemistry, biology, geology, astronomy, and physics. Science uses mathematics and logic, which are sometimes called "formal sciences".` | `16.2 tok/s` |
-| `What is photosynthesis?` | `DELIBERATIVE \| english \| (0, 7)` | `Photosynthesis is how plants and some microorganisms make carbohydrates.` | `Photosynthesis is how plants and some microorganisms make carbohydrates. It is an endothermic (takes in heat) chemical process which uses sunlight to turn carbon dioxide into sugars.` | `16.4 tok/s` |
-| `whats 4+4` | `VERIFIED \| math \| (15, 10)` | `4 + 4 = 8.` | `4 + 4 = 8. The answer is 8.` | `17.7 tok/s` |
-| `What is 15 - 7?` | `VERIFIED \| math \| (15, 10)` | `15 - 7 = 8.` | `Solution: 15 - 7 = 8. The answer is 8.` | `18.6 tok/s` |
-| `What is 17 * 2?` | `VERIFIED \| math \| (10, 15)` | `17 * 2 = 34.` | `17 * 2 = 34. The answer is 34.` | `16.3 tok/s` |
-| `What is 36 / 6?` | `VERIFIED \| math \| (10, 15)` | `36 / 6 = 6.` | `36 / 6 = 6. The answer is 6.` | `14.0 tok/s` |
-| `What is (9 + 8) * 2?` | `VERIFIED \| math \| (10, 15)` | `9 + 8 = 17. 17 * 2 = 34.` | `9 + 8 = 17, and 17 * 2 = 34. The answer is 34.` | `26.5 tok/s` |
-| `Natalia sold clips to 48 of her friends in April, and then she sold half as many clips in May. How many clips did Natalia sell altogether in April and May?` | `VERIFIED \| math \| (15, 10)` | `48 / 2 = 24. 48 + 24 = 72.` | `Natalia sold 48 / 2 = 24 clips in May. 48 + 24 = 72. The answer is 72.` | `7.7 tok/s` |
+| `hii` | `DIRECT \| english \| (2, 0)` | `Hello! How can I help you today?` | `Hello! How can I help you today?` | **`78.7 tok/s`** |
+| `How are you?` | `DELIBERATIVE \| english \| (0, 7)` | `As a Large Language Model (LLM), I don't have feelings like humans do. Thanks for asking though!` | `As a Large Language Model (LLM), I don't have feelings like humans do. Thanks for asking though!` | **`56.3 tok/s`** |
+| `What is science?` | `DELIBERATIVE \| english \| (0, 7)` | `Science is what we do to find out about the natural world.` | `Science is what we do to find out about the natural world. Natural sciences include, chemistry, biology, geology, astronomy, and physics. Science uses mathematics and logic, which are sometimes called "formal sciences".` | **`42.4 tok/s`** |
+| `What is photosynthesis?` | `DELIBERATIVE \| english \| (0, 7)` | `Photosynthesis is how plants and some microorganisms make carbohydrates.` | `Photosynthesis is how plants and some microorganisms make carbohydrates. It is an endothermic (takes in heat) chemical process which uses sunlight to turn carbon dioxide into sugars.` | **`53.6 tok/s`** |
+| `whats 4+4` | `VERIFIED \| math \| (10, 15)` | `4 + 4 = 8.` | `4 + 4 = 8. The answer is 8.` | **`41.3 tok/s`** |
+| `What is 1 plus 1?` | `VERIFIED \| math \| (11, 15)` | `1 + 1 = 2.` | `1 + 1 = 2. The answer is 2.` | **`38.2 tok/s`** |
+| `What is 15 - 7?` | `VERIFIED \| math \| (15, 10)` | `15 - 7 = 8.` | `15 - 7 = 8. The answer is 8.` | **`33.5 tok/s`** |
+| `What is 17 * 2?` | `VERIFIED \| math \| (10, 15)` | `17 * 2 = 34.` | `17 * 2 = 34. The answer is 34.` | **`30.3 tok/s`** |
+| `What is 36 / 6?` | `VERIFIED \| math \| (10, 15)` | `36 / 6 = 6.` | `36 / 6 = 6. The answer is 6.` | **`33.6 tok/s`** |
+| `What is (9 + 8) * 2?` | `VERIFIED \| math \| (10, 15)` | `9 + 8 = 17. 17 * 2 = 34.` | `9 + 8 = 17, and 17 * 2 = 34. The answer is 34.` | **`51.6 tok/s`** |
+| `Natalia sold clips to 48 of her friends in April, and then she sold half as many clips in May. How many clips did Natalia sell altogether in April and May?` | `VERIFIED \| math \| (15, 10)` | `48 / 2 = 24. 48 + 24 = 72.` | `Natalia sold 48 / 2 = 24 clips in May. 48 + 24 = 72. The answer is 72.` | **`28.4 tok/s`** |
 
-See the [MLM v0.0.19 SpiderNet architecture & research paper](docs/research/architecture-and-inspirations-v0.0.19.md) and [Colab 20-Node SpiderNet Math & Reasoning report](docs/evidence/colab_10m_math_v2_report.json) for full details.
+See the [MLM v0.0.20 SpiderNet & Stateful O(1) Recurrent Decode research paper](docs/research/architecture-and-inspirations-v0.0.20.md) and [Colab 20-Node SpiderNet Math & Reasoning report](docs/evidence/colab_10m_math_v2_report.json) for full details.
 
 ## MLM v2 (`10M` Staged-Node Growth: `4 → 6 → 8` Specialist Graph Nodes)
 
