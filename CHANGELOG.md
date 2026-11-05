@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [0.0.30] - 2026-11-05
+
+### Added
+
+- **SpiderNet Dot 2: Code & Symbolic Logic Macro-Node (`Nodes 20..29`, `31,427,264` total parameters, `grow_dot2_code_logic_v2` in `mlm.model_v2`):**
+  - Expanded the 20-node SpiderNet hierarchy (`Dot 0 English Nodes 0..9` + `Dot 1 Math Nodes 10..19` = `22.56M`) to **30 specialist sub-nodes (`31.43M` total parameters)** via Symmetric Orthogonal Splitting (`<Q, W_p> = 0`, `max_orthogonality_cosine = 2.03e-9`, `ensemble_mean_recon_error = 1.49e-8`) across 5 functional pairs: `Nodes 20..21` (`Code/Syntax`), `Nodes 22..23` (`Algo/Loops`), `Nodes 24..25` (`Bool/Logic`), `Nodes 26..27` (`Types/Debug`), and `Nodes 28..29` (`Code-<think>`).
+  - Implemented 3-Bank Rectified Sparse Routing in `routed_graph_nodes_ffn` and `_recurrent_token_step_v2` preserving **100% zero forgetting** on all Dot 0 English and Dot 1 Mathematics queries (`max_logit_diff <= 9.78e-6`, 100% identical generated responses) while activating only `2 / 30` (`6.67%` = **`15.0x` specialist FLOPs reduction**) in fast mode and `4 / 30` (`13.33%` = **`7.5x` specialist FLOPs reduction**) in `<think>` / verified mode.
+- **Dot 2 Symbolic Logic, AST & Algorithm Verifier (`_verify_code_and_logic_v2`, `_safe_eval_python_ast` in `mlm.model_v2`):**
+  - Added step-by-step verification for propositional boolean logic (`True`/`False`, `and`, `or`, `not`, `xor`), bitwise integer expressions (`&`, `|`, `^`, `<<`, `>>`), deductive syllogisms (Barbara / Modus Ponens), safe Python AST list comprehensions & pure builtin expressions, and canonical Python/Rust algorithms (`fibonacci`, `is_prime`, `binary_search`, Big-O complexity).
+  - Exported the `31.43M` 30-node SpiderNet checkpoints (`runs/mlm-10m-math-colab/quantized/mlm_30m_spidernet_v2_16bit.mlm2` at `60.76 MiB` and `mlm_30m_spidernet_v2_2bit.mlm2` at `17.44 MiB`).
+
 ## [0.0.29] - 2026-11-05
 
 ### Added

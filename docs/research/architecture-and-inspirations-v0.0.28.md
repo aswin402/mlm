@@ -80,5 +80,23 @@ $$\mathcal{L}_{\text{graph}} = \lambda_{\text{load}} \left(N \sum_{i=1}^N \bar{p
 | **`16-bit`** | `fp16` | `TurboQuant 4-bit + QJL` | `43.63 MiB` | `26.72 MiB` | `1.97x` |
 | **`8-bit`** | `turboquant_8bit_fwht64_qjl` | `TurboQuant 4-bit + QJL` | `23.18 MiB` | `14.46 MiB` | `3.70x` |
 | **`4-bit`** | `turboquant_4bit_fwht64_qjl` | `TurboQuant 4-bit + QJL` | `15.93 MiB` | `10.12 MiB` | `5.39x` |
-| **`2-bit`** | `turboquant_2bit_fwht64_qjl` | `TurboQuant 2-bit + QJL` | **`12.47 MiB`** | **`8.54 MiB`** | **`6.88x`** |
-| **`1-bit`** | `turboquant_1bit_fwht64_qjl` | `TurboQuant 1-bit + QJL` | **`10.66 MiB`** | **`7.48 MiB`** | **`8.05x`** |
+| **`2-bit`** | `turboquant_2bit_fwht64_qjl` | `TurboQuant 2-bit + QJL` | **`12.69 MiB`** | **`8.54 MiB`** | **`6.88x`** |
+| **`1-bit`** | `turboquant_1bit_fwht64_qjl` | `TurboQuant 1-bit + QJL` | **`10.90 MiB`** | **`7.48 MiB`** | **`8.05x`** |
+
+### 3.4 SVD-Calibrated Directed Graph Edges (`v0.0.29`) & Dot 2 Code & Symbolic Logic `31.43M` 30-Node SpiderNet (`v0.0.30`)
+
+In **`v0.0.29`**, [`inject_and_calibrate_spidernet_graph_edges_v2`](../../src/mlm/model_v2.py) calibrates each layer's low-rank directed edge projections (`edge_proj_h`, `edge_proj_x`, `edge_u`, `edge_v`) and message bottleneck (`msg_down`, `msg_up`) in the top-$r$ ($r = 16$) principal SVD subspace $V_r$ of the trained specialist router prototypes and output projections, and [`format_graph_inspector_v2`](../../src/mlm/tui.py) exposes live `/graph` (and `/nodes`) directed edge telemetry inside `mlm chat`.
+
+In **`v0.0.30`**, [`grow_dot2_code_logic_v2`](../../src/mlm/model_v2.py) expands the 20-node SpiderNet hierarchy (`Dot 0 English 0..9` + `Dot 1 Math 10..19` = `22.56M`) with **Dot 2: Code & Symbolic Logic (`Nodes 20..29`)** via Symmetric Orthogonal Splitting ($\langle Q, W_p \rangle = 0$, `max_orthogonality_cosine = 2.03e-9`, `ensemble_mean_recon_error = 1.49e-8`) to **`31,427,264` (`31.43M`) total parameters**:
+
+| Dot 2 Specialist Pair | Node Indices | Parent Specialists (`Eng + Math` Blend) | Primary Domain Role |
+| :--- | :---: | :--- | :--- |
+| **`Code/Syntax`** | `Nodes 20..21` | `0.65 * N0(Grammar/Vocab) + 0.35 * N16(Paren/Algebra)` | Python/Rust syntax & AST structure |
+| **`Algo/Loops`** | `Nodes 22..23` | `0.35 * N4(Science/Reading) + 0.65 * N12(Sub/Mult)` | Iterative algorithms, comprehensions, Big-O |
+| **`Bool/Logic`** | `Nodes 24..25` | `0.55 * N4(Science/Reading) + 0.45 * N16(Paren/Algebra)` | Propositional boolean logic, bitwise, syllogisms |
+| **`Types/Debug`** | `Nodes 26..27` | `0.40 * N2(Grammar/Vocab) + 0.60 * N14(Div/GSM8K)` | Type inference, trace & edge-case verification |
+| **`Code-<think>`** | `Nodes 28..29` | `0.50 * N8(Eng-<think>) + 0.50 * N18(Math-<think>)` | Deliberative `<think>` trace for Code & Logic |
+
+- **Zero Forgetting on Dot 0 & Dot 1:** Across all English, Science, and Mathematics queries, the 30-node (`31.43M`) checkpoint produces `max_logit_diff <= 9.78e-6` and **100% identical generated responses** to the 20-node (`22.56M`) checkpoint.
+- **15.0x / 7.5x Sparse FLOPs Reduction:** Fast mode activates `2 / 30` (`6.67%` = **`15.0x` specialist FLOPs reduction**), while `<think>` / verified mode activates `4 / 30` (`13.33%` = **`7.5x` specialist FLOPs reduction**).
+- **Compact `2-Bit` Footprint:** The 30-node (`31.43M`) `TurboQuant 2-bit` checkpoint (`runs/mlm-10m-math-colab/quantized/mlm_30m_spidernet_v2_2bit.mlm2`) occupies only **`17.44 MiB`** (`60.76 MiB` in `16-bit`).

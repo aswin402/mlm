@@ -709,6 +709,50 @@ def test_cli_train_v2_and_chat(tmp_path: Path, capsys):
     logits_14 = forward_v2(p_14, jnp.array([[1, 2, 3, 4]], dtype=jnp.int32), c_14)
     assert logits_14.shape == (1, 4, c_14.vocab_size)
 
+    from mlm.model_v2 import (
+        _verify_code_and_logic_v2,
+        classify_cognitive_mode_v2,
+        get_spidernet_node_role_v2,
+        grow_dot2_code_logic_v2,
+        inspect_directed_graph_edges_v2,
+    )
+
+    p_20, c_20 = grow_model_v2_nodes(p_14, c_14, add_nodes=6)
+    assert c_20.n_experts == 20
+    p_30, c_30, dot2_m = grow_dot2_code_logic_v2(p_20, c_20)
+    assert c_30.n_experts == 30
+    assert c_30.mature_experts == 20
+    assert dot2_m["flops_reduction_fast_x"] == 15.0
+    assert dot2_m["flops_reduction_think_x"] == 7.5
+    assert dot2_m["max_orthogonality_cosine"] < 1e-4
+    assert dot2_m["ensemble_mean_recon_error"] < 1e-4
+    assert get_spidernet_node_role_v2(20) == "Code/Syntax"
+    assert get_spidernet_node_role_v2(22) == "Algo/Loops"
+    assert get_spidernet_node_role_v2(24) == "Bool/Logic"
+    assert get_spidernet_node_role_v2(26) == "Types/Debug"
+    assert get_spidernet_node_role_v2(28) == "Code-<think>"
+    logits_20 = np.asarray(forward_v2(p_20, jnp.array([[1, 2, 3, 4]], dtype=jnp.int32), c_20))
+    logits_30 = np.asarray(forward_v2(p_30, jnp.array([[1, 2, 3, 4]], dtype=jnp.int32), c_30))
+    assert float(np.max(np.abs(logits_20 - logits_30))) < 1e-4
+    code_q = (
+        "<|user|>\nEvaluate the boolean expression: "
+        "(True and not False) xor False\n<|assistant|>\n"
+    )
+    cog_c = classify_cognitive_mode_v2(p_30, c_30, tok_loaded, code_q)
+    assert cog_c["domain"] == "code"
+    assert cog_c["active_subnodes"] == (24, 25)
+    g_c = inspect_directed_graph_edges_v2(p_30, c_30, tok_loaded, code_q)
+    assert g_c["n_nodes"] == 30
+    assert g_c["domain"] == "code"
+    th_bool, ans_bool = _verify_code_and_logic_v2(code_q, "", "")
+    assert "True" in th_bool and "True" in ans_bool
+    th_comp, ans_comp = _verify_code_and_logic_v2(
+        "<|user|>\nWhat does `[x * x for x in range(4)]` evaluate to in Python?\n<|assistant|>\n",
+        "",
+        "",
+    )
+    assert "[0, 1, 4, 9]" in ans_comp
+
     cluster = MLMNodeCluster.from_checkpoints(
         [
             ("node_0_english_science", "general", out_dir / "best.mlm2"),
