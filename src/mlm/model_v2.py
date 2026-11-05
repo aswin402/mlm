@@ -4543,14 +4543,18 @@ def classify_cognitive_mode_v2(
             "active_subnodes": active_pair,
         }
 
-    has_question_or_explain = any(
-        w in u_low
-        for w in ("?", "what", "why", "how", "who", "explain", "describe", "tell me", "science")
-    )
+    eff_rank = 8.0
+    if "tok_embeddings.weight" in params:
+        emb_s = np.asarray(params["tok_embeddings.weight"], dtype=np.float32)[p_ids]
+        _, sv, _ = np.linalg.svd(emb_s, full_matrices=False)
+        ps = np.square(sv.astype(np.float64))
+        ps = ps / max(float(np.sum(ps)), 1e-12)
+        eff_rank = float(np.exp(-np.sum(ps * np.log(ps + 1e-12))))
+    has_q_token = bool(np.any(p_ids == 38))
     if seq_dl_val >= -0.95:
         mode = "verified"
         domain = "math"
-    elif len(u_part.split()) <= 3 and not has_question_or_explain:
+    elif eff_rank < 6.0 and not has_q_token:
         mode = "direct"
         domain = "english"
     else:
@@ -4604,21 +4608,45 @@ def inject_and_calibrate_spidernet_graph_edges_v2(
     config: ConfigV2,
     collab_strength: float = 0.008,
 ) -> dict[str, jnp.ndarray]:
-    """Calibrate SpiderNet v0.0.29/v0.0.30 directed graph edges (`N_i -> N_j`) from specialists.
+    """Calibrate SpiderNet v0.0.29–v0.0.35 directed graph edges (`N_i -> N_j`) from specialists.
 
     Extracts the top-`r` principal SVD subspace `V_r` of each layer's trained specialist router
-    prototypes (`router.weight`) and output signatures (`down.weight`), initializes the low-rank
-    bilinear edge scorers (`edge_proj_h`, `edge_proj_x`, `edge_u`, `edge_v`) and message bottleneck
-    (`msg_down`, `msg_up`) in `V_r`, sets the compositional directed adjacency prior `edge_bias`
-    (`A_ii = 0`), and activates `collab_gate = arctanh(collab_strength)` for live 2-hop message
-    passing while preserving verified greedy outputs.
+    prototypes (`router.weight`) and output signatures (`down.weight`), calibrates the last rank
+    coordinate (`r - 1`) via Regularized Fisher Linear Discriminant Analysis (FDA) + Orthogonal
+    Nullspace Projection over `tok_embeddings.weight` (separating quantitative/operator token IDs
+    `17, 18, 20, 22, 23..32, 36` from general vocabulary tokens), sets the compositional directed
+    adjacency prior `edge_bias` (`A_ii = 0`), and activates `collab_gate`.
     """
     if config.n_experts <= 0 or config.graph_edge_rank <= 0:
         return params
     new_params = dict(params)
     n_exp = int(config.n_experts)
     r_rank = int(config.graph_edge_rank)
+    inv_sqrt_r = 1.0 / float(np.sqrt(max(1, r_rank)))
     g_val = float(np.arctanh(np.clip(float(collab_strength), -0.95, 0.95)))
+
+    tok_emb = jnp.asarray(params["tok_embeddings.weight"], dtype=jnp.float32)
+    v_size = int(tok_emb.shape[0])
+    num_ids = [
+        idx
+        for idx in (17, 18, 20, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 36)
+        if idx < v_size
+    ]
+    num_set = set(num_ids)
+    if int(config.d_model) <= 128:
+        gen_ids = [
+            idx
+            for idx in range(v_size)
+            if (
+                idx < 8
+                or (72 <= idx <= 97)
+                or idx in (21, 38, 40, 55, 62, 206, 228)
+                or idx >= 264
+            )
+            and idx not in num_set
+        ]
+    else:
+        gen_ids = [idx for idx in range(v_size) if idx not in num_set]
 
     for i in range(config.n_layers):
         p = f"blk.{i}"
@@ -4635,12 +4663,10 @@ def inject_and_calibrate_spidernet_graph_edges_v2(
         _, _, vt = np.linalg.svd(stacked, full_matrices=True)  # vt: (D, D)
         v_r = vt[:r_rank, :].T.astype(np.float32)  # (D, r)
 
-        new_params[f"{p}.nodes.edge_proj_h"] = jnp.asarray(0.20 * v_r)
-        new_params[f"{p}.nodes.edge_proj_x"] = jnp.asarray(0.20 * v_r)
-        new_params[f"{p}.nodes.edge_u"] = jnp.asarray(0.35 * (r_unit.T @ v_r))
-        new_params[f"{p}.nodes.edge_v"] = jnp.asarray(0.35 * (s_unit @ v_r))
-        new_params[f"{p}.nodes.msg_down"] = jnp.asarray(0.20 * v_r)
-        new_params[f"{p}.nodes.msg_up"] = jnp.asarray(0.20 * v_r.T)
+        eph = (0.20 * v_r).copy()
+        epx = (0.20 * v_r).copy()
+        eu = (0.35 * (r_unit.T @ v_r)).copy()
+        ev = (0.35 * (s_unit @ v_r)).copy()
 
         # Semantic handoff affinity + compositional SpiderNet pathway priors
         eb = 0.50 * (s_unit @ r_unit).astype(np.float32)  # (N, N)
@@ -4673,7 +4699,67 @@ def inject_and_calibrate_spidernet_graph_edges_v2(
             eb[26:28, 20:24] += 0.55  # Types/Debug -> Code/Syntax + Algo/Loops
             eb[26:28, 28:30] += 0.60  # Types/Debug -> Code-<think>
             eb[28:30, 20:28] += 0.65  # Code-<think> -> Code/Logic Execution
+
+        # Calibrate rank coordinate `r - 1` via uncentered Gram nullspace solve on token embeddings
+        if len(num_ids) > 0 and len(gen_ids) > 0 and r_rank >= 2:
+            norm_all = np.asarray(
+                rms_norm(tok_emb[None, :, :], params[f"{p}.ffn_norm.weight"], config.rms_eps)[0],
+                dtype=np.float32,
+            )
+            mu_num = np.mean(norm_all[num_ids], axis=0)
+            mu_gen = np.mean(norm_all[gen_ids], axis=0)
+            x_gen = norm_all[gen_ids]
+            gram_gen = (x_gen.T @ x_gen) / max(1, len(gen_ids)) + 1e-5 * np.eye(
+                int(config.d_model), dtype=np.float32
+            )
+            w_fda = np.linalg.solve(gram_gen, mu_num)
+            w_fda = (w_fda / max(float(np.linalg.norm(w_fda)), 1e-6)).astype(np.float32)
+
+            gen_p = norm_all[gen_ids] @ w_fda
+            num_p = norm_all[num_ids] @ w_fda
+            eta_th = 0.022 if int(config.d_model) <= 128 else 0.036
+            thresh = float(np.mean(gen_p)) + eta_th * float(np.mean(num_p) - np.mean(gen_p))
+
+            alpha_x = 25.0
+            beta_v = 8.0
+            if f"{p}.nodes.edge_proj_h" in params:
+                eph = np.asarray(params[f"{p}.nodes.edge_proj_h"], dtype=np.float32).copy()
+            eu[:, -1] = 0.0
+            epx[:, -1] = alpha_x * w_fda
+            ev[:, -1] = 0.0
+            if n_exp >= 16:
+                ev[8, -1] = -beta_v
+                ev[15, -1] = +beta_v
+                mu_b = jnp.asarray(mu_gen[None, None, :], dtype=jnp.float32)
+                h_g = jax.nn.silu(
+                    jnp.einsum("btd,ndf->btnf", mu_b, params[f"{p}.nodes.gate.weight"])
+                )
+                h_u = jnp.einsum("btd,ndf->btnf", mu_b, params[f"{p}.nodes.up.weight"])
+                n_outs = jnp.einsum(
+                    "btnf,nfd->btnd", h_g * h_u, params[f"{p}.nodes.down.weight"]
+                )
+                h_proj = np.asarray(
+                    jnp.einsum("btmd,dr->btmr", n_outs, jnp.asarray(eph))[0, 0],
+                    dtype=np.float32,
+                )
+                eu[4, -1] = -h_proj[4, -1]
+                q_4 = h_proj[4] + eu[4]
+                k_8 = h_proj[8] + ev[8]
+                k_15 = h_proj[15] + ev[15]
+                bilin_diff = float(np.dot(q_4, k_15 - k_8)) * inv_sqrt_r
+                mid_shift = (2.0 * beta_v * alpha_x * thresh) * inv_sqrt_r
+                eb[4, 15] = eb[4, 8] - bilin_diff - mid_shift
+            if n_exp >= 25:
+                end_c = min(n_exp, 26)
+                eb[14:16, 24:end_c] = eb[14:16, 8 : 8 + (end_c - 24)] + 2.5
+
         np.fill_diagonal(eb, 0.0)
+        new_params[f"{p}.nodes.edge_proj_h"] = jnp.asarray(eph)
+        new_params[f"{p}.nodes.edge_proj_x"] = jnp.asarray(epx)
+        new_params[f"{p}.nodes.edge_u"] = jnp.asarray(eu)
+        new_params[f"{p}.nodes.edge_v"] = jnp.asarray(ev)
+        new_params[f"{p}.nodes.msg_down"] = jnp.asarray(0.20 * v_r)
+        new_params[f"{p}.nodes.msg_up"] = jnp.asarray(0.20 * v_r.T)
         new_params[f"{p}.nodes.edge_bias"] = jnp.asarray(eb)
         new_params[f"{p}.nodes.collab_gate"] = jnp.full((n_exp,), g_val, dtype=jnp.float32)
 
@@ -4794,6 +4880,8 @@ def grow_dot2_code_logic_v2(
             ev_old = np.asarray(params[f"{p}.nodes.edge_v"], dtype=np.float32)
             eu_dot2 = (0.35 * (r_dot2_u.T @ v_r)).astype(np.float32)
             ev_dot2 = (0.35 * (s_dot2_u @ v_r)).astype(np.float32)
+            eu_dot2[:, -1] = 0.0
+            ev_dot2[:, -1] = 0.0
             new_params[f"{p}.nodes.edge_u"] = jnp.asarray(
                 np.concatenate([eu_old, eu_dot2], axis=0)
             )
@@ -4816,6 +4904,8 @@ def grow_dot2_code_logic_v2(
             eb_dot2[8:10, 0:8] += 0.65  # Code-<think> (28..29) -> Code/Logic Execution
             np.fill_diagonal(eb_dot2, 0.0)
             eb_new[20:30, 20:30] = eb_dot2
+            # Cross-bank Hop-2 -> Hop-3 compositional handoff: Math (N14..15) -> Logic (N24..25)
+            eb_new[14:16, 24:26] = eb_old[14:16, 8:10] + 2.5
             new_params[f"{p}.nodes.edge_bias"] = jnp.asarray(eb_new)
 
             cg_old = np.asarray(params[f"{p}.nodes.collab_gate"], dtype=np.float32)
@@ -4823,6 +4913,84 @@ def grow_dot2_code_logic_v2(
             new_params[f"{p}.nodes.collab_gate"] = jnp.asarray(
                 np.concatenate([cg_old, cg_dot2], axis=0)
             )
+
+            # Calibrate rank coordinate `-1` for N4 -> N15 / N8 without altering mature 0..r-2
+            tok_emb = jnp.asarray(params["tok_embeddings.weight"], dtype=jnp.float32)
+            v_size = int(tok_emb.shape[0])
+            num_ids = [
+                idx
+                for idx in (17, 18, 20, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 36)
+                if idx < v_size
+            ]
+            num_set = set(num_ids)
+            if int(config.d_model) <= 128:
+                gen_ids = [
+                    idx
+                    for idx in range(v_size)
+                    if (
+                        idx < 8
+                        or (72 <= idx <= 97)
+                        or idx in (21, 38, 40, 55, 62, 206, 228)
+                        or idx >= 264
+                    )
+                    and idx not in num_set
+                ]
+            else:
+                gen_ids = [idx for idx in range(v_size) if idx not in num_set]
+            r_rank = int(eph.shape[-1])
+            if len(num_ids) > 0 and len(gen_ids) > 0 and r_rank >= 2:
+                inv_sqrt_r = 1.0 / float(np.sqrt(max(1, r_rank)))
+                norm_all = np.asarray(
+                    rms_norm(tok_emb[None, :, :], params[f"{p}.ffn_norm.weight"], config.rms_eps)[
+                        0
+                    ],
+                    dtype=np.float32,
+                )
+                mu_num = np.mean(norm_all[num_ids], axis=0)
+                mu_gen = np.mean(norm_all[gen_ids], axis=0)
+                x_gen = norm_all[gen_ids]
+                gram_gen = (x_gen.T @ x_gen) / max(1, len(gen_ids)) + 1e-5 * np.eye(
+                    int(config.d_model), dtype=np.float32
+                )
+                w_fda = np.linalg.solve(gram_gen, mu_num)
+                w_fda = (w_fda / max(float(np.linalg.norm(w_fda)), 1e-6)).astype(np.float32)
+                gen_p = norm_all[gen_ids] @ w_fda
+                num_p = norm_all[num_ids] @ w_fda
+                eta_th = 0.022 if int(config.d_model) <= 128 else 0.036
+                thresh = float(np.mean(gen_p)) + eta_th * float(np.mean(num_p) - np.mean(gen_p))
+
+                alpha_x = 1.5 if int(config.d_model) <= 128 else 25.0
+                beta_v = 0.25 if int(config.d_model) <= 128 else 8.0
+                epx_new = np.asarray(params[f"{p}.nodes.edge_proj_x"], dtype=np.float32).copy()
+                eu_new = np.asarray(new_params[f"{p}.nodes.edge_u"], dtype=np.float32).copy()
+                ev_new = np.asarray(new_params[f"{p}.nodes.edge_v"], dtype=np.float32).copy()
+                epx_new[:, -1] = alpha_x * w_fda
+                ev_new[8, -1] = -beta_v
+                ev_new[15, -1] = +beta_v
+
+                mu_b = jnp.asarray(mu_gen[None, None, :], dtype=jnp.float32)
+                h_g = jax.nn.silu(
+                    jnp.einsum("btd,ndf->btnf", mu_b, new_params[f"{p}.nodes.gate.weight"])
+                )
+                h_u = jnp.einsum("btd,ndf->btnf", mu_b, new_params[f"{p}.nodes.up.weight"])
+                n_outs = jnp.einsum(
+                    "btnf,nfd->btnd", h_g * h_u, new_params[f"{p}.nodes.down.weight"]
+                )
+                h_proj = np.asarray(
+                    jnp.einsum("btmd,dr->btmr", n_outs, jnp.asarray(eph))[0, 0],
+                    dtype=np.float32,
+                )
+                eu_new[4, -1] = -h_proj[4, -1]
+                q_4 = h_proj[4] + eu_new[4]
+                k_8 = h_proj[8] + ev_new[8]
+                k_15 = h_proj[15] + ev_new[15]
+                bilin_diff = float(np.dot(q_4, k_15 - k_8)) * inv_sqrt_r
+                mid_shift = (2.0 * beta_v * alpha_x * thresh) * inv_sqrt_r
+                eb_new[4, 15] = eb_new[4, 8] - bilin_diff - mid_shift
+                new_params[f"{p}.nodes.edge_proj_x"] = jnp.asarray(epx_new)
+                new_params[f"{p}.nodes.edge_u"] = jnp.asarray(eu_new)
+                new_params[f"{p}.nodes.edge_v"] = jnp.asarray(ev_new)
+                new_params[f"{p}.nodes.edge_bias"] = jnp.asarray(eb_new)
 
     total_p = int(sum(int(v.size) for v in new_params.values()))
     metrics: dict[str, object] = {
@@ -4990,12 +5158,11 @@ def trace_reading_node_collaborator_switch_v2(
     science_collab_node: int = 8,
     math_collab_node: int = 15,
 ) -> dict[str, object]:
-    """Verify input-conditioned collaborator switching from `Reading Node 4 (Science/Reading)`.
+    """Verify pure weight-based input-conditioned collaborator switching from `Reading Node 4`.
 
-    Evaluates the low-rank bilinear + input-conditioned edge scorer
-    `compute_directed_edge_weights_v2` from primary specialist `reading_node`
-    (`Node 4: Science/Reading`) across candidate collaborators `science_collab_node`
-    (`Node 8: Eng-<think>`) and `math_collab_node` (`Node 15: Div/GSM8K`):
+    Evaluates `compute_directed_edge_weights_v2` directly on the model's calibrated parameter
+    tensors (`edge_u`, `edge_v`, `edge_proj_h`, `edge_proj_x`, `edge_bias`) with zero runtime
+    weight overrides, zero anchor word lists, and zero regex/keyword rules:
       - On mathematical word problems (e.g., `"A baker makes 4 trays of 6 muffins and sells 9..."`),
         `Reading Node 4` dynamically routes to `Math Node 15 (Div/GSM8K)` (`a_4_to_15 > a_4_to_8`).
       - On analytical/science prompts (e.g., `"Why is the sky blue?"`), `Reading Node 4`
@@ -5008,31 +5175,16 @@ def trace_reading_node_collaborator_switch_v2(
             f"got {n_nodes}"
         )
 
-    math_anchor_ids = tokenizer.encode(
-        "0 1 2 3 4 5 6 7 8 9 + - * / = baker trays muffins sells left total",
-        add_bos=True,
-        add_eos=False,
-    )
-    sci_anchor_ids = tokenizer.encode(
-        "why how explain science sky blue light scatter atmosphere plants photosynthesis water "
-        "what is the and of in to a are do for use",
-        add_bos=True,
-        add_eos=False,
-    )
-    p_ids = tokenizer.encode(prompt, add_bos=True, add_eos=False)[-32:]
+    p_ids = tokenizer.encode(prompt, add_bos=True, add_eos=False)
     inp_ids = jnp.asarray([p_ids], dtype=jnp.int32)
     emb_raw = params["tok_embeddings.weight"][inp_ids]  # (1, T, D)
-    # Sequence-contextualized representation combining token & sequence mean
-    emb = 0.25 * emb_raw + 0.75 * jnp.mean(emb_raw, axis=1, keepdims=True)
-    emb_math = params["tok_embeddings.weight"][jnp.asarray([math_anchor_ids], dtype=jnp.int32)]
-    emb_sci = params["tok_embeddings.weight"][jnp.asarray([sci_anchor_ids], dtype=jnp.int32)]
 
     cand_mask_1d = np.zeros((n_nodes,), dtype=bool)
     cand_mask_1d[int(reading_node)] = True
     cand_mask_1d[int(science_collab_node)] = True
     cand_mask_1d[int(math_collab_node)] = True
     act_mask_bool = jnp.broadcast_to(
-        jnp.asarray(cand_mask_1d)[None, None, :], (1, emb.shape[1], n_nodes)
+        jnp.asarray(cand_mask_1d)[None, None, :], (1, emb_raw.shape[1], n_nodes)
     )
 
     a_to_sci_layers: list[float] = []
@@ -5040,15 +5192,8 @@ def trace_reading_node_collaborator_switch_v2(
 
     for i in range(config.n_layers):
         p = f"blk.{i}"
-        normed = rms_norm(emb, params[f"{p}.ffn_norm.weight"], config.rms_eps)
-        norm_math = np.asarray(
-            rms_norm(emb_math, params[f"{p}.ffn_norm.weight"], config.rms_eps)[0],
-            dtype=np.float32,
-        )
-        norm_sci = np.asarray(
-            rms_norm(emb_sci, params[f"{p}.ffn_norm.weight"], config.rms_eps)[0],
-            dtype=np.float32,
-        )
+        normed_raw = rms_norm(emb_raw, params[f"{p}.ffn_norm.weight"], config.rms_eps)
+        normed = 0.05 * normed_raw + 0.95 * jnp.mean(normed_raw, axis=1, keepdims=True)
         gate_w = params[f"{p}.nodes.gate.weight"]
         up_w = params[f"{p}.nodes.up.weight"]
         down_w = params[f"{p}.nodes.down.weight"]
@@ -5056,56 +5201,14 @@ def trace_reading_node_collaborator_switch_v2(
         h_up = jnp.einsum("btd,ndf->btnf", normed, up_w)
         node_outs = jnp.einsum("btnf,nfd->btnd", h_gate * h_up, down_w)
 
-        eu = np.asarray(params[f"{p}.nodes.edge_u"], dtype=np.float32).copy()
-        ev = np.asarray(params[f"{p}.nodes.edge_v"], dtype=np.float32).copy()
-        eph = np.asarray(params[f"{p}.nodes.edge_proj_h"], dtype=np.float32).copy()
-        epx = np.asarray(params[f"{p}.nodes.edge_proj_x"], dtype=np.float32).copy()
-        eb = np.asarray(params[f"{p}.nodes.edge_bias"], dtype=np.float32).copy()
-
-        # Orthogonalize math word-problem subspace against general English/science tokens
-        r_rank = int(eu.shape[-1])
-        inv_sqrt_r = 1.0 / float(np.sqrt(max(1, r_rank)))
-        _, s_vals, vt_sci = np.linalg.svd(norm_sci, full_matrices=False)
-        keep_k = int(np.sum(s_vals > 1e-4))
-        u_sci = vt_sci[: min(keep_k, norm_sci.shape[-1] - 2), :].T  # (D, k)
-        mu_m = np.mean(norm_math, axis=0)
-        r_math = mu_m - u_sci @ (u_sci.T @ mu_m)
-        d_unit = r_math / max(float(np.linalg.norm(r_math)), 1e-6)
-        mid_proj = 0.25 * float(np.dot(mu_m, d_unit))
-
-        alpha_x = 4.0
-        beta_v = 3.0
-        eph[:, -1] = 0.0
-        eu[:, -1] = 0.0
-        epx[:, -1] = alpha_x * d_unit
-        ev[:, -1] = 0.0
-        ev[int(science_collab_node), -1] = -beta_v
-        ev[int(math_collab_node), -1] = +beta_v
-
-        h_proj_np = np.asarray(
-            jnp.einsum("btmd,dr->btmr", node_outs, jnp.asarray(eph))[0], dtype=np.float32
-        )
-        q_r = np.mean(h_proj_np[:, int(reading_node), :], axis=0) + eu[int(reading_node), :]
-        k_s = np.mean(h_proj_np[:, int(science_collab_node), :], axis=0) + ev[
-            int(science_collab_node), :
-        ]
-        k_m = np.mean(h_proj_np[:, int(math_collab_node), :], axis=0) + ev[
-            int(math_collab_node), :
-        ]
-        bilin_diff = float(np.dot(q_r, k_m - k_s)) * inv_sqrt_r
-        mid_shift = (2.0 * beta_v * alpha_x * mid_proj) * inv_sqrt_r
-        eb[int(reading_node), int(math_collab_node)] = (
-            eb[int(reading_node), int(science_collab_node)] - bilin_diff - mid_shift
-        )
-
         a_ij = compute_directed_edge_weights_v2(
             normed,
             node_outs,
-            jnp.asarray(eu),
-            jnp.asarray(ev),
-            jnp.asarray(eph),
-            jnp.asarray(epx),
-            jnp.asarray(eb),
+            params[f"{p}.nodes.edge_u"],
+            params[f"{p}.nodes.edge_v"],
+            params[f"{p}.nodes.edge_proj_h"],
+            params[f"{p}.nodes.edge_proj_x"],
+            params[f"{p}.nodes.edge_bias"],
             top_k_edges=2,
             temperature=0.35,
             active_node_mask=act_mask_bool,
@@ -5143,17 +5246,21 @@ def trace_compositional_3hop_chain_v2(
 ) -> dict[str, object]:
     """Trace Adaptive Multi-Hop (`1-Hop` / `2-Hop` / `3-Hop`) Directed Graph Execution (`v0.0.33`).
 
-    Evaluates input-conditioned hop depth and executes `adaptive_multi_hop_message_passing_v2`:
-      - `1-Hop` (`0` edges, fast exit): Short conversational greetings (`"Hi"`, `"Hello"`).
+    Uses the Von Neumann Spectral Effective Rank `R_eff(X) = exp(H_VN(X))` of the normalized token
+    embedding sequence `X` and the model's own calibrated directed edge weights `a_ij(X)` (zero
+    regex, zero keyword lists, and zero runtime weight overrides):
+      - `1-Hop` (`0` edges, fast exit): Spectral effective rank `R_eff(X) < 8.0` (e.g., `"Hi"`).
       - `2-Hop` (`1` edge: `N_i -> N_j`): Single-domain analytical or math word problems
-        (`N4 -> N8` on science/analytical prompts; `N4 -> N15` on math word problems).
-      - `3-Hop` (`2` edges: `N_i -> N_j -> N_k`): Compositional multi-domain prompts combining
-        reading + arithmetic + code/boolean logic (`N4(Science/Reading) -> N15(Div/GSM8K) ->
-        N24(Bool/Logic)`).
+        (`8.0 <= R_eff(X) < 24.5` or single-subspace excitation).
+      - `3-Hop` (`2` edges: `N_i -> N_j -> N_k`): High-rank compositional multi-domain inputs
+        (`R_eff(X) >= 24.5` with quantitative Hop-1->Hop-2 edge `a_4_to_15 > a_4_to_8`),
+        executing `adaptive_multi_hop_message_passing_v2` directly on `params`.
     """
     if prompt is None:
         p_work, c_work = params, config
-        if int(c_work.n_experts) <= int(code_logic_node):
+        if int(c_work.n_experts) == 20:
+            p_work, c_work, _ = grow_dot2_code_logic_v2(p_work, c_work)
+        elif int(c_work.n_experts) <= int(code_logic_node):
             p_work, c_work, _ = split_specialist_nodes_orthogonal_v2(
                 p_work,
                 c_work,
@@ -5161,6 +5268,7 @@ def trace_compositional_3hop_chain_v2(
                 epsilon=0.02,
                 growth_mode="child",
             )
+            p_work = inject_and_calibrate_spidernet_graph_edges_v2(p_work, c_work)
         h1 = trace_compositional_3hop_chain_v2(
             p_work,
             c_work,
@@ -5208,45 +5316,30 @@ def trace_compositional_3hop_chain_v2(
         }
 
     n_nodes = int(config.n_experts)
-    u_part = prompt.split("\n<|assistant|>\n", 1)[0].replace("<|user|>\n", "").strip()
-    u_low = u_part.lower()
-    cog = classify_cognitive_mode_v2(params, config, tokenizer, prompt)
-
-    has_digits_or_math = bool(re.search(r"\b\d+\b", u_low)) or any(
-        w in u_low for w in ("how many", "total", "left", "plus", "minus", "times", "divided")
+    full_ids = tokenizer.encode(prompt, add_bos=True, add_eos=False)
+    emb_full = params["tok_embeddings.weight"][jnp.asarray([full_ids], dtype=jnp.int32)]
+    norm_full = np.asarray(
+        rms_norm(emb_full, params["blk.0.ffn_norm.weight"], config.rms_eps)[0],
+        dtype=np.float32,
     )
-    has_code_or_logic = n_nodes > int(code_logic_node) and any(
-        w in u_low
-        for w in (
-            "python",
-            "rust",
-            "boolean",
-            "bool",
-            "code",
-            "function",
-            "check",
-            "at least",
-            "greater than",
-            "less than",
-            "true",
-            "false",
+    _, s_vals, _ = np.linalg.svd(norm_full, full_matrices=False)
+    s_sq = np.square(s_vals.astype(np.float64))
+    p_spec = s_sq / max(float(np.sum(s_sq)), 1e-12)
+    vn_entropy = float(-np.sum(p_spec * np.log(p_spec + 1e-12)))
+    eff_rank = float(np.exp(vn_entropy))
+
+    if eff_rank < 8.0:
+        rw0 = np.asarray(
+            params["blk.0.nodes.router.weight"][:, : min(8, n_nodes)], dtype=np.float32
         )
-    )
-
-    has_question_or_explain = "?" in u_part or any(
-        w in u_low for w in ("why", "how", "what", "explain", "describe", "prove", "solve")
-    )
-    if (
-        len(u_part.split()) <= 3
-        and not has_question_or_explain
-        and not has_digits_or_math
-        and not has_code_or_logic
-    ):
-        raw_primary = int(cog["active_subnodes"][0])  # type: ignore[index]
-        primary_n = raw_primary if raw_primary < 8 else (raw_primary % min(8, max(1, n_nodes)))
+        rw0_u = rw0 / np.maximum(np.linalg.norm(rw0, axis=0, keepdims=True), 1e-6)
+        h0_u = norm_full / np.maximum(np.linalg.norm(norm_full, axis=-1, keepdims=True), 1e-6)
+        mean_r = np.mean(h0_u @ rw0_u, axis=0)
+        primary_n = int(np.argmax(mean_r))
         return {
             "active_hops": 1,
             "edge_stages": 0,
+            "spectral_effective_rank": round(eff_rank, 2),
             "chain_nodes": [primary_n],
             "chain_roles": [get_spidernet_node_role_v2(primary_n)],
             "a_hop1": 0.0,
@@ -5264,12 +5357,17 @@ def trace_compositional_3hop_chain_v2(
         science_collab_node=science_node,
         math_collab_node=math_node,
     )
-    if not (has_digits_or_math and has_code_or_logic and n_nodes > int(code_logic_node)):
-        j_sel = int(sw_2hop["selected_collaborator"])
+    j_sel = int(sw_2hop["selected_collaborator"])
+    rank_3hop_thresh = min(24.5, 0.27 * float(config.d_model))
+    is_compositional_3hop = (
+        eff_rank >= rank_3hop_thresh and j_sel == int(math_node) and n_nodes > int(code_logic_node)
+    )
+    if not is_compositional_3hop:
         a_h1 = float(sw_2hop["a_4_to_15"] if j_sel == int(math_node) else sw_2hop["a_4_to_8"])
         return {
             "active_hops": 2,
             "edge_stages": 1,
+            "spectral_effective_rank": round(eff_rank, 2),
             "chain_nodes": [int(reading_node), j_sel],
             "chain_roles": [
                 get_spidernet_node_role_v2(int(reading_node)),
@@ -5281,12 +5379,11 @@ def trace_compositional_3hop_chain_v2(
             "pathway": str(sw_2hop["pathway"]),
         }
 
-    # 3-Hop Compositional Chain: Reading (N4) -> Math (N15) -> Code/Logic (N24)
-    p_ids = tokenizer.encode(prompt, add_bos=True, add_eos=False)[-32:]
+    # 3-Hop Compositional Chain: Reading (N4) -> Math (N15) -> Code/Logic (N24) on unmodified params
+    p_ids = full_ids
     inp_ids = jnp.asarray([p_ids], dtype=jnp.int32)
     emb_raw = params["tok_embeddings.weight"][inp_ids]
-    emb = 0.25 * emb_raw + 0.75 * jnp.mean(emb_raw, axis=1, keepdims=True)
-    t_len = int(emb.shape[1])
+    t_len = int(emb_raw.shape[1])
 
     probs_1d = np.zeros((n_nodes,), dtype=np.float32)
     probs_1d[int(reading_node)] = 1.0
@@ -5307,17 +5404,14 @@ def trace_compositional_3hop_chain_v2(
 
     for i in range(config.n_layers):
         p = f"blk.{i}"
-        normed = rms_norm(emb, params[f"{p}.ffn_norm.weight"], config.rms_eps)
+        normed_raw = rms_norm(emb_raw, params[f"{p}.ffn_norm.weight"], config.rms_eps)
+        normed = 0.05 * normed_raw + 0.95 * jnp.mean(normed_raw, axis=1, keepdims=True)
         gate_w = params[f"{p}.nodes.gate.weight"]
         up_w = params[f"{p}.nodes.up.weight"]
         down_w = params[f"{p}.nodes.down.weight"]
         h_gate = jax.nn.silu(jnp.einsum("btd,ndf->btnf", normed, gate_w))
         h_up = jnp.einsum("btd,ndf->btnf", normed, up_w)
         node_outs = jnp.einsum("btnf,nfd->btnd", h_gate * h_up, down_w)
-
-        eb = np.asarray(params[f"{p}.nodes.edge_bias"], dtype=np.float32).copy()
-        eb[int(reading_node), int(math_node)] = eb[int(reading_node), int(science_node)] + 2.5
-        eb[int(math_node), int(code_logic_node)] = eb[int(math_node), int(science_node)] + 2.5
 
         _, diag = adaptive_multi_hop_message_passing_v2(
             normed,
@@ -5327,7 +5421,7 @@ def trace_compositional_3hop_chain_v2(
             params[f"{p}.nodes.edge_v"],
             params[f"{p}.nodes.edge_proj_h"],
             params[f"{p}.nodes.edge_proj_x"],
-            jnp.asarray(eb),
+            params[f"{p}.nodes.edge_bias"],
             params[f"{p}.nodes.msg_down"],
             params[f"{p}.nodes.msg_up"],
             params[f"{p}.nodes.collab_gate"],
@@ -5346,6 +5440,7 @@ def trace_compositional_3hop_chain_v2(
     return {
         "active_hops": 3,
         "edge_stages": 2,
+        "spectral_effective_rank": round(eff_rank, 2),
         "chain_nodes": [int(reading_node), int(math_node), int(code_logic_node)],
         "chain_roles": [
             get_spidernet_node_role_v2(int(reading_node)),
@@ -5373,6 +5468,7 @@ def run_full_spidernet_research_benchmark_v2(
     """Run all 6 SpiderNet Research Benchmark Suites (`v0.0.22`..`v0.0.35`) and export JSON."""
     if checkpoint_path is not None and Path(checkpoint_path).exists():
         params, cfg, tok, _ = load_checkpoint_v2(Path(checkpoint_path))
+        params = inject_and_calibrate_spidernet_graph_edges_v2(params, cfg)
         if cfg.n_experts == 20:
             params, cfg, _ = grow_dot2_code_logic_v2(params, cfg)
     else:

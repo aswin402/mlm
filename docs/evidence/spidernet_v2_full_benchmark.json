@@ -18,10 +18,10 @@
     "sparse_specialist_flops_delib_per_tok": 10616832,
     "flops_reduction_fast_x": 15.0,
     "flops_saved_fast_pct": 93.33333333333333,
-    "max_logit_diff": 7.62939453125e-06,
-    "sparse_ms_per_tok": 7.929756499834184,
-    "dense_ms_per_tok": 22.48986850008805,
-    "speedup_x": 2.836136078145442
+    "max_logit_diff": 6.67572021484375e-06,
+    "sparse_ms_per_tok": 7.321266250073677,
+    "dense_ms_per_tok": 23.934926749461738,
+    "speedup_x": 3.2692332080151942
   },
   "suite_2_o1_memory_scaling": {
     "ring_window": 16,
@@ -30,8 +30,8 @@
     "o1_bytes_per_token_slope": 0.0,
     "standard_bytes_per_token_slope": 9216.0,
     "full_kv_bytes_per_token_slope": 9216.0,
-    "max_logit_diff_within_window": 8.821487426757812e-06,
-    "evicted_summary_state_norm": 58.9886,
+    "max_logit_diff_within_window": 8.58306884765625e-06,
+    "evicted_summary_state_norm": 58.9888,
     "scaling_table": [
       {
         "seq_len": 16,
@@ -86,13 +86,14 @@
       "reading_role": "Science/Reading",
       "selected_collaborator": 8,
       "selected_role": "Eng-<think>",
-      "a_4_to_8": 0.934,
-      "a_4_to_15": 0.066,
+      "a_4_to_8": 1.0,
+      "a_4_to_15": 0.0,
       "pathway": "N4(Science/Reading) -> N8(Eng-<think>)"
     },
     "chain_1hop": {
       "active_hops": 1,
       "edge_stages": 0,
+      "spectral_effective_rank": 4.86,
       "chain_nodes": [
         2
       ],
@@ -107,6 +108,7 @@
     "chain_2hop": {
       "active_hops": 2,
       "edge_stages": 1,
+      "spectral_effective_rank": 13.04,
       "chain_nodes": [
         4,
         8
@@ -115,14 +117,15 @@
         "Science/Reading",
         "Eng-<think>"
       ],
-      "a_hop1": 0.9463,
+      "a_hop1": 0.9972,
       "a_hop2": 0.0,
-      "path_flux": 0.9463,
+      "path_flux": 0.9972,
       "pathway": "N4(Science/Reading) -> N8(Eng-<think>)"
     },
     "chain_3hop": {
       "active_hops": 3,
       "edge_stages": 2,
+      "spectral_effective_rank": 30.5,
       "chain_nodes": [
         4,
         15,
@@ -134,8 +137,8 @@
         "Bool/Logic"
       ],
       "a_hop1": 1.0,
-      "a_hop2": 0.9992,
-      "path_flux": 0.9992,
+      "a_hop2": 1.0,
+      "path_flux": 1.0,
       "pathway": "N4(Science/Reading) -> N15(Div/GSM8K) -> N24(Bool/Logic)"
     }
   },

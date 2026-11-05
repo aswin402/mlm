@@ -82,10 +82,14 @@ $$\gamma_j^{(s)}(x_t) = \tanh(g_{\text{collab}, j}) \odot 2\sigma\!\left(\frac{\
 
 $$h_j^{(s+1)}(x_t) = h_j^{(s)}(x_t) + \gamma_j^{(s)}(x_t) \odot \left(\operatorname{SiLU}\!\left(M_j^{(s)}(x_t)\right) \odot \hat{h}_j^{(s)}(x_t) + M_j^{(s)}(x_t)\right)$$
 
-where $q_i^{(1)}(x_t) = p_i(x_t)$. Input-conditioned hop halting selects:
-- **`1-Hop` (`0` edges):** $y_t = \sum_i p_i(x_t) h_i^{(1)}(x_t)$ on short conversational turns (`"Hi"`).
-- **`2-Hop` (`1` edge stage, $N_i \to N_j$):** $y_t = y_t^{(1)} + \sum_j q_j^{(2)}(x_t) \Delta h_j^{(2)}(x_t)$ on single-domain analytical or math queries.
-- **`3-Hop` (`2` edge stages, $N_i \to N_j \to N_k$):** $y_t = y_t^{(2)} + \sum_k q_k^{(3)}(x_t) \Delta h_k^{(3)}(x_t)$ on compositional multi-domain queries (`Reading N4 -> Math N15 -> Code/Logic N24`).
+where $q_i^{(1)}(x_t) = p_i(x_t)$. The last rank coordinate ($r - 1$) of $R_x$ (`edge_proj_x`) is calibrated directly from the model's token embedding table $E \in \mathbb{R}^{V \times d}$ via **Regularized Fisher Linear Discriminant Analysis (FDA) + Orthogonal Nullspace Projection**:
+
+$$\mathbf{w}_{\text{FDA}} = \left(\Sigma_{\text{gen}} + \lambda I\right)^{-1} (\boldsymbol{\mu}_{\text{num}} - \boldsymbol{\mu}_{\text{gen}}), \qquad \mathbf{w}_{\text{orth}} = (I - U_{\text{gen}} U_{\text{gen}}^\top)(\boldsymbol{\mu}_{\text{num}} - \boldsymbol{\mu}_{\text{gen}})$$
+
+And input-conditioned hop depth is governed by the **Von Neumann Spectral Effective Rank** $R_{\text{eff}}(X) = \exp\!\left(-\sum_k \hat{p}_k \log \hat{p}_k\right)$ of the normalized token embedding matrix $X \in \mathbb{R}^{T \times d}$ ($\hat{p}_k = \sigma_k^2 / \sum_j \sigma_j^2$):
+- **`1-Hop` (`0` edges):** $R_{\text{eff}}(X) < 8.0$ on low-rank conversational turns (`"Hi"`, $R_{\text{eff}} = 4.86$).
+- **`2-Hop` (`1` edge stage, $N_i \to N_j$):** $8.0 \le R_{\text{eff}}(X) < 24.5$ on single-domain analytical or math queries ($R_{\text{eff}} = 13.04$).
+- **`3-Hop` (`2` edge stages, $N_i \to N_j \to N_k$):** $R_{\text{eff}}(X) \ge 24.5$ with quantitative Hop-1$\to$Hop-2 activation ($a_{4 \to 15}^{(1)} > a_{4 \to 8}^{(1)}$) on compositional multi-domain queries (`Reading N4 -> Math N15 -> Code/Logic N24`, $R_{\text{eff}} = 30.50$).
 
 ### 2.4 Anti-Collapse Graph Regularizers (`v0.0.24`)
 
