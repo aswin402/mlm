@@ -720,12 +720,22 @@ def directed_graph_message_passing_v2(
     msg_emitted = jnp.einsum("btmr,rd->btmd", msg_lat, msg_up)  # (B, T, M, D)
     flow_ij = gated_probs[..., :, None] * edge_weights  # (B, T, M_src, M_dst)
     inc_msg = jnp.einsum("btij,btid->btjd", flow_ij, msg_emitted)  # (B, T, M_dst, D)
+    inc_lat = jnp.einsum("btij,btir->btjr", flow_ij, msg_lat)  # (B, T, M_dst, r)
     inc_weight = jnp.sum(flow_ij, axis=-2)  # (B, T, M_dst)
 
     h_norm = node_outs * jax.lax.rsqrt(
         jnp.mean(jnp.square(node_outs), axis=-1, keepdims=True) + 1e-5
     )
-    gamma_j = jnp.tanh(collab_gate.astype(node_outs.dtype))[None, None, :, None]
+    h_lat = jnp.einsum("btmd,dr->btmr", h_norm, edge_proj_h)
+    inv_sqrt_r = 1.0 / jnp.sqrt(float(max(1, int(edge_proj_h.shape[-1]))))
+    # State-dependent residual protection gate:
+    # gamma_j = tanh(g_collab_j) * 2 * sigma(W_g[h_j^(1); m_j])
+    gate_logit = (
+        jnp.einsum("btjr,btjr->btj", h_lat, inc_lat)[..., None] * inv_sqrt_r
+        + h_norm * inc_msg
+    )
+    sigma_gate = 2.0 * jax.nn.sigmoid(gate_logit)
+    gamma_j = jnp.tanh(collab_gate.astype(node_outs.dtype))[None, None, :, None] * sigma_gate
     delta_h2 = gamma_j * (jax.nn.silu(inc_msg) * h_norm + inc_msg)
     collab_out = jnp.einsum("btj,btjd->btd", inc_weight, delta_h2)
     total_out = base_out + collab_out
@@ -2082,23 +2092,30 @@ def split_specialist_nodes_orthogonal_v2(
     epsilon: float = 0.05,
     mature_lr_scale: float | None = None,
     shared_lr_scale: float | None = None,
+    growth_mode: str = "sibling",
 ) -> tuple[dict[str, jnp.ndarray], ConfigV2, dict[str, object]]:
     """SpiderNet v0.0.26 Symmetric Orthogonal Parent-Child Specialist Splitting.
 
-    Given overloaded parent specialist node(s) `i*`, splits each parent into a symmetric
-    orthogonal dyad:
-      `W_{i*}' = W_{i*} + eps * Q`,   `W_{new}' = W_{i*} - eps * Q`   where `<Q, W_{i*}> = 0`.
-    Preserves the ensemble mean `0.5 * (W_{i*}' + W_{new}') == W_{i*}` while immediately
-    breaking gradient symmetry along orthogonal subspaces and seeding a bidirectional
-    collaborator edge bias `c_{i*, new} = c_{new, i*} = +0.5`.
+    Supports two structural growth modes:
+      - `growth_mode="sibling"` (Capacity Growth — parallel load sharing):
+        `W_{i*}' = W_{i*} + eps * Q`, `W_{new}' = W_{i*} - eps * Q` (`<Q, W_{i*}> = 0`),
+        `b_{i*}' = b_{i*} - log(2)`, `b_{new}' = b_{i*} - log(2)`, and bidirectional
+        collaborator edge bias `c_{i*, new} = c_{new, i*} = +0.5`.
+      - `growth_mode="child"` (Capability Growth — sequential downstream refinement):
+        Anchors parent `W_{i*}' = W_{i*}` and `b_{i*}' = b_{i*}`, spawns orthogonal child
+        `W_{new}' = W_{i*} - eps * Q`, and creates an asymmetric directed forward pathway
+        `c_{i* -> new} = +1.0` (`c_{new -> i*} = +0.1`).
     """
     if config.n_experts < 2 or add_nodes < 1:
         raise ValueError("split_specialist_nodes_orthogonal_v2 requires n_experts >= 2")
+    if growth_mode not in ("sibling", "child"):
+        raise ValueError(f"growth_mode must be 'sibling' or 'child', got {growth_mode!r}")
     n_old = int(config.n_experts)
     n_new = n_old + int(add_nodes)
     eff_eps = float(np.clip(epsilon, 1e-4, 0.25))
     eff_mature_lr = float(config.mature_lr_scale if mature_lr_scale is None else mature_lr_scale)
     eff_shared_lr = float(config.shared_lr_scale if shared_lr_scale is None else shared_lr_scale)
+    log2_val = float(np.log(2.0))
 
     new_cfg = config.model_copy(
         update={
@@ -2138,12 +2155,12 @@ def split_specialist_nodes_orthogonal_v2(
                 cos_val = abs(float(np.sum(w_orig * q_orth)) / denom_orth)
                 if cos_val > max_orth_cos:
                     max_orth_cos = cos_val
-                w_parent_new = (w_orig + eff_eps * q_orth).astype(np.float32)
+                w_sym_plus = (w_orig + eff_eps * q_orth).astype(np.float32)
                 w_child_new = (w_orig - eff_eps * q_orth).astype(np.float32)
-                recon_err = float(np.max(np.abs(0.5 * (w_parent_new + w_child_new) - w_orig)))
+                recon_err = float(np.max(np.abs(0.5 * (w_sym_plus + w_child_new) - w_orig)))
                 if recon_err > max_mean_recon_err:
                     max_mean_recon_err = recon_err
-                arr[p_idx] = w_parent_new
+                arr[p_idx] = w_sym_plus if growth_mode == "sibling" else w_orig
                 children.append(w_child_new)
                 del j
             new_params[f"{p}.nodes.{suffix}.weight"] = jnp.asarray(
@@ -2155,7 +2172,8 @@ def split_specialist_nodes_orthogonal_v2(
         for p_idx in parents:
             r_orig = np.asarray(params[f"{p}.nodes.router.weight"][:, p_idx], dtype=np.float32)
             q_r = _orthogonal_perturbation_like(r_orig, rng)
-            rw[:, p_idx] = (r_orig + eff_eps * q_r).astype(np.float32)
+            if growth_mode == "sibling":
+                rw[:, p_idx] = (r_orig + eff_eps * q_r).astype(np.float32)
             extra_rw.append((r_orig - eff_eps * q_r).astype(np.float32))
         new_params[f"{p}.nodes.router.weight"] = jnp.asarray(
             np.concatenate([rw, np.stack(extra_rw, axis=-1)], axis=-1)
@@ -2164,8 +2182,15 @@ def split_specialist_nodes_orthogonal_v2(
         rb_old = np.asarray(
             params.get(f"{p}.nodes.router_bias", np.zeros((n_old,), dtype=np.float32)),
             dtype=np.float32,
-        )
-        rb_new = np.array([rb_old[p_idx] for p_idx in parents], dtype=np.float32)
+        ).copy()
+        rb_new = np.zeros((add_nodes,), dtype=np.float32)
+        for j, p_idx in enumerate(parents):
+            if growth_mode == "sibling":
+                orig_b = float(rb_old[p_idx])
+                rb_old[p_idx] = orig_b - log2_val
+                rb_new[j] = orig_b - log2_val
+            else:
+                rb_new[j] = float(rb_old[p_idx]) - 0.5 * log2_val
         new_params[f"{p}.nodes.router_bias"] = jnp.asarray(
             np.concatenate([rb_old, rb_new], axis=0)
         )
@@ -2186,7 +2211,8 @@ def split_specialist_nodes_orthogonal_v2(
                 for p_idx in parents:
                     e_orig = np.asarray(params[f"{p}.nodes.{e_key}"][p_idx], dtype=np.float32)
                     q_e = _orthogonal_perturbation_like(e_orig, rng)
-                    e_arr[p_idx] = (e_orig + eff_eps * q_e).astype(np.float32)
+                    if growth_mode == "sibling":
+                        e_arr[p_idx] = (e_orig + eff_eps * q_e).astype(np.float32)
                     e_children.append((e_orig - eff_eps * q_e).astype(np.float32))
                 new_params[f"{p}.nodes.{e_key}"] = jnp.asarray(
                     np.concatenate([e_arr, np.stack(e_children, axis=0)], axis=0)
@@ -2197,8 +2223,12 @@ def split_specialist_nodes_orthogonal_v2(
             eb_new[:n_old, :n_old] = eb_old
             for j, p_idx in enumerate(parents):
                 c_idx = n_old + j
-                eb_new[p_idx, c_idx] = 0.5
-                eb_new[c_idx, p_idx] = 0.5
+                if growth_mode == "sibling":
+                    eb_new[p_idx, c_idx] = 0.5
+                    eb_new[c_idx, p_idx] = 0.5
+                else:
+                    eb_new[p_idx, c_idx] = 1.0
+                    eb_new[c_idx, p_idx] = 0.1
             new_params[f"{p}.nodes.edge_bias"] = jnp.asarray(eb_new)
         if f"{p}.nodes.collab_gate" in params:
             cg_old = np.asarray(params[f"{p}.nodes.collab_gate"], dtype=np.float32)
@@ -2211,6 +2241,7 @@ def split_specialist_nodes_orthogonal_v2(
         "n_old": n_old,
         "n_new": n_new,
         "epsilon": eff_eps,
+        "growth_mode": growth_mode,
         "parents_layer0": chosen_parents_per_layer[0] if chosen_parents_per_layer else [],
         "max_orthogonality_cosine": max_orth_cos,
         "max_mean_reconstruction_err": max_mean_recon_err,
@@ -2381,13 +2412,19 @@ class AutonomousGrowthControllerV2:
 
         scores = self.compute_node_spawning_scores(params, grads, inputs, mask, config)
         g_arr = np.asarray(scores["g_score"])
+        s_arr = np.asarray(scores["saturation_hat"])
+        o_arr = np.asarray(scores["overload_hat"])
         top_parents = [int(idx) for idx in np.argsort(-g_arr)[: int(add_nodes)]]
+        p0 = top_parents[0]
+        # Capacity (sibling) when routing overload dominates; Capability (child) otherwise
+        chosen_mode = "sibling" if float(o_arr[p0]) >= float(s_arr[p0]) else "child"
         new_params, new_cfg, split_rep = split_specialist_nodes_orthogonal_v2(
             params,
             config,
             parent_indices=top_parents,
             add_nodes=add_nodes,
             epsilon=self.split_epsilon,
+            growth_mode=chosen_mode,
         )
         self.cusum_val = 0.0
         self.last_grow_step = int(step)
@@ -2396,6 +2433,7 @@ class AutonomousGrowthControllerV2:
             "step": int(step),
             "cusum_at_trigger": c_val,
             "parent_indices": top_parents,
+            "growth_mode": chosen_mode,
             "max_g_score": float(np.max(g_arr)),
             "n_old": split_rep["n_old"],
             "n_new": split_rep["n_new"],
@@ -2403,6 +2441,50 @@ class AutonomousGrowthControllerV2:
         }
         self.growth_events.append(ev)
         return new_params, new_cfg, ev
+
+
+def compute_node_domain_mutual_info_v2(
+    domain_node_probs: np.ndarray | list[list[float]],
+    domain_priors: np.ndarray | list[float] | None = None,
+) -> dict[str, float]:
+    """Compute Domain Mutual Information `I(N; D)` & Normalized Mutual Information (`v0.0.26`).
+
+    Given a `D x N` matrix `domain_node_probs[d, n] = P(N = n | D = d)` of specialist routing
+    probabilities across domains `d = 0..D-1` and specialist nodes `n = 0..N-1`:
+      `I(N; D) = sum_{d, n} P(n, d) log(P(n, d) / (P(n) P(d)))`
+    """
+    p_n_given_d = np.asarray(domain_node_probs, dtype=np.float64)
+    if p_n_given_d.ndim != 2:
+        raise ValueError("domain_node_probs must have shape (D, N)")
+    d_cnt, n_cnt = p_n_given_d.shape
+    row_sums = np.maximum(np.sum(p_n_given_d, axis=-1, keepdims=True), 1e-12)
+    p_n_given_d = p_n_given_d / row_sums
+    if domain_priors is None:
+        p_d = np.full((d_cnt,), 1.0 / float(max(1, d_cnt)), dtype=np.float64)
+    else:
+        p_d = np.asarray(domain_priors, dtype=np.float64)
+        p_d = p_d / max(float(np.sum(p_d)), 1e-12)
+
+    p_nd = p_d[:, None] * p_n_given_d  # (D, N)
+    p_n = np.sum(p_nd, axis=0)  # (N,)
+    denom = np.maximum(p_d[:, None] * p_n[None, :], 1e-15)
+    valid = p_nd > 1e-15
+    mi_nats = float(np.sum(np.where(valid, p_nd * np.log(np.maximum(p_nd, 1e-15) / denom), 0.0)))
+    mi_nats = max(0.0, mi_nats)
+    mi_bits = mi_nats / float(np.log(2.0))
+
+    h_d = float(-np.sum(np.where(p_d > 1e-15, p_d * np.log(np.maximum(p_d, 1e-15)), 0.0)))
+    h_n = float(-np.sum(np.where(p_n > 1e-15, p_n * np.log(np.maximum(p_n, 1e-15)), 0.0)))
+    denom_h = max(float(np.sqrt(max(h_d * h_n, 0.0))), 1e-12)
+    nmi = mi_nats / denom_h if (h_d > 0 and h_n > 0) else 0.0
+    del n_cnt
+    return {
+        "I_N_D_nats": round(mi_nats, 5),
+        "I_N_D_bits": round(mi_bits, 5),
+        "NMI": round(float(np.clip(nmi, 0.0, 1.0)), 5),
+        "H_N_nats": round(h_n, 5),
+        "H_D_nats": round(h_d, 5),
+    }
 
 
 def evaluate_continual_learning_metrics_v2(
@@ -2464,15 +2546,17 @@ def run_spidernet_ablation_suite_v2(
     vocab_size: int = 260,
     d_model: int = 64,
     steps_per_task: int = 6,
+    seeds: tuple[int, ...] = (42,),
 ) -> dict[str, dict[str, object]]:
     """Run SpiderNet v0.0.28 6-Architecture Controlled Continual-Learning Ablation (`A`..`F`).
 
     Evaluates continual learning across 4 sequential synthetic token domains
-    (`English -> Math -> Science -> Code`) for:
-      - `A_dense_baseline`: Dense model without specialist nodes (`n_experts=0`)
+    (`English -> Math -> Science -> Code`) under matched active compute budget across `seeds`:
+      - `A_dense_baseline`: Dense model with widened FFN (`ffn_dim = 4 * d_model`) matching the
+        active per-token FFN parameter budget (`2 * d_model` trunk + `k=2 * d_model` specialists)
       - `B_static_flat_moe`: Static flat top-k MoE without growth or graph edges
       - `C_static_hierarchical_moe`: Static hierarchical MoE without graph message passing
-      - `D_manual_grow_moe`: Growing MoE with mature node protection (`mature_lr_scale=0.05`)
+      - `D_manual_grow_moe`: Growing MoE with mature node protection (`mature_lr_scale=0.10`)
       - `E_spidernet_directed_graph`: Directed inter-node graph message passing + edge routing
       - `F_spidernet_full_autonomous`: Full SpiderNet (Sparse Gather + Directed Graph Message
         Passing + Input-Conditioned Edge Routing + Autonomous CUSUM 3-Signal Orthogonal Splitting)
@@ -2506,6 +2590,27 @@ def run_spidernet_ablation_suite_v2(
         tl = -jnp.take_along_axis(lps, tgt[..., None], axis=-1)[..., 0]
         return float(jnp.mean(tl))
 
+    def _eval_domain_mi(p: dict[str, jnp.ndarray], cfg: ConfigV2) -> float:
+        if cfg.n_experts <= 1 or "blk.0.nodes.router.weight" not in p:
+            return 0.0
+        rw = np.asarray(p["blk.0.nodes.router.weight"], dtype=np.float64)
+        w_u = rw / np.maximum(np.linalg.norm(rw, axis=0, keepdims=True), 1e-8)
+        emb_w = np.asarray(p["tok_embeddings.weight"], dtype=np.float64)
+        fn_w = np.asarray(p["blk.0.ffn_norm.weight"], dtype=np.float64)
+        rows = []
+        for t_name in task_names:
+            inp_t, _ = tasks[t_name]
+            e_t = emb_w[np.asarray(inp_t)[0]]
+            rms = np.sqrt(np.mean(np.square(e_t), axis=-1, keepdims=True) + cfg.rms_eps)
+            h_t = (e_t / rms) * fn_w
+            h_u = h_t / np.maximum(np.linalg.norm(h_t, axis=-1, keepdims=True), 1e-8)
+            logits = 8.0 * (h_u @ w_u)
+            logits = logits - np.max(logits, axis=-1, keepdims=True)
+            probs = np.exp(logits)
+            probs = probs / np.maximum(np.sum(probs, axis=-1, keepdims=True), 1e-12)
+            rows.append(np.mean(probs, axis=0))
+        return float(compute_node_domain_mutual_info_v2(np.stack(rows, axis=0))["I_N_D_bits"])
+
     variants = [
         ("A_dense_baseline", {"n_experts": 0, "graph_edge_rank": 0, "mode": "static"}),
         ("B_static_flat_moe", {"n_experts": 4, "graph_edge_rank": 0, "mode": "static"}),
@@ -2519,89 +2624,134 @@ def run_spidernet_ablation_suite_v2(
     ]
 
     results: dict[str, dict[str, object]] = {}
+    step_fn_cache: dict[tuple[object, ...], object] = {}
+    eff_seeds = tuple(int(s) for s in seeds) if len(seeds) > 0 else (42,)
     for v_name, v_spec in variants:
-        cfg = ConfigV2(
-            vocab_size=vocab_size,
-            d_model=d_model,
-            n_layers=2,
-            n_heads=4,
-            n_kv_heads=2,
-            ffn_dim=d_model * 2,
-            n_experts=int(v_spec["n_experts"]),
-            top_k_experts=2,
-            expert_ffn_dim=d_model,
-            graph_edge_rank=int(v_spec["graph_edge_rank"]),
-            graph_edge_top_k=1,
-            graph_reg_weight=0.02 if int(v_spec["graph_edge_rank"]) > 0 else 0.0,
-            max_seq_len=16,
-            batch_size=1,
-            learning_rate=4e-3,
-            warmup_steps=1,
-            seed=42,
-        )
-        state = create_state_v2(cfg, total_steps=steps_per_task * len(task_names))
-        params = state.params
-        opt_state = state.opt_state
-        ctrl = AutonomousGrowthControllerV2(
-            threshold_h=0.5, delta_drift=0.05, cooldown_steps=2, max_experts=10
-        )
-        loss_mat = np.zeros((len(task_names), len(task_names)), dtype=np.float64)
-        global_step = 0
+        seed_runs: list[dict[str, float]] = []
+        last_n_nodes = 0
+        last_edge_rank = 0
+        last_growth_events = 0
+        last_total_params = 0
+        for s_val in eff_seeds:
+            is_dense = int(v_spec["n_experts"]) == 0
+            cfg = ConfigV2(
+                vocab_size=vocab_size,
+                d_model=d_model,
+                n_layers=2,
+                n_heads=4,
+                n_kv_heads=2,
+                ffn_dim=d_model * 4 if is_dense else d_model * 2,
+                n_experts=int(v_spec["n_experts"]),
+                top_k_experts=2,
+                expert_ffn_dim=d_model,
+                graph_edge_rank=int(v_spec["graph_edge_rank"]),
+                graph_edge_top_k=1,
+                graph_reg_weight=0.02 if int(v_spec["graph_edge_rank"]) > 0 else 0.0,
+                max_seq_len=16,
+                batch_size=1,
+                learning_rate=4e-3,
+                warmup_steps=1,
+                seed=s_val,
+            )
+            state = create_state_v2(cfg, total_steps=steps_per_task * len(task_names))
+            params = state.params
+            opt_state = state.opt_state
+            ctrl = AutonomousGrowthControllerV2(
+                threshold_h=0.5, delta_drift=0.05, cooldown_steps=2, max_experts=10
+            )
+            loss_mat = np.zeros((len(task_names), len(task_names)), dtype=np.float64)
+            global_step = 0
 
-        for t_idx, t_name in enumerate(task_names):
-            inp_t, tgt_t = tasks[t_name]
-            if t_idx > 0 and v_spec["mode"] == "manual_grow":
-                params, cfg = grow_model_v2_nodes(
-                    params, cfg, add_nodes=1, mature_lr_scale=0.10, shared_lr_scale=0.35
+            for t_idx, t_name in enumerate(task_names):
+                inp_t, tgt_t = tasks[t_name]
+                if t_idx > 0 and v_spec["mode"] == "manual_grow":
+                    params, cfg = grow_model_v2_nodes(
+                        params, cfg, add_nodes=1, mature_lr_scale=0.10, shared_lr_scale=0.35
+                    )
+                    state = create_state_v2(cfg, total_steps=steps_per_task * len(task_names))
+                    opt_state = state.opt_state
+                elif t_idx > 0 and v_spec["mode"] == "auto_grow":
+                    l_jump = _eval_loss(params, cfg, inp_t, tgt_t)
+                    params, cfg, _ = ctrl.observe_and_maybe_grow(
+                        global_step,
+                        l_jump + 5.0,
+                        params,
+                        None,
+                        inp_t,
+                        mask,
+                        cfg,
+                        add_nodes=1,
+                    )
+                    cfg = cfg.model_copy(
+                        update={"mature_lr_scale": 0.10, "shared_lr_scale": 0.35}
+                    )
+                    state = create_state_v2(cfg, total_steps=steps_per_task * len(task_names))
+                    opt_state = state.opt_state
+
+                cache_key = (
+                    cfg.ffn_dim,
+                    cfg.n_experts,
+                    cfg.mature_experts,
+                    cfg.graph_edge_rank,
+                    cfg.mature_lr_scale,
+                    cfg.shared_lr_scale,
                 )
-                state = create_state_v2(cfg, total_steps=steps_per_task * len(task_names))
-                opt_state = state.opt_state
-            elif t_idx > 0 and v_spec["mode"] == "auto_grow":
-                l_jump = _eval_loss(params, cfg, inp_t, tgt_t)
-                params, cfg, _ = ctrl.observe_and_maybe_grow(
-                    global_step,
-                    l_jump + 5.0,
-                    params,
-                    None,
-                    inp_t,
-                    mask,
-                    cfg,
-                    add_nodes=1,
-                )
-                cfg = cfg.model_copy(
-                    update={"mature_lr_scale": 0.10, "shared_lr_scale": 0.35}
-                )
-                state = create_state_v2(cfg, total_steps=steps_per_task * len(task_names))
-                opt_state = state.opt_state
+                if cache_key not in step_fn_cache:
+                    step_fn_cache[cache_key] = make_train_step_v2(
+                        cfg, total_steps=steps_per_task * len(task_names)
+                    )
+                step_fn = step_fn_cache[cache_key]  # type: ignore[assignment]
+                for _ in range(steps_per_task):
+                    params, opt_state, l_val, _ = step_fn(params, opt_state, inp_t, tgt_t, mask)
+                    if (
+                        t_idx > 0
+                        and v_spec["mode"] in ("manual_grow", "auto_grow")
+                        and int(cfg.graph_edge_rank) > 0
+                    ):
+                        prev_inp, prev_tgt = tasks[task_names[0]]
+                        params, opt_state, _, _ = step_fn(
+                            params, opt_state, prev_inp, prev_tgt, mask
+                        )
+                    ctrl.update_cusum(float(l_val))
+                    global_step += 1
 
-            step_fn = make_train_step_v2(cfg, total_steps=steps_per_task * len(task_names))
-            for _ in range(steps_per_task):
-                # Replay-assisted continual step when graph / growth is active
-                params, opt_state, l_val, _ = step_fn(params, opt_state, inp_t, tgt_t, mask)
-                if (
-                    t_idx > 0
-                    and v_spec["mode"] in ("manual_grow", "auto_grow")
-                    and int(cfg.graph_edge_rank) > 0
-                ):
-                    prev_inp, prev_tgt = tasks[task_names[0]]
-                    params, opt_state, _, _ = step_fn(params, opt_state, prev_inp, prev_tgt, mask)
-                ctrl.update_cusum(float(l_val))
-                global_step += 1
+                for j_idx, j_name in enumerate(task_names):
+                    inp_j, tgt_j = tasks[j_name]
+                    loss_mat[t_idx, j_idx] = _eval_loss(params, cfg, inp_j, tgt_j)
 
-            for j_idx, j_name in enumerate(task_names):
-                inp_j, tgt_j = tasks[j_name]
-                loss_mat[t_idx, j_idx] = _eval_loss(params, cfg, inp_j, tgt_j)
+            act_k = cfg.top_k_experts if cfg.n_experts > 0 else 1
+            tot_n = cfg.n_experts if cfg.n_experts > 0 else 1
+            cl_m = evaluate_continual_learning_metrics_v2(
+                loss_mat, active_k=act_k, total_n=tot_n
+            )
+            cl_m["I_N_D_bits"] = _eval_domain_mi(params, cfg)
+            seed_runs.append(cl_m)
+            last_n_nodes = int(cfg.n_experts)
+            last_edge_rank = int(cfg.graph_edge_rank)
+            last_growth_events = len(ctrl.growth_events)
+            last_total_params = int(sum(int(v.size) for v in params.values()))
 
-        act_k = cfg.top_k_experts if cfg.n_experts > 0 else 1
-        tot_n = cfg.n_experts if cfg.n_experts > 0 else 1
-        cl_metrics = evaluate_continual_learning_metrics_v2(
-            loss_mat, active_k=act_k, total_n=tot_n
-        )
+        agg: dict[str, object] = {}
+        for k_metric in (
+            "AA",
+            "BWT",
+            "forgetting",
+            "retention_pct",
+            "final_mean_loss",
+            "activation_ratio",
+            "flops_reduction_x",
+            "I_N_D_bits",
+        ):
+            vals = [float(r[k_metric]) for r in seed_runs]
+            agg[k_metric] = round(float(np.mean(vals)), 5)
+            agg[f"{k_metric}_std"] = round(float(np.std(vals)), 5)
         results[v_name] = {
-            **cl_metrics,
-            "final_n_nodes": int(cfg.n_experts),
-            "graph_edge_rank": int(cfg.graph_edge_rank),
-            "growth_events": len(ctrl.growth_events),
+            **agg,
+            "n_seeds": len(eff_seeds),
+            "final_n_nodes": last_n_nodes,
+            "graph_edge_rank": last_edge_rank,
+            "growth_events": last_growth_events,
+            "total_params": last_total_params,
         }
     return results
 
@@ -4534,6 +4684,156 @@ def inspect_directed_graph_edges_v2(
         "layer_msg_norms": layer_msg_norms,
         "top_edges": top_edges,
         "summary_str": summary_str,
+    }
+
+
+def trace_reading_node_collaborator_switch_v2(
+    params: dict[str, jnp.ndarray],
+    config: ConfigV2,
+    tokenizer: BPETokenizer,
+    prompt: str,
+    reading_node: int = 4,
+    science_collab_node: int = 8,
+    math_collab_node: int = 15,
+) -> dict[str, object]:
+    """Verify input-conditioned collaborator switching from `Reading Node 4 (Science/Reading)`.
+
+    Evaluates the low-rank bilinear + input-conditioned edge scorer
+    `compute_directed_edge_weights_v2` from primary specialist `reading_node`
+    (`Node 4: Science/Reading`) across candidate collaborators `science_collab_node`
+    (`Node 8: Eng-<think>`) and `math_collab_node` (`Node 15: Div/GSM8K`):
+      - On mathematical word problems (e.g., `"A baker makes 4 trays of 6 muffins and sells 9..."`),
+        `Reading Node 4` dynamically routes to `Math Node 15 (Div/GSM8K)` (`a_4_to_15 > a_4_to_8`).
+      - On analytical/science prompts (e.g., `"Why is the sky blue?"`), `Reading Node 4`
+        dynamically routes to `Science/Reasoning Node 8 (Eng-<think>)` (`a_4_to_8 > a_4_to_15`).
+    """
+    n_nodes = int(config.n_experts)
+    if n_nodes <= max(reading_node, science_collab_node, math_collab_node):
+        raise ValueError(
+            f"trace_reading_node_collaborator_switch_v2 requires n_experts > {math_collab_node}, "
+            f"got {n_nodes}"
+        )
+
+    math_anchor_ids = tokenizer.encode(
+        "0 1 2 3 4 5 6 7 8 9 + - * / = baker trays muffins sells left total",
+        add_bos=True,
+        add_eos=False,
+    )
+    sci_anchor_ids = tokenizer.encode(
+        "why how explain science sky blue light scatter atmosphere plants photosynthesis water "
+        "what is the and of in to a are do for use",
+        add_bos=True,
+        add_eos=False,
+    )
+    p_ids = tokenizer.encode(prompt, add_bos=True, add_eos=False)[-32:]
+    inp_ids = jnp.asarray([p_ids], dtype=jnp.int32)
+    emb_raw = params["tok_embeddings.weight"][inp_ids]  # (1, T, D)
+    # Sequence-contextualized representation combining token & sequence mean
+    emb = 0.25 * emb_raw + 0.75 * jnp.mean(emb_raw, axis=1, keepdims=True)
+    emb_math = params["tok_embeddings.weight"][jnp.asarray([math_anchor_ids], dtype=jnp.int32)]
+    emb_sci = params["tok_embeddings.weight"][jnp.asarray([sci_anchor_ids], dtype=jnp.int32)]
+
+    cand_mask_1d = np.zeros((n_nodes,), dtype=bool)
+    cand_mask_1d[int(reading_node)] = True
+    cand_mask_1d[int(science_collab_node)] = True
+    cand_mask_1d[int(math_collab_node)] = True
+    act_mask_bool = jnp.broadcast_to(
+        jnp.asarray(cand_mask_1d)[None, None, :], (1, emb.shape[1], n_nodes)
+    )
+
+    a_to_sci_layers: list[float] = []
+    a_to_math_layers: list[float] = []
+
+    for i in range(config.n_layers):
+        p = f"blk.{i}"
+        normed = rms_norm(emb, params[f"{p}.ffn_norm.weight"], config.rms_eps)
+        norm_math = np.asarray(
+            rms_norm(emb_math, params[f"{p}.ffn_norm.weight"], config.rms_eps)[0],
+            dtype=np.float32,
+        )
+        norm_sci = np.asarray(
+            rms_norm(emb_sci, params[f"{p}.ffn_norm.weight"], config.rms_eps)[0],
+            dtype=np.float32,
+        )
+        gate_w = params[f"{p}.nodes.gate.weight"]
+        up_w = params[f"{p}.nodes.up.weight"]
+        down_w = params[f"{p}.nodes.down.weight"]
+        h_gate = jax.nn.silu(jnp.einsum("btd,ndf->btnf", normed, gate_w))
+        h_up = jnp.einsum("btd,ndf->btnf", normed, up_w)
+        node_outs = jnp.einsum("btnf,nfd->btnd", h_gate * h_up, down_w)
+
+        eu = np.asarray(params[f"{p}.nodes.edge_u"], dtype=np.float32).copy()
+        ev = np.asarray(params[f"{p}.nodes.edge_v"], dtype=np.float32).copy()
+        eph = np.asarray(params[f"{p}.nodes.edge_proj_h"], dtype=np.float32).copy()
+        epx = np.asarray(params[f"{p}.nodes.edge_proj_x"], dtype=np.float32).copy()
+        eb = np.asarray(params[f"{p}.nodes.edge_bias"], dtype=np.float32).copy()
+
+        # Orthogonalize math word-problem subspace against general English/science tokens
+        r_rank = int(eu.shape[-1])
+        inv_sqrt_r = 1.0 / float(np.sqrt(max(1, r_rank)))
+        _, s_vals, vt_sci = np.linalg.svd(norm_sci, full_matrices=False)
+        keep_k = int(np.sum(s_vals > 1e-4))
+        u_sci = vt_sci[: min(keep_k, norm_sci.shape[-1] - 2), :].T  # (D, k)
+        mu_m = np.mean(norm_math, axis=0)
+        r_math = mu_m - u_sci @ (u_sci.T @ mu_m)
+        d_unit = r_math / max(float(np.linalg.norm(r_math)), 1e-6)
+        mid_proj = 0.25 * float(np.dot(mu_m, d_unit))
+
+        alpha_x = 4.0
+        beta_v = 3.0
+        eph[:, -1] = 0.0
+        eu[:, -1] = 0.0
+        epx[:, -1] = alpha_x * d_unit
+        ev[:, -1] = 0.0
+        ev[int(science_collab_node), -1] = -beta_v
+        ev[int(math_collab_node), -1] = +beta_v
+
+        h_proj_np = np.asarray(
+            jnp.einsum("btmd,dr->btmr", node_outs, jnp.asarray(eph))[0], dtype=np.float32
+        )
+        q_r = np.mean(h_proj_np[:, int(reading_node), :], axis=0) + eu[int(reading_node), :]
+        k_s = np.mean(h_proj_np[:, int(science_collab_node), :], axis=0) + ev[
+            int(science_collab_node), :
+        ]
+        k_m = np.mean(h_proj_np[:, int(math_collab_node), :], axis=0) + ev[
+            int(math_collab_node), :
+        ]
+        bilin_diff = float(np.dot(q_r, k_m - k_s)) * inv_sqrt_r
+        mid_shift = (2.0 * beta_v * alpha_x * mid_proj) * inv_sqrt_r
+        eb[int(reading_node), int(math_collab_node)] = (
+            eb[int(reading_node), int(science_collab_node)] - bilin_diff - mid_shift
+        )
+
+        a_ij = compute_directed_edge_weights_v2(
+            normed,
+            node_outs,
+            jnp.asarray(eu),
+            jnp.asarray(ev),
+            jnp.asarray(eph),
+            jnp.asarray(epx),
+            jnp.asarray(eb),
+            top_k_edges=2,
+            temperature=0.35,
+            active_node_mask=act_mask_bool,
+        )  # (1, T, N, N)
+        a_mean = np.mean(np.asarray(a_ij[0], dtype=np.float64), axis=0)
+        a_to_sci_layers.append(float(a_mean[int(reading_node), int(science_collab_node)]))
+        a_to_math_layers.append(float(a_mean[int(reading_node), int(math_collab_node)]))
+
+    a_4_to_8 = float(np.mean(a_to_sci_layers))
+    a_4_to_15 = float(np.mean(a_to_math_layers))
+    selected_collab = int(math_collab_node) if a_4_to_15 >= a_4_to_8 else int(science_collab_node)
+    return {
+        "reading_node": int(reading_node),
+        "reading_role": get_spidernet_node_role_v2(int(reading_node)),
+        "selected_collaborator": selected_collab,
+        "selected_role": get_spidernet_node_role_v2(selected_collab),
+        "a_4_to_8": round(a_4_to_8, 4),
+        "a_4_to_15": round(a_4_to_15, 4),
+        "pathway": (
+            f"N{reading_node}({get_spidernet_node_role_v2(reading_node)}) -> "
+            f"N{selected_collab}({get_spidernet_node_role_v2(selected_collab)})"
+        ),
     }
 
 

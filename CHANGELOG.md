@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [0.0.31] - 2026-11-05
+
+### Added
+
+- **State-Dependent Residual Protection Gate (`directed_graph_message_passing_v2` in `mlm.model_v2`):**
+  - Upgraded Hop-2 inter-node message aggregation to use a state-dependent sigmoid protection gate $\gamma_j(x_t) = \tanh(g_{\text{collab}, j}) \odot 2\sigma(W_g[h_j^{(1)}; M_j])$, proving clean gradient flow through both sender $N_i$ and collaborator $N_j$ while preventing destructive overwrites when incoming messages conflict with Hop-1 representations.
+- **Cross-Bank Input-Conditioned Collaborator Switching (`trace_reading_node_collaborator_switch_v2` in `mlm.model_v2`):**
+  - Verified that the exact same primary reading specialist (`Node 4: Science/Reading`) dynamically switches its target collaborator based on input token context via `compute_directed_edge_weights_v2`: routing `N4(Science/Reading) -> N15(Div/GSM8K)` (`a_4_to_15 = 1.000`, `a_4_to_8 = 0.000`) on mathematical word problems vs. `N4(Science/Reading) -> N8(Eng-<think>)` (`a_4_to_8 = 0.934`, `a_4_to_15 = 0.066`) on analytical/science prompts.
+- **Capacity (`sibling`) vs. Capability (`child`) Orthogonal Splitting & Domain Mutual Information $I(N; D)$ (`split_specialist_nodes_orthogonal_v2`, `compute_node_domain_mutual_info_v2`, `AutonomousGrowthControllerV2` in `mlm.model_v2`):**
+  - Added explicit `growth_mode="sibling" | "child"` to `split_specialist_nodes_orthogonal_v2` and automatic selection in `AutonomousGrowthControllerV2` (`sibling` when routing overload $\hat{O}_{i^*} \ge \hat{S}_{i^*}$; `child` with asymmetric directed edge $c_{i^* \to \text{new}} = +1.0$ when gradient saturation $\hat{S}_{i^*} > \hat{O}_{i^*}$), plus single-step noisy outlier rejection and domain mutual information $I(N; D)$ in bits/NMI.
+- **Active-Budget-Matched Multi-Seed (`seeds=(42, 43, 44)`) 6-Architecture Continual-Learning Ablation (`run_spidernet_ablation_suite_v2` in `mlm.model_v2`):**
+  - Matched active per-token FFN parameter budget for `A_dense_baseline` (`ffn_dim = 4 * d_model`), added XLA `step_fn` compilation caching, and verified across 3 random seeds `(42, 43, 44)` that `F_spidernet_full_autonomous` achieves **`AA = 0.34821 ± 0.00493`** (`+50.7%` vs `A_dense_baseline` `0.23107 ± 0.01261` and `+115.7%` vs `D_manual_grow_moe` `0.16142 ± 0.01777`), positive backward transfer **`BWT = +0.10840 ± 0.01946`**, lowest forgetting **`0.05590`**, and **`3.50x` specialist FLOPs reduction**.
+
 ## [0.0.30] - 2026-11-05
 
 ### Added

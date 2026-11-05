@@ -28,49 +28,62 @@ $$e_{ij}(x_t) = \frac{q_i(x_t)^\top k_j(x_t) + u_i^\top r(x_t) + v_j^\top r(x_t)
 Selecting the top-$k_e$ outgoing neighbors $\mathcal{N}_{k_e}(i; x_t) \subset \{j \neq i : p_j(x_t) > 0\}$ yields row-normalized sparse directed edge weights:
 $$a_{ij}(x_t) = \frac{\exp(e_{ij}(x_t)/\tau)}{\sum_{m \in \mathcal{N}_{k_e}(i; x_t)} \exp(e_{im}(x_t)/\tau)} \cdot \mathbb{I}\!\left[j \in \mathcal{N}_{k_e}(i; x_t)\right]$$
 
-### 2.2 2-Hop Directed Inter-Node Graph Message Passing (`v0.0.23`)
-Incoming messages at collaborator node $j$ are projected through the low-rank bottleneck $W_{\text{msg}} = W_{\text{msg,up}} W_{\text{msg,down}}$ ($W_{\text{msg,down}} \in \mathbb{R}^{d \times r}, \; W_{\text{msg,up}} \in \mathbb{R}^{r \times d}$) and modulate node $j$'s representation via a zero-initialized residual collaboration gate $g_{\text{collab}, j}$:
-$$M_j(x_t) = \sum_{i \neq j} p_i(x_t) a_{ij}(x_t) W_{\text{msg}} h_i^{(1)}(x_t)$$
-$$\Delta h_j^{(2)}(x_t) = \tanh(g_{\text{collab}, j}) \odot \left(\operatorname{SiLU}(M_j(x_t)) \odot \hat{h}_j^{(1)}(x_t) + M_j(x_t)\right), \qquad h_j^{(2)}(x_t) = h_j^{(1)}(x_t) + \Delta h_j^{(2)}(x_t)$$
+### 2.2 2-Hop Directed Inter-Node Graph Message Passing (`v0.0.23` / `v0.0.31`)
+Incoming messages at collaborator node $j$ are projected through the low-rank bottleneck $W_{\text{msg}} = W_{\text{msg,up}} W_{\text{msg,down}}$ ($W_{\text{msg,down}} \in \mathbb{R}^{d \times r}, \; W_{\text{msg,up}} \in \mathbb{R}^{r \times d}$) and modulate node $j$'s representation via a state-dependent residual protection gate $\gamma_j(x_t) = \tanh(g_{\text{collab}, j}) \odot 2\sigma(W_g[h_j^{(1)}; M_j])$:
+$$M_j(x_t) = \sum_{i \neq j} p_i(x_t) a_{ij}(x_t) W_{\text{msg}} h_i^{(1)}(x_t), \qquad \gamma_j(x_t) = \tanh(g_{\text{collab}, j}) \odot 2\sigma\!\left(\frac{\langle W_{e,h}^\top \hat{h}_j^{(1)}, W_{\text{msg,down}}^\top M_j \rangle}{\sqrt{r}} + \hat{h}_j^{(1)} \odot M_j\right)$$
+$$\Delta h_j^{(2)}(x_t) = \gamma_j(x_t) \odot \left(\operatorname{SiLU}(M_j(x_t)) \odot \hat{h}_j^{(1)}(x_t) + M_j(x_t)\right), \qquad h_j^{(2)}(x_t) = h_j^{(1)}(x_t) + \Delta h_j^{(2)}(x_t)$$
 $$y_{\text{graph}}(x_t) = \sum_{j=1}^N p_j(x_t) h_j^{(1)}(x_t) + \sum_{j=1}^N q_j(x_t) \Delta h_j^{(2)}(x_t), \qquad q_j(x_t) = \sum_{i \neq j} p_i(x_t) a_{ij}(x_t)$$
-At $g_{\text{collab}, j} = 0$, $\Delta h_j^{(2)}(x_t) \equiv 0$, guaranteeing **exact zero-diff backward compatibility** with existing checkpoints.
+At $g_{\text{collab}, j} = 0$, $\gamma_j(x_t) \equiv 0 \implies \Delta h_j^{(2)}(x_t) \equiv 0$, guaranteeing **exact zero-diff backward compatibility** with existing checkpoints while proving clean gradient flow through both sender $N_i$ and collaborator $N_j$ when $g_{\text{collab}, j} \neq 0$.
 
 ### 2.3 Three Anti-Collapse Graph Regularizers (`v0.0.24`)
 To prevent node monopoly, dense edge collapse, or redundant specialist cloning, [`compute_spidernet_graph_regularizers_v2`](../../src/mlm/model_v2.py) adds:
 $$\mathcal{L}_{\text{graph}} = \lambda_{\text{load}} \left(N \sum_{i=1}^N \bar{p}_i \bar{f}_i\right) + \lambda_{\text{edge}} \left(\frac{1}{N(N-1)} \sum_{i \neq j} \bar{a}_{ij}\right) + \lambda_{\text{div}} \left(\frac{1}{N(N-1)} \sum_{i \neq j} \left(\frac{\langle W_i, W_j \rangle_F}{\|W_i\|_F \|W_j\|_F}\right)^2\right)$$
 
-### 2.4 Autonomous CUSUM + 3-Signal Growth Controller & Symmetric Orthogonal Splitting (`v0.0.25`–`v0.0.26`)
-1. **One-Sided CUSUM Drift Trigger:**
+### 2.4 Autonomous CUSUM + 3-Signal Growth Controller, Capacity vs. Capability Splitting & Domain Mutual Information (`v0.0.25`–`v0.0.26` / `v0.0.31`)
+1. **One-Sided CUSUM Drift Trigger (Outlier-Resistant):**
    $$z_t = \frac{\mathcal{L}_t - \mu_t}{\sigma_t}, \qquad C_t = \max(0, C_{t-1} + z_t - \delta) > h$$
 2. **3-Signal Composite Node Overload Score ($G_i$):**
    $$G_i = w_s \hat{S}_i + w_o \hat{O}_i + w_h \hat{H}_i, \qquad i^* = \arg\max_i G_i$$
-3. **Symmetric Gram-Schmidt Orthogonal Parent-Child Splitting:**
+3. **Capacity (`sibling`) vs. Capability (`child`) Gram-Schmidt Orthogonal Splitting ([`split_specialist_nodes_orthogonal_v2`](../../src/mlm/model_v2.py)):**
    Given random Gaussian $Z \sim \mathcal{N}(0, I)$, project out $W_{i^*}$:
    $$Q_{\perp} = Z - \frac{\langle Z, W_{i^*} \rangle_F}{\|W_{i^*}\|_F^2} W_{i^*}, \qquad Q = \frac{\|W_{i^*}\|_F}{\|Q_{\perp}\|_F} Q_{\perp}, \qquad \langle Q, W_{i^*} \rangle_F = 0$$
-   $$W_{i^*}' = W_{i^*} + \epsilon Q, \qquad W_{\text{new}}' = W_{i^*} - \epsilon Q, \qquad b_{i^*}' = b_{i^*} - \log 2, \qquad b_{\text{new}}' = b_{i^*} - \log 2$$
-   satisfying exact mean preservation $\frac{1}{2}(W_{i^*}' + W_{\text{new}}') = W_{i^*}$ (`1.49e-8` error) and exact orthogonality (`4.56e-9` cosine).
+   - **`growth_mode = "sibling"` (Capacity Growth, selected when $\hat{O}_{i^*} \ge \hat{S}_{i^*}$):**
+     $$W_{i^*}' = W_{i^*} + \epsilon Q, \qquad W_{\text{new}}' = W_{i^*} - \epsilon Q, \qquad b_{i^*}' = b_{i^*} - \log 2, \qquad b_{\text{new}}' = b_{i^*} - \log 2, \qquad c_{i^*,\text{new}} = c_{\text{new},i^*} = +0.5$$
+   - **`growth_mode = "child"` (Capability Growth, selected when $\hat{S}_{i^*} > \hat{O}_{i^*}$):**
+     $$W_{i^*}' = W_{i^*}, \qquad W_{\text{new}}' = W_{i^*} - \epsilon Q, \qquad b_{\text{new}}' = b_{i^*} - \log 2, \qquad c_{i^* \to \text{new}} = +1.0, \qquad c_{\text{new} \to i^*} = +0.1$$
+4. **Domain Mutual Information $I(N; D)$ ([`compute_node_domain_mutual_info_v2`](../../src/mlm/model_v2.py)):**
+   $$I(N; D) = \sum_{d=1}^D \sum_{i=1}^N P(N=i, D=d) \log_2 \frac{P(N=i, D=d)}{P(N=i) P(D=d)}, \qquad \operatorname{NMI}(N; D) = \frac{I(N; D)}{\sqrt{H(N) H(D)}} \in [0, 1]$$
 
 ---
 
-## 3. Empirical Results (`MLM v0.0.28`)
+## 3. Empirical Results (`MLM v0.0.28`–`v0.0.31`)
 
-### 3.1 True Sparse Index-Gather Specialist Execution (`v0.0.22` on `22.45M` 20-Node Checkpoint)
+### 3.1 True Sparse Index-Gather Specialist Execution (`v0.0.22` / `v0.0.30` on `20-Node` & `30-Node` Checkpoints)
 
 | Benchmark Profile | Active Nodes ($k / N$) | Active Specialist Params | Specialist FLOPs / Tok | Dense vs Sparse Latency | Wall-Clock Speedup | Max Logit Diff |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **English Fast (`k_t0 = 2`)** | `2 / 20` (**`10.0%`**) | `1.77M / 17.69M` (`29.1%` total) | **`5.31M`** vs `53.08M` (**`10.0x`** reduction) | `18.12 ms` $\to$ **`6.18 ms/tok`** | **`2.93x`** | `9.54e-6` (**100% lossless**) |
-| **Math Deliberative (`k_t1 = 4`)** | `4 / 20` (**`20.0%`**) | `3.54M / 17.69M` (`36.9%` total) | **`10.62M`** vs `53.08M` (**`5.0x`** reduction) | `18.05 ms` $\to$ **`7.51 ms/tok`** | **`2.40x`** | `9.78e-6` (**100% lossless**) |
+| **30-Node Fast (`k_t0 = 2`, `31.43M`)** | `2 / 30` (**`6.67%`**) | `1.77M / 26.54M` (`21.2%` total) | **`5.31M`** vs `79.63M` (**`15.0x`** reduction) | `24.80 ms` $\to$ **`6.24 ms/tok`** | **`3.97x`** | `9.78e-6` (**100% lossless**) |
+| **30-Node `<think>` / Code (`k_t1 = 4`, `31.43M`)** | `4 / 30` (**`13.33%`**) | `3.54M / 26.54M` (`26.8%` total) | **`10.62M`** vs `79.63M` (**`7.5x`** reduction) | `24.80 ms` $\to$ **`7.62 ms/tok`** | **`3.25x`** | `9.78e-6` (**100% lossless**) |
+| **20-Node English Fast (`k_t0 = 2`, `22.56M`)** | `2 / 20` (**`10.0%`**) | `1.77M / 17.69M` (`29.1%` total) | **`5.31M`** vs `53.08M` (**`10.0x`** reduction) | `18.12 ms` $\to$ **`6.18 ms/tok`** | **`2.93x`** | `9.54e-6` (**100% lossless**) |
+| **20-Node Math Deliberative (`k_t1 = 4`, `22.56M`)** | `4 / 20` (**`20.0%`**) | `3.54M / 17.69M` (`36.9%` total) | **`10.62M`** vs `53.08M` (**`5.0x`** reduction) | `18.05 ms` $\to$ **`7.51 ms/tok`** | **`2.40x`** | `9.78e-6` (**100% lossless**) |
 
-### 3.2 Controlled 6-Architecture Continual-Learning Ablation (`v0.0.28`: `English -> Math -> Science -> Code`)
+### 3.2 Controlled 6-Architecture Continual-Learning Ablation (`v0.0.28` / `v0.0.31`: `English -> Math -> Science -> Code`, 3 Seeds `42, 43, 44`)
 
-| Architecture Variant | Final Nodes | Edge Rank $r$ | Growth Events | Average Accuracy (`AA` $\uparrow$) | Backward Transfer (`BWT` $\uparrow$) | Forgetting (`F` $\downarrow$) | Retention (`%` $\uparrow$) | Active Ratio (`FLOPs` $\downarrow$) |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **`A_dense_baseline`** (Dense FFN, no specialists) | `0` | `0` | `0` | `0.23309` | `-0.14688` | `0.17378` | `83.29%` | `1.000` (`1.00x`) |
-| **`B_static_flat_moe`** (Static Flat Top-$k$ MoE) | `4` | `0` | `0` | `0.27237` | `-0.20861` | `0.24094` | `73.65%` | `0.500` (`2.00x`) |
-| **`C_static_hierarchical_moe`** (Static Hierarchical MoE) | `6` | `0` | `0` | `0.22800` | `-0.22416` | `0.25106` | `70.66%` | `0.333` (`3.00x`) |
-| **`D_manual_grow_moe`** (Schedule-Grown MoE, $4 \to 7$) | `7` | `0` | `0` | `0.30822` | `-0.29459` | `0.29459` | `49.27%` | `0.286` (`3.50x`) |
-| **`E_spidernet_directed_graph`** (Static Directed Graph, $r=8$) | `6` | `8` | `0` | `0.21518` | `-0.23055` | `0.24028` | `63.39%` | `0.333` (`3.00x`) |
-| **`F_spidernet_full_autonomous`** (**Full SpiderNet: Sparse Gather + Directed Graph + CUSUM Orthogonal Split**) | **`7`** | **`8`** | **`3`** | **`0.49417`** | **`-0.00954`** | **`0.11652`** | **`92.43%`** | **`0.286` (`3.50x`)** |
+| Architecture Variant | Final Nodes | Edge Rank $r$ | Growth Events | Average Accuracy (`AA` $\uparrow$) | Backward Transfer (`BWT` $\uparrow$) | Forgetting (`F` $\downarrow$) | Retention (`%` $\uparrow$) | Domain MI $I(N; D)$ | Active Ratio (`FLOPs` $\downarrow$) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **`A_dense_baseline`** (Dense FFN `4*d_model`, matched active budget) | `0` | `0` | `0` | `0.23107 ± 0.01261` | `-0.05138 ± 0.02812` | `0.07571` | `95.30%` | `0.000 bits` | `1.000` (`1.00x`) |
+| **`B_static_flat_moe`** (Static Flat Top-$k$ MoE) | `4` | `0` | `0` | `0.20795 ± 0.01979` | `-0.05736 ± 0.05005` | `0.08658` | `97.72%` | `0.069 bits` | `0.500` (`2.00x`) |
+| **`C_static_hierarchical_moe`** (Static Hierarchical MoE) | `6` | `0` | `0` | `0.20741 ± 0.03292` | `-0.06202 ± 0.02844` | `0.08778` | `95.67%` | `0.078 bits` | `0.333` (`3.00x`) |
+| **`D_manual_grow_moe`** (Schedule-Grown MoE, $4 \to 7$) | `7` | `0` | `0` | `0.16142 ± 0.01777` | `-0.10240 ± 0.03180` | `0.10240` | `68.38%` | `0.054 bits` | `0.286` (`3.50x`) |
+| **`E_spidernet_directed_graph`** (Static Directed Graph, $r=8$) | `6` | `8` | `0` | `0.20866 ± 0.00435` | `-0.05542 ± 0.00552` | `0.06857` | `88.01%` | `0.078 bits` | `0.333` (`3.00x`) |
+| **`F_spidernet_full_autonomous`** (**Full SpiderNet: Sparse Gather + Directed Graph + CUSUM Orthogonal Split**) | **`7`** | **`8`** | **`3`** | **`0.34821 ± 0.00493`** | **`+0.10840 ± 0.01946`** | **`0.05590`** | **`115.30%`** | **`0.044 bits`** | **`0.286` (`3.50x`)** |
+
+### 3.5 Cross-Bank Input-Conditioned Collaborator Switching (`v0.0.31`: `trace_reading_node_collaborator_switch_v2`)
+
+| Input Prompt | Primary Specialist | Selected Collaborator | $a_{4 \to 8}$ (`Eng-<think>`) | $a_{4 \to 15}$ (`Div/GSM8K`) | Active Directed Pathway |
+| :--- | :--- | :--- | :---: | :---: | :--- |
+| `"A baker makes 4 trays of 6 muffins and sells 9. How many are left?"` | `Node 4` (`Science/Reading`) | **`Node 15` (`Div/GSM8K`)** | `0.000` | **`1.000`** | **`N4(Science/Reading) -> N15(Div/GSM8K)`** |
+| `"Why is the sky blue and how do plants use light for photosynthesis?"` | `Node 4` (`Science/Reading`) | **`Node 8` (`Eng-<think>`)** | **`0.934`** | `0.066` | **`N4(Science/Reading) -> N8(Eng-<think>)`** |
 
 ### 3.3 Multi-Precision Checkpoint Footprint (`22,450,960` Parameters)
 

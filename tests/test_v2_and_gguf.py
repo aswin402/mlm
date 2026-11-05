@@ -443,6 +443,31 @@ def test_model_v2_hybrid_train_grow_and_gguf(tmp_path: Path):
     )
     assert a_ij_mp.shape == (1, 2, sp_cfg.n_experts, sp_cfg.n_experts)
 
+    # Verify v0.0.23 state-dependent residual gate gamma_j gradient flow through sender & receiver
+    import jax
+    import numpy as np
+
+    def _mp_loss_fn(h1_in: jnp.ndarray) -> jnp.ndarray:
+        mp_h2 = directed_graph_message_passing_v2(
+            x_ctx,
+            jnp.full((1, 2, sp_cfg.n_experts), 1.0 / sp_cfg.n_experts, dtype=jnp.float32),
+            h1_in,
+            sp_params["blk.0.nodes.edge_u"],
+            sp_params["blk.0.nodes.edge_v"],
+            sp_params["blk.0.nodes.edge_proj_h"],
+            sp_params["blk.0.nodes.edge_proj_x"],
+            sp_params["blk.0.nodes.edge_bias"],
+            sp_params["blk.0.nodes.msg_down"],
+            sp_params["blk.0.nodes.msg_up"],
+            c_active,
+            top_k_edges=2,
+        )
+        return jnp.sum(jnp.square(mp_h2))
+
+    grad_h1 = np.asarray(jax.grad(_mp_loss_fn)(dummy_h1))
+    assert float(np.linalg.norm(grad_h1[:, :, 0, :])) > 0.0
+    assert float(np.linalg.norm(grad_h1[:, :, 1, :])) > 0.0
+
     reg_out = compute_spidernet_graph_regularizers_v2(
         sp_params,
         jnp.array([[1, 2, 3, 4]], dtype=jnp.int32),
@@ -456,9 +481,10 @@ def test_model_v2_hybrid_train_grow_and_gguf(tmp_path: Path):
 
     # Verify v0.0.25 Autonomous Growth Controller & v0.0.26 Symmetric Orthogonal Splitting
     split_params, split_cfg, split_diag = split_specialist_nodes_orthogonal_v2(
-        sp_params, sp_cfg, add_nodes=1, epsilon=0.02
+        sp_params, sp_cfg, add_nodes=1, epsilon=0.02, growth_mode="sibling"
     )
     assert split_cfg.n_experts == sp_cfg.n_experts + 1
+    assert split_diag["growth_mode"] == "sibling"
     assert split_diag["max_orthogonality_cosine"] < 1e-4
     assert split_diag["max_mean_reconstruction_err"] < 1e-5
     assert split_params["blk.0.nodes.gate.weight"].shape[0] == sp_cfg.n_experts + 1
@@ -466,6 +492,32 @@ def test_model_v2_hybrid_train_grow_and_gguf(tmp_path: Path):
         sp_cfg.n_experts + 1,
         sp_cfg.n_experts + 1,
     )
+
+    child_params, child_cfg, child_diag = split_specialist_nodes_orthogonal_v2(
+        sp_params, sp_cfg, parent_indices=[0], add_nodes=1, epsilon=0.02, growth_mode="child"
+    )
+    assert child_cfg.n_experts == sp_cfg.n_experts + 1
+    assert child_diag["growth_mode"] == "child"
+    assert float(child_params["blk.0.nodes.edge_bias"][0, sp_cfg.n_experts]) == 1.0
+    assert abs(float(child_params["blk.0.nodes.edge_bias"][sp_cfg.n_experts, 0]) - 0.1) < 1e-5
+
+    # Verify v0.0.25 single-step outlier rejection vs sustained domain shift spawning
+    ctrl_outlier = AutonomousGrowthControllerV2(
+        ema_alpha=0.10, threshold_h=2.50, delta_drift=0.05, cooldown_steps=2
+    )
+    for s_idx in range(1, 5):
+        ctrl_outlier.update_cusum(1.0)
+    _, _, outlier_evt = ctrl_outlier.observe_and_maybe_grow(
+        step=5,
+        loss_val=1.15,  # single noisy outlier spike (+1.7 sigma) < threshold_h=2.50
+        params=sp_params,
+        grads=None,
+        inputs=jnp.array([[1, 2, 3, 4]], dtype=jnp.int32),
+        mask=jnp.ones((1, 4), dtype=jnp.float32),
+        config=sp_cfg,
+        add_nodes=1,
+    )
+    assert outlier_evt["grew"] is False
 
     ctrl = AutonomousGrowthControllerV2(threshold_h=0.5, delta_drift=0.05, cooldown_steps=2)
     ctrl.update_cusum(1.0)
@@ -480,8 +532,24 @@ def test_model_v2_hybrid_train_grow_and_gguf(tmp_path: Path):
         add_nodes=1,
     )
     assert evt["grew"] is True
+    assert evt["growth_mode"] in ("sibling", "child")
     assert grown_c.n_experts == sp_cfg.n_experts + 1
     assert len(ctrl.growth_events) == 1
+
+    # Verify v0.0.26 Domain Mutual Information I(N; D)
+    from mlm.model_v2 import compute_node_domain_mutual_info_v2
+
+    mi_stats = compute_node_domain_mutual_info_v2(
+        np.array(
+            [
+                [0.45, 0.45, 0.05, 0.05],
+                [0.05, 0.05, 0.45, 0.45],
+            ],
+            dtype=np.float64,
+        )
+    )
+    assert mi_stats["I_N_D_bits"] > 0.3
+    assert 0.3 < mi_stats["NMI"] <= 1.0
 
     # Verify v0.0.27 Continual Learning Metrics & v0.0.28 6-Architecture Ablation Suite
     cl_m = evaluate_continual_learning_metrics_v2(
@@ -500,11 +568,14 @@ def test_model_v2_hybrid_train_grow_and_gguf(tmp_path: Path):
     assert cl_m["activation_ratio"] == 0.20
 
     ablation_res = run_spidernet_ablation_suite_v2(
-        vocab_size=loaded_cfg.vocab_size, d_model=64, steps_per_task=3
+        vocab_size=loaded_cfg.vocab_size, d_model=64, steps_per_task=3, seeds=(42, 43)
     )
     assert len(ablation_res) == 6
     assert "A_dense_baseline" in ablation_res
     assert "F_spidernet_full_autonomous" in ablation_res
+    assert "AA_std" in ablation_res["F_spidernet_full_autonomous"]
+    assert "I_N_D_bits" in ablation_res["F_spidernet_full_autonomous"]
+    assert "total_params" in ablation_res["A_dense_baseline"]
     assert (
         ablation_res["F_spidernet_full_autonomous"]["final_n_nodes"]
         > ablation_res["B_static_flat_moe"]["final_n_nodes"]
@@ -715,6 +786,7 @@ def test_cli_train_v2_and_chat(tmp_path: Path, capsys):
         get_spidernet_node_role_v2,
         grow_dot2_code_logic_v2,
         inspect_directed_graph_edges_v2,
+        trace_reading_node_collaborator_switch_v2,
     )
 
     p_20, c_20 = grow_model_v2_nodes(p_14, c_14, add_nodes=6)
@@ -734,6 +806,25 @@ def test_cli_train_v2_and_chat(tmp_path: Path, capsys):
     logits_20 = np.asarray(forward_v2(p_20, jnp.array([[1, 2, 3, 4]], dtype=jnp.int32), c_20))
     logits_30 = np.asarray(forward_v2(p_30, jnp.array([[1, 2, 3, 4]], dtype=jnp.int32), c_30))
     assert float(np.max(np.abs(logits_20 - logits_30))) < 1e-4
+
+    # Verify v0.0.24 input-conditioned collaborator switching from Reading Node 4:
+    # Math word problem -> Math Node 15 (Div/GSM8K) vs Analytical/Science -> Node 8 (Eng-<think>)
+    sw_math = trace_reading_node_collaborator_switch_v2(
+        p_30,
+        c_30,
+        tok_loaded,
+        "A baker makes 4 trays of 6 muffins and sells 9. How many are left?",
+    )
+    sw_sci = trace_reading_node_collaborator_switch_v2(
+        p_30,
+        c_30,
+        tok_loaded,
+        "Why is the sky blue and how do plants use light for photosynthesis?",
+    )
+    assert sw_math["selected_collaborator"] == 15
+    assert sw_math["a_4_to_15"] > sw_math["a_4_to_8"]
+    assert sw_sci["selected_collaborator"] == 8
+    assert sw_sci["a_4_to_8"] > sw_sci["a_4_to_15"]
     code_q = (
         "<|user|>\nEvaluate the boolean expression: "
         "(True and not False) xor False\n<|assistant|>\n"
