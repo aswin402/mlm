@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [0.0.29] - 2026-11-05
+
+### Added
+
+- **SpiderNet Live Directed Graph Edge Calibration (`inject_and_calibrate_spidernet_graph_edges_v2`, `inspect_directed_graph_edges_v2`, `get_spidernet_node_role_v2` in `mlm.model_v2`):**
+  - Calibrates each layer's low-rank directed edge projections (`edge_proj_h`, `edge_proj_x`, `edge_u`, `edge_v`) and message bottleneck (`msg_down`, `msg_up`) in the top-$r$ ($r=16$) principal SVD subspace $V_r$ of the trained specialist router prototypes and output projections, initializes compositional directed adjacency priors `edge_bias` ($A_{ii} = 0$) across Dot 0 English (`Nodes 0..9`) and Dot 1 Math (`Nodes 10..19`), and activates `collab_gate` (`collab_strength = 0.008`) on the live `22.56M` 20-node SpiderNet checkpoints (`16/8/4/2/1-bit`).
+- **Interactive `/graph` Directed Graph Inspector & Live `<think>` Edge Telemetry (`format_graph_inspector_v2` in `mlm.tui`):**
+  - Added `/graph` (and `/nodes`) to `mlm chat` to inspect active specialist roles, input-conditioned directed edge weights $a_{ij}(x_t)$, directed message flux $p_i(x_t) a_{ij}(x_t)$, per-layer 2-hop message norms $\|M^{(l)}\|_2$, and sparse index-gather FLOPs reduction (`10.0x` / `5.0x`).
+  - Added live `Graph:` telemetry (`N10(Add/Count)──0.64──►N15(Div/GSM8K) | N15(Div/GSM8K)──0.50──►N10(Add/Count) | ||M||_2=0.006 | sparse=4/20 (5.0x FLOPs)`) inside the `<think>` panel on every turn.
+
 ## [0.0.28] - 2026-11-05
 
 ### Added

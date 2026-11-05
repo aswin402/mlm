@@ -510,6 +510,29 @@ def test_model_v2_hybrid_train_grow_and_gguf(tmp_path: Path):
         > ablation_res["B_static_flat_moe"]["final_n_nodes"]
     )
 
+    # Verify v0.0.29 Live Directed Graph Edge Calibration & /graph Telemetry Inspector
+    from mlm.model_v2 import (
+        inject_and_calibrate_spidernet_graph_edges_v2,
+        inspect_directed_graph_edges_v2,
+    )
+    from mlm.tui import format_graph_inspector_v2
+
+    cal_params = inject_and_calibrate_spidernet_graph_edges_v2(
+        sp_params, sp_cfg, collab_strength=0.015
+    )
+    g_info = inspect_directed_graph_edges_v2(
+        cal_params, sp_cfg, loaded_tok, format_chat_prompt_v2("What is (9 + 8) * 2?")
+    )
+    assert g_info["collab_gate_mean"] > 0.01
+    assert g_info["mean_msg_norm"] > 0.0
+    assert len(g_info["top_edges"]) >= 1
+    assert "──►" in str(g_info["summary_str"])
+    g_panel = format_graph_inspector_v2(
+        cal_params, sp_cfg, loaded_tok, format_chat_prompt_v2("What is (9 + 8) * 2?"), color=False
+    )
+    assert "SpiderNet Directed Graph & Edge Inspector (/graph)" in g_panel
+    assert "a_ij=" in g_panel
+
     # Export to GGUF v3 and verify with Rust `mlm-gguf-inspect`
     gguf_path = tmp_path / "model.gguf"
     info = export_gguf_v2(gguf_path, loaded_params, loaded_cfg, loaded_tok)

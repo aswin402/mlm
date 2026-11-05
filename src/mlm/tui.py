@@ -570,6 +570,64 @@ def format_memory_inspector_v2(
     return "\n".join(lines)
 
 
+def format_graph_inspector_v2(
+    params_v2: dict,
+    cfg_v2,
+    tok_v2,
+    prompt_text: str,
+    color: bool = True,
+) -> str:
+    """Render the SpiderNet v0.0.29 Directed Graph & Edge Inspector (`/graph`)."""
+    from mlm.model_v2 import get_spidernet_node_role_v2, inspect_directed_graph_edges_v2
+
+    g_info = inspect_directed_graph_edges_v2(params_v2, cfg_v2, tok_v2, prompt_text)
+    hdr = "╭─ 🕸️  MLM v2 SpiderNet Directed Graph & Edge Inspector (/graph) " + "─" * 6 + "╮"
+    ftr = "╰" + "─" * 71 + "╯"
+    n_nodes = int(g_info["n_nodes"])
+    k_act = int(g_info["k_active"])
+    flops_red = float(g_info["flops_reduction_x"])
+    act_sub = tuple(g_info["active_subnodes"])  # type: ignore[arg-type]
+    sub_str = ", ".join(f"N{i}({get_spidernet_node_role_v2(i)})" for i in act_sub)
+    lines = [
+        _c(hdr, CYAN, color),
+        (
+            f"  {_c('Graph Topology:', BOLD + BRIGHT_GREEN, color)} "
+            f"nodes={n_nodes} | active_k={k_act} ({flops_red:.1f}x FLOPs reduction) | "
+            f"edge_rank={cfg_v2.graph_edge_rank} | top_k_edges={cfg_v2.graph_edge_top_k}"
+        ),
+        (
+            f"  {_c('Cognitive Route:', BOLD + BRIGHT_YELLOW, color)} "
+            f"mode={str(g_info['mode']).upper()} | domain={g_info['domain']} "
+            f"(seq_dl={g_info['seq_dl']}) | primary=[{sub_str}]"
+        ),
+        (
+            f"  {_c('2-Hop Message Passing (N_i -> N_j, A_ii=0):', BOLD + BRIGHT_CYAN, color)} "
+            f"collab_gate={g_info['collab_gate_mean']:.4f} | "
+            f"mean_||M||_2={g_info['mean_msg_norm']:.4f}"
+        ),
+    ]
+    top_edges = g_info.get("top_edges", [])
+    if top_edges:
+        for e in top_edges:
+            a_val = float(e["a_ij"])
+            lines.append(
+                f"     • N{e['src']:02d} [{e['src_role']:<15s}] "
+                f"──[{_bar(a_val, 6)}] a_ij={a_val:.3f} (flux={e['flux']:.3f})──► "
+                f"N{e['dst']:02d} [{e['dst_role']}]"
+            )
+    else:
+        lines.append("     (No directed inter-node edges active)")
+    lnorms = g_info.get("layer_msg_norms", [])
+    if lnorms:
+        max_m = max(max(lnorms), 1e-6)
+        chips = [f"L{i}[{_bar(v / max_m, 4)}]{v:.3f}" for i, v in enumerate(lnorms)]
+        lines.append(f"  {_c('Per-Layer Message Norms ||M^(l)||_2:', BOLD, color)}")
+        for r_idx in range(0, len(chips), 4):
+            lines.append("     " + "  ".join(chips[r_idx : r_idx + 4]))
+    lines.append(_c(ftr, CYAN, color))
+    return "\n".join(lines)
+
+
 def run_chat_tui_v2(
     checkpoint_path: Path,
     max_new_tokens: int = 64,
@@ -587,8 +645,8 @@ def run_chat_tui_v2(
 
     from mlm.model_v2 import (
         MemoryHierarchyV2,
-        classify_cognitive_mode_v2,
         generate_v2,
+        inspect_directed_graph_edges_v2,
         load_checkpoint_v2,
     )
     from mlm.train_v2 import format_chat_prompt_v2
@@ -682,11 +740,12 @@ def run_chat_tui_v2(
         _c(mid_border, CYAN, use_color),
         (
             f"  {_c('Autonomous Chat:', BOLD, use_color)} "
-            f"Type messages naturally ('/memory' to inspect, '/forget' to clear, 'exit' to leave)"
+            f"Type messages naturally ('/graph', '/memory', '/forget', 'exit')"
         ),
         _c(bot_border, CYAN, use_color),
     ]
     writeln("\n".join(banner))
+    last_prompt_for_graph = format_chat_prompt_v2("What is (9 + 8) * 2?", initial_context)
 
     while True:
         out_s.write(_c("\nYou ❯ ", BOLD + BRIGHT_GREEN, use_color))
@@ -705,6 +764,13 @@ def run_chat_tui_v2(
         if user_text.lower() in ("quit", "exit", "q", "/exit", "/quit"):
             writeln(_c("Exiting MLM v2 interactive session.", DIM, use_color))
             break
+        if user_text.lower() in ("/graph", "/nodes"):
+            writeln(
+                format_graph_inspector_v2(
+                    params_v2, cfg_v2, tok_v2, last_prompt_for_graph, color=use_color
+                )
+            )
+            continue
         if user_text.lower() == "/memory":
             writeln(format_memory_inspector_v2(mem_h, color=use_color))
             continue
@@ -720,6 +786,7 @@ def run_chat_tui_v2(
             continue
 
         prompt = format_chat_prompt_v2(user_text.replace("\\n", "\n"), initial_context)
+        last_prompt_for_graph = prompt
         p_toks = len(tok_v2.encode(prompt, add_bos=True, add_eos=False))
         t0 = time.perf_counter()
         raw_reply = generate_v2(
@@ -745,7 +812,7 @@ def run_chat_tui_v2(
             reply = raw_reply.replace("<|think|>", "").replace("<|/think|>", "").strip()
 
         if show_thinking:
-            cog_meta = classify_cognitive_mode_v2(
+            g_meta = inspect_directed_graph_edges_v2(
                 params_v2, cfg_v2, tok_v2, mem_h.last_resolved_prompt or prompt
             )
             hdr = "╭─ 🧠 MLM v2 Hybrid Telemetry (<think>) " + "─" * 30 + "╮"
@@ -760,8 +827,13 @@ def run_chat_tui_v2(
             writeln(
                 _c("│ ", MAGENTA, use_color)
                 + _c("Routing: ", BOLD, use_color)
-                + f"mode={str(cog_meta['mode']).upper()} | domain={cog_meta['domain']} | "
-                + f"subnodes={cog_meta['active_subnodes']}"
+                + f"mode={str(g_meta['mode']).upper()} | domain={g_meta['domain']} | "
+                + f"subnodes={g_meta['active_subnodes']}"
+            )
+            writeln(
+                _c("│ ", MAGENTA, use_color)
+                + _c("Graph: ", BOLD, use_color)
+                + f"{g_meta['summary_str']}"
             )
             writeln(
                 _c("│ ", MAGENTA, use_color)

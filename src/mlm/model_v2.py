@@ -3915,6 +3915,240 @@ def classify_cognitive_mode_v2(
     }
 
 
+def get_spidernet_node_role_v2(node_idx: int) -> str:
+    """Return the specialist role label for a SpiderNet sub-node index `0..N-1`."""
+    idx = int(node_idx)
+    if 0 <= idx <= 3:
+        return "Grammar/Vocab"
+    if 4 <= idx <= 5:
+        return "Science/Reading"
+    if 6 <= idx <= 7:
+        return "Dialogue/Chat"
+    if 8 <= idx <= 9:
+        return "Eng-<think>"
+    if 10 <= idx <= 11:
+        return "Add/Count"
+    if 12 <= idx <= 13:
+        return "Sub/Mult"
+    if 14 <= idx <= 15:
+        return "Div/GSM8K"
+    if 16 <= idx <= 17:
+        return "Paren/Algebra"
+    if 18 <= idx <= 19:
+        return "Math-<think>"
+    return f"Spawned-N{idx}"
+
+
+def inject_and_calibrate_spidernet_graph_edges_v2(
+    params: dict[str, jnp.ndarray],
+    config: ConfigV2,
+    collab_strength: float = 0.008,
+) -> dict[str, jnp.ndarray]:
+    """Calibrate SpiderNet v0.0.29 directed graph edges (`N_i -> N_j`) from trained specialists.
+
+    Extracts the top-`r` principal SVD subspace `V_r` of each layer's trained specialist router
+    prototypes (`router.weight`) and output signatures (`down.weight`), initializes the low-rank
+    bilinear edge scorers (`edge_proj_h`, `edge_proj_x`, `edge_u`, `edge_v`) and message bottleneck
+    (`msg_down`, `msg_up`) in `V_r`, sets the compositional directed adjacency prior `edge_bias`
+    (`A_ii = 0`), and activates `collab_gate = arctanh(collab_strength)` for live 2-hop message
+    passing while preserving verified greedy outputs.
+    """
+    if config.n_experts <= 0 or config.graph_edge_rank <= 0:
+        return params
+    new_params = dict(params)
+    n_exp = int(config.n_experts)
+    r_rank = int(config.graph_edge_rank)
+    g_val = float(np.arctanh(np.clip(float(collab_strength), -0.95, 0.95)))
+
+    for i in range(config.n_layers):
+        p = f"blk.{i}"
+        if f"{p}.nodes.router.weight" not in params or f"{p}.nodes.down.weight" not in params:
+            continue
+        rw = np.asarray(params[f"{p}.nodes.router.weight"], dtype=np.float32)  # (D, N)
+        down_w = np.asarray(params[f"{p}.nodes.down.weight"], dtype=np.float32)  # (N, F, D)
+
+        r_unit = rw / np.maximum(np.linalg.norm(rw, axis=0, keepdims=True), 1e-6)  # (D, N)
+        s_raw = np.mean(down_w, axis=1)  # (N, D)
+        s_unit = s_raw / np.maximum(np.linalg.norm(s_raw, axis=-1, keepdims=True), 1e-6)  # (N, D)
+
+        stacked = np.concatenate([r_unit.T, s_unit], axis=0)  # (2N, D)
+        _, _, vt = np.linalg.svd(stacked, full_matrices=True)  # vt: (D, D)
+        v_r = vt[:r_rank, :].T.astype(np.float32)  # (D, r)
+
+        new_params[f"{p}.nodes.edge_proj_h"] = jnp.asarray(0.20 * v_r)
+        new_params[f"{p}.nodes.edge_proj_x"] = jnp.asarray(0.20 * v_r)
+        new_params[f"{p}.nodes.edge_u"] = jnp.asarray(0.35 * (r_unit.T @ v_r))
+        new_params[f"{p}.nodes.edge_v"] = jnp.asarray(0.35 * (s_unit @ v_r))
+        new_params[f"{p}.nodes.msg_down"] = jnp.asarray(0.20 * v_r)
+        new_params[f"{p}.nodes.msg_up"] = jnp.asarray(0.20 * v_r.T)
+
+        # Semantic handoff affinity + compositional SpiderNet pathway priors
+        eb = 0.50 * (s_unit @ r_unit).astype(np.float32)  # (N, N)
+        if n_exp >= 10:
+            eb[0:4, 4:6] += 0.45  # Grammar/Vocab -> Science/Reading
+            eb[0:4, 6:8] += 0.40  # Grammar/Vocab -> Dialogue
+            eb[4:6, 8:10] += 0.55  # Science/Reading -> Eng-<think>
+            eb[4:6, 0:4] += 0.45  # Science/Reading -> Grammar/Vocab
+            eb[6:8, 0:4] += 0.50  # Dialogue -> Grammar/Vocab
+            eb[8:10, 4:6] += 0.60  # Eng-<think> -> Science/Reading
+            eb[8:10, 0:4] += 0.45  # Eng-<think> -> Grammar/Vocab
+        if n_exp >= 20:
+            eb[10:12, 12:14] += 0.50  # Add/Count <-> Sub/Mult
+            eb[12:14, 10:12] += 0.50
+            eb[10:12, 14:16] += 0.55  # Add/Count <-> Div/GSM8K
+            eb[14:16, 10:12] += 0.65  # Div/GSM8K -> Add/Count
+            eb[14:16, 12:14] += 0.55  # Div/GSM8K -> Sub/Mult
+            eb[14:16, 18:20] += 0.60  # Div/GSM8K -> Math-<think>
+            eb[16:18, 12:16] += 0.60  # Paren/Algebra -> Sub/Mult/Div
+            eb[16:18, 10:12] += 0.55  # Paren/Algebra -> Add/Count
+            eb[16:18, 18:20] += 0.60  # Paren/Algebra -> Math-<think>
+            eb[18:20, 10:16] += 0.65  # Math-<think> -> Math Execution
+        np.fill_diagonal(eb, 0.0)
+        new_params[f"{p}.nodes.edge_bias"] = jnp.asarray(eb)
+        new_params[f"{p}.nodes.collab_gate"] = jnp.full((n_exp,), g_val, dtype=jnp.float32)
+
+    return new_params
+
+
+def inspect_directed_graph_edges_v2(
+    params: dict[str, jnp.ndarray],
+    config: ConfigV2,
+    tokenizer: BPETokenizer,
+    prompt: str,
+) -> dict[str, object]:
+    """Compute live SpiderNet v0.0.29 directed graph edge telemetry (`N_i -> N_j`) on `prompt`."""
+    cog = classify_cognitive_mode_v2(params, config, tokenizer, prompt)
+    n_nodes = int(config.n_experts)
+    if n_nodes <= 1 or "blk.0.nodes.edge_u" not in params:
+        return {
+            **cog,
+            "n_nodes": n_nodes,
+            "k_active": max(1, int(config.top_k_experts)),
+            "flops_reduction_x": 1.0,
+            "collab_gate_mean": 0.0,
+            "mean_msg_norm": 0.0,
+            "layer_msg_norms": [],
+            "top_edges": [],
+            "summary_str": "disabled",
+        }
+
+    p_ids = tokenizer.encode(prompt, add_bos=True, add_eos=False)[-32:]
+    inp_ids = jnp.asarray([p_ids], dtype=jnp.int32)
+    emb = params["tok_embeddings.weight"][inp_ids]  # (1, T, D)
+    mode = str(cog["mode"])
+    active_pair = tuple(cog["active_subnodes"])  # type: ignore[arg-type]
+
+    # Active collaboration subgraph for this cognitive mode:
+    # Primary routed pair + domain <think> pair (when deliberative/verified)
+    sub_mask = np.zeros((n_nodes,), dtype=np.float32)
+    for idx in active_pair:
+        if 0 <= int(idx) < n_nodes:
+            sub_mask[int(idx)] = 0.42
+    if mode == "deliberative" and n_nodes >= 10:
+        sub_mask[8] = max(sub_mask[8], 0.09)
+        sub_mask[9] = max(sub_mask[9], 0.07)
+    elif mode == "verified" and n_nodes >= 20:
+        sub_mask[18] = max(sub_mask[18], 0.09)
+        sub_mask[19] = max(sub_mask[19], 0.07)
+    elif mode == "direct" and n_nodes >= 8:
+        # Include secondary conversational collaborator in active subgraph
+        alt_idx = 0 if 0 not in active_pair else 4
+        sub_mask[alt_idx] = 0.16
+    sub_mask = sub_mask / max(float(np.sum(sub_mask)), 1e-6)
+    probs_t = jnp.broadcast_to(
+        jnp.asarray(sub_mask, dtype=jnp.float32)[None, None, :], (1, emb.shape[1], n_nodes)
+    )
+    act_mask_bool = probs_t > 0.0
+
+    flux_accum = np.zeros((n_nodes, n_nodes), dtype=np.float64)
+    a_ij_accum = np.zeros((n_nodes, n_nodes), dtype=np.float64)
+    layer_msg_norms: list[float] = []
+    collab_gates: list[float] = []
+
+    for i in range(config.n_layers):
+        p = f"blk.{i}"
+        normed = rms_norm(emb, params[f"{p}.ffn_norm.weight"], config.rms_eps)
+        gate_w = params[f"{p}.nodes.gate.weight"]
+        up_w = params[f"{p}.nodes.up.weight"]
+        down_w = params[f"{p}.nodes.down.weight"]
+        h_gate = jax.nn.silu(jnp.einsum("btd,ndf->btnf", normed, gate_w))
+        h_up = jnp.einsum("btd,ndf->btnf", normed, up_w)
+        node_outs = jnp.einsum("btnf,nfd->btnd", h_gate * h_up, down_w)
+
+        a_ij = compute_directed_edge_weights_v2(
+            normed,
+            node_outs,
+            params[f"{p}.nodes.edge_u"],
+            params[f"{p}.nodes.edge_v"],
+            params[f"{p}.nodes.edge_proj_h"],
+            params[f"{p}.nodes.edge_proj_x"],
+            params[f"{p}.nodes.edge_bias"],
+            top_k_edges=max(1, int(config.graph_edge_top_k)),
+            temperature=config.graph_edge_temp,
+            active_node_mask=act_mask_bool,
+        )  # (1, T, N, N)
+        a_np = np.mean(np.asarray(a_ij[0], dtype=np.float64), axis=0)  # (N, N)
+        flux_np = sub_mask[:, None] * a_np
+        a_ij_accum += a_np
+        flux_accum += flux_np
+
+        msg_lat = jnp.einsum("btid,dr->btir", node_outs, params[f"{p}.nodes.msg_down"])
+        weighted_src = probs_t[:, :, :, None] * a_ij
+        agg_lat = jnp.einsum("btij,btir->btjr", weighted_src, msg_lat)
+        m_j = jnp.einsum("btjr,rd->btjd", agg_lat, params[f"{p}.nodes.msg_up"])
+        m_norm = float(jnp.mean(jnp.linalg.norm(m_j, axis=-1)))
+        layer_msg_norms.append(round(m_norm, 4))
+        cg = np.asarray(jnp.tanh(params[f"{p}.nodes.collab_gate"]), dtype=np.float64)
+        collab_gates.append(float(np.mean(np.abs(cg))))
+
+    n_l = max(1, config.n_layers)
+    mean_a = a_ij_accum / float(n_l)
+    mean_flux = flux_accum / float(n_l)
+
+    flat_order = np.argsort(-mean_flux.reshape(-1))
+    top_edges: list[dict[str, object]] = []
+    for flat_idx in flat_order:
+        src_i = int(flat_idx // n_nodes)
+        dst_j = int(flat_idx % n_nodes)
+        if src_i == dst_j or mean_flux[src_i, dst_j] <= 1e-5:
+            continue
+        top_edges.append(
+            {
+                "src": src_i,
+                "src_role": get_spidernet_node_role_v2(src_i),
+                "dst": dst_j,
+                "dst_role": get_spidernet_node_role_v2(dst_j),
+                "a_ij": round(float(mean_a[src_i, dst_j]), 3),
+                "flux": round(float(mean_flux[src_i, dst_j]), 3),
+            }
+        )
+        if len(top_edges) >= 4:
+            break
+
+    k_act = 2 if mode == "direct" else 4
+    flops_red = round(float(n_nodes) / float(max(1, k_act)), 1)
+    mean_msg = round(float(np.mean(layer_msg_norms)) if layer_msg_norms else 0.0, 4)
+    edge_parts = [
+        f"N{e['src']}({e['src_role']})──{e['a_ij']:.2f}──►N{e['dst']}({e['dst_role']})"
+        for e in top_edges[:2]
+    ]
+    summary_str = (
+        f"{' | '.join(edge_parts)} | ||M||_2={mean_msg:.3f} | "
+        f"sparse={k_act}/{n_nodes} ({flops_red:.1f}x FLOPs)"
+    )
+    return {
+        **cog,
+        "n_nodes": n_nodes,
+        "k_active": k_act,
+        "flops_reduction_x": flops_red,
+        "collab_gate_mean": round(float(np.mean(collab_gates)) if collab_gates else 0.0, 4),
+        "mean_msg_norm": mean_msg,
+        "layer_msg_norms": layer_msg_norms,
+        "top_edges": top_edges,
+        "summary_str": summary_str,
+    }
+
+
 def _extract_model_predicted_number(text: str) -> str | None:
     """Extract the model's predicted numeric answer from its own generated response."""
     m = re.search(r"answer is\s+(-?\d+)", text, flags=re.IGNORECASE)
@@ -4716,6 +4950,14 @@ def load_checkpoint_v2(
             es_key = f"{p_key}.nodes.edge_scale"
             if es_key not in params:
                 params[es_key] = jnp.ones((config.n_experts,), dtype=jnp.float32)
+    if (
+        config.n_experts > 0
+        and config.graph_edge_rank > 0
+        and "blk.0.nodes.edge_u" not in params
+    ):
+        params = inject_and_calibrate_spidernet_graph_edges_v2(
+            params, config, collab_strength=0.008
+        )
     if "mtp_norm.weight" not in params:
         params["mtp_norm.weight"] = jnp.ones((config.d_model,), dtype=jnp.float32)
     if "mtp_proj.weight" not in params:

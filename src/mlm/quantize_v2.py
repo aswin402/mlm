@@ -94,10 +94,26 @@ def _unrotate_blocks(rotated: np.ndarray, orig_len: int) -> np.ndarray:
 
 
 def _should_quantize_tensor(name: str, arr: np.ndarray) -> bool:
-    """Keep 1D norms/biases/gates and non-learned BLT lookup table in exact float32/float16."""
+    """Keep 1D norms/biases/gates, low-rank graph edges, and BLT table in exact float32/float16."""
     if name == "blt_token_ngrams" or arr.ndim < 2 or arr.size < 256:
         return False
-    if name.endswith((".res", ".pre", ".post", ".router_bias", ".edge_scale")):
+    if name.endswith(
+        (
+            ".res",
+            ".pre",
+            ".post",
+            ".router_bias",
+            ".edge_scale",
+            ".edge_u",
+            ".edge_v",
+            ".edge_proj_h",
+            ".edge_proj_x",
+            ".edge_bias",
+            ".msg_down",
+            ".msg_up",
+            ".collab_gate",
+        )
+    ):
         return False
     return True
 
