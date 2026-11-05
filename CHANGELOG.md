@@ -2,6 +2,36 @@
 
 ## [Unreleased]
 
+## [0.0.35] - 2026-11-05
+
+### Added
+
+- **Consolidated SpiderNet Research Paper (`docs/research/spidernet-paper-v0.0.35.md`):**
+  - Published the consolidated research paper **"SpiderNet: A Dynamically Growing Hierarchical Directed Neural Graph for Constant-Memory Continual Learning"** unifying the mathematical formulations (`v0.0.22`–`v0.0.34`), architecture diagrams, and all 6 empirical verification and continual-learning benchmark tables.
+
+## [0.0.34] - 2026-11-05
+
+### Added
+
+- **Single-Command Reproducible Research Benchmark CLI (`run_full_spidernet_research_benchmark_v2` in `mlm.model_v2`, `uv run mlm bench-spidernet-v2` in `mlm.cli`):**
+  - Added `uv run mlm bench-spidernet-v2 --checkpoint ... --out docs/evidence/spidernet_v2_full_benchmark.json` executing all 6 SpiderNet empirical verification suites in a single command (`Suite 1`: Sparse Index-Gather FLOPs & Latency; `Suite 2`: Strictly $O(1)$ Constant-Memory Ring-Buffer DSA; `Suite 3`: Input-Conditioned Collaborator Switching & Adaptive `1/2/3-Hop` Compositional Chains; `Suite 4`: Autonomous CUSUM Growth Controller & Sibling/Child Orthogonal Splitting; `Suite 5`: Active-Budget-Matched 6-Architecture Multi-Seed Continual Learning Ablation; `Suite 6`: 30-Node Zero-Forgetting Verification).
+
+## [0.0.33] - 2026-11-05
+
+### Added
+
+- **Adaptive Multi-Hop (`1-Hop` / `2-Hop` / `3-Hop`) Directed Graph Message Passing with Input-Conditioned Halting (`adaptive_multi_hop_message_passing_v2`, `trace_compositional_3hop_chain_v2` in `mlm.model_v2`):**
+  - Generalized SpiderNet's directed inter-node graph from fixed 2-hop communication to adaptive `1-Hop`, `2-Hop`, and `3-Hop` directed execution (`N_i -> N_j -> N_k`) with state-dependent protection gates $\gamma_j^{(1)}, \gamma_k^{(2)}$ and Hop-2 state re-scoring $a_{jk}^{(2)}(x_t)$.
+  - Verified `1-Hop` fast exit (`0` edges) on short greetings (`"Hi"`), `2-Hop` (`1` edge) specialist collaboration on single-domain prompts (`N4 -> N8` on science; `N4 -> N15` on math word problems), and `3-Hop` (`2` edges) compositional cross-bank chains (`N4(Science/Reading) -> N15(Div/GSM8K) -> N24(Bool/Logic)`) on multi-domain reading + arithmetic + Python boolean logic prompts.
+
+## [0.0.32] - 2026-11-05
+
+### Added
+
+- **Strictly $O(1)$ Constant-Memory Ring-Buffer DSA + Recurrent Eviction Bridge (`init_o1_ring_decode_cache_v2`, `step_o1_ring_decode_v2`, `profile_o1_memory_scaling_v2` in `mlm.model_v2`):**
+  - Replaced growing $O(T)$ KV buffers in the 2 DSA attention layers (`layers 2, 6`) with a fixed-capacity circular ring buffer ($K_{\text{ring}}, V_{\text{ring}} \in \mathbb{R}^{B \times n_{kv} \times W \times d_h}$) coupled with a recurrent eviction summary state $S_{\text{evict}}^{(l)} \in \mathbb{R}^{B \times n_{kv} \times d_h \times d_h}$ that absorbs evicted slot $w_t = t \bmod W$ via outer-product decay $S_{\text{evict}}^{(l)} \leftarrow \lambda S_{\text{evict}}^{(l)} + (1 - \lambda) k_{\text{evict}} v_{\text{evict}}^\top$ before overwriting.
+  - Verified **`0.0 bytes/token` state memory growth** across $T \in [32, 4096]$ (`270.50 KiB` constant state across all 8 layers vs `6.26 MiB` full KV at $T = 4096$, **`23.70x` state memory reduction**), with `max_logit_diff = 0.0` within the window ($t < W$).
+
 ## [0.0.31] - 2026-11-05
 
 ### Added

@@ -1,0 +1,315 @@
+{
+  "version": "0.0.35",
+  "suite_1_sparse_execution": {
+    "total_params": 31427264,
+    "shared_params": 4885184,
+    "specialist_params": 26542080,
+    "n_nodes": 30,
+    "k_fast": 2,
+    "k_delib": 4,
+    "active_specialist_params_fast": 1769472,
+    "active_specialist_params_delib": 3538944,
+    "active_total_params_fast": 6654656,
+    "active_total_params_delib": 8424128,
+    "activation_ratio_fast": 0.06666666666666667,
+    "activation_ratio_delib": 0.13333333333333333,
+    "dense_specialist_flops_per_tok": 79626240,
+    "sparse_specialist_flops_fast_per_tok": 5308416,
+    "sparse_specialist_flops_delib_per_tok": 10616832,
+    "flops_reduction_fast_x": 15.0,
+    "flops_saved_fast_pct": 93.33333333333333,
+    "max_logit_diff": 7.62939453125e-06,
+    "sparse_ms_per_tok": 7.929756499834184,
+    "dense_ms_per_tok": 22.48986850008805,
+    "speedup_x": 2.836136078145442
+  },
+  "suite_2_o1_memory_scaling": {
+    "ring_window": 16,
+    "is_strictly_o1_constant_memory": true,
+    "o1_constant_state_bytes": 647200,
+    "o1_bytes_per_token_slope": 0.0,
+    "standard_bytes_per_token_slope": 9216.0,
+    "full_kv_bytes_per_token_slope": 9216.0,
+    "max_logit_diff_within_window": 8.821487426757812e-06,
+    "evicted_summary_state_norm": 58.9886,
+    "scaling_table": [
+      {
+        "seq_len": 16,
+        "full_kv_state_bytes": 545820,
+        "o1_ring_state_bytes": 647200,
+        "memory_reduction_x": 0.84
+      },
+      {
+        "seq_len": 32,
+        "full_kv_state_bytes": 693276,
+        "o1_ring_state_bytes": 647200,
+        "memory_reduction_x": 1.07
+      },
+      {
+        "seq_len": 64,
+        "full_kv_state_bytes": 988188,
+        "o1_ring_state_bytes": 647200,
+        "memory_reduction_x": 1.53
+      },
+      {
+        "seq_len": 128,
+        "full_kv_state_bytes": 1578012,
+        "o1_ring_state_bytes": 647200,
+        "memory_reduction_x": 2.44
+      },
+      {
+        "seq_len": 256,
+        "full_kv_state_bytes": 2757660,
+        "o1_ring_state_bytes": 647200,
+        "memory_reduction_x": 4.26
+      },
+      {
+        "seq_len": 512,
+        "full_kv_state_bytes": 5116956,
+        "o1_ring_state_bytes": 647200,
+        "memory_reduction_x": 7.91
+      }
+    ]
+  },
+  "suite_3_directed_graph_and_3hop": {
+    "switch_math": {
+      "reading_node": 4,
+      "reading_role": "Science/Reading",
+      "selected_collaborator": 15,
+      "selected_role": "Div/GSM8K",
+      "a_4_to_8": 0.0,
+      "a_4_to_15": 1.0,
+      "pathway": "N4(Science/Reading) -> N15(Div/GSM8K)"
+    },
+    "switch_science": {
+      "reading_node": 4,
+      "reading_role": "Science/Reading",
+      "selected_collaborator": 8,
+      "selected_role": "Eng-<think>",
+      "a_4_to_8": 0.934,
+      "a_4_to_15": 0.066,
+      "pathway": "N4(Science/Reading) -> N8(Eng-<think>)"
+    },
+    "chain_1hop": {
+      "active_hops": 1,
+      "edge_stages": 0,
+      "chain_nodes": [
+        2
+      ],
+      "chain_roles": [
+        "Grammar/Vocab"
+      ],
+      "a_hop1": 0.0,
+      "a_hop2": 0.0,
+      "path_flux": 0.0,
+      "pathway": "N2(Grammar/Vocab) [1-Hop Fast Exit]"
+    },
+    "chain_2hop": {
+      "active_hops": 2,
+      "edge_stages": 1,
+      "chain_nodes": [
+        4,
+        8
+      ],
+      "chain_roles": [
+        "Science/Reading",
+        "Eng-<think>"
+      ],
+      "a_hop1": 0.9463,
+      "a_hop2": 0.0,
+      "path_flux": 0.9463,
+      "pathway": "N4(Science/Reading) -> N8(Eng-<think>)"
+    },
+    "chain_3hop": {
+      "active_hops": 3,
+      "edge_stages": 2,
+      "chain_nodes": [
+        4,
+        15,
+        24
+      ],
+      "chain_roles": [
+        "Science/Reading",
+        "Div/GSM8K",
+        "Bool/Logic"
+      ],
+      "a_hop1": 1.0,
+      "a_hop2": 0.9992,
+      "path_flux": 0.9992,
+      "pathway": "N4(Science/Reading) -> N15(Div/GSM8K) -> N24(Bool/Logic)"
+    }
+  },
+  "suite_4_autonomous_growth_and_splitting": {
+    "sibling_split": {
+      "n_old": 30,
+      "n_new": 31,
+      "epsilon": 0.02,
+      "growth_mode": "sibling",
+      "parents_layer0": [
+        0
+      ],
+      "max_orthogonality_cosine": 9.795207927255685e-10,
+      "max_mean_reconstruction_err": 2.3283064365386963e-10
+    },
+    "child_split": {
+      "n_old": 30,
+      "n_new": 31,
+      "epsilon": 0.02,
+      "growth_mode": "child",
+      "parents_layer0": [
+        0
+      ],
+      "max_orthogonality_cosine": 9.795207927255685e-10,
+      "max_mean_reconstruction_err": 2.3283064365386963e-10
+    },
+    "outlier_spike_grew": false,
+    "domain_shift_grew": true,
+    "domain_shift_mode": "sibling"
+  },
+  "suite_5_continual_learning_ablation": {
+    "A_dense_baseline": {
+      "AA": 0.49763,
+      "AA_std": 0.04614,
+      "BWT": -0.64514,
+      "BWT_std": 0.06026,
+      "forgetting": 0.64514,
+      "forgetting_std": 0.06026,
+      "retention_pct": 35.30667,
+      "retention_pct_std": 6.05864,
+      "final_mean_loss": 0.89222,
+      "final_mean_loss_std": 0.21728,
+      "activation_ratio": 1.0,
+      "activation_ratio_std": 0.0,
+      "flops_reduction_x": 1.0,
+      "flops_reduction_x_std": 0.0,
+      "I_N_D_bits": 0.0,
+      "I_N_D_bits_std": 0.0,
+      "n_seeds": 3,
+      "final_n_nodes": 0,
+      "graph_edge_rank": 0,
+      "growth_events": 0,
+      "total_params": 214916
+    },
+    "B_static_flat_moe": {
+      "AA": 0.4692,
+      "AA_std": 0.02999,
+      "BWT": -0.68434,
+      "BWT_std": 0.03901,
+      "forgetting": 0.68434,
+      "forgetting_std": 0.03901,
+      "retention_pct": 31.38,
+      "retention_pct_std": 3.91541,
+      "final_mean_loss": 0.94383,
+      "final_mean_loss_std": 0.10054,
+      "activation_ratio": 0.5,
+      "activation_ratio_std": 0.0,
+      "flops_reduction_x": 2.0,
+      "flops_reduction_x_std": 0.0,
+      "I_N_D_bits": 0.13027,
+      "I_N_D_bits_std": 0.03904,
+      "n_seeds": 3,
+      "final_n_nodes": 4,
+      "graph_edge_rank": 0,
+      "growth_events": 0,
+      "total_params": 264596
+    },
+    "C_static_hierarchical_moe": {
+      "AA": 0.51766,
+      "AA_std": 0.01918,
+      "BWT": -0.61892,
+      "BWT_std": 0.03007,
+      "forgetting": 0.61892,
+      "forgetting_std": 0.03007,
+      "retention_pct": 37.94667,
+      "retention_pct_std": 3.0299,
+      "final_mean_loss": 0.78951,
+      "final_mean_loss_std": 0.05143,
+      "activation_ratio": 0.3333,
+      "activation_ratio_std": 0.0,
+      "flops_reduction_x": 3.0,
+      "flops_reduction_x_std": 0.0,
+      "I_N_D_bits": 0.22156,
+      "I_N_D_bits_std": 0.02255,
+      "n_seeds": 3,
+      "final_n_nodes": 6,
+      "graph_edge_rank": 0,
+      "growth_events": 0,
+      "total_params": 314012
+    },
+    "D_manual_grow_moe": {
+      "AA": 0.40277,
+      "AA_std": 0.01922,
+      "BWT": -0.78565,
+      "BWT_std": 0.02571,
+      "forgetting": 0.78565,
+      "forgetting_std": 0.02571,
+      "retention_pct": 20.84667,
+      "retention_pct_std": 2.58613,
+      "final_mean_loss": 1.21664,
+      "final_mean_loss_std": 0.10843,
+      "activation_ratio": 0.2857,
+      "activation_ratio_std": 0.0,
+      "flops_reduction_x": 3.5,
+      "flops_reduction_x_std": 0.0,
+      "I_N_D_bits": 0.16737,
+      "I_N_D_bits_std": 0.04738,
+      "n_seeds": 3,
+      "final_n_nodes": 7,
+      "graph_edge_rank": 0,
+      "growth_events": 0,
+      "total_params": 338720
+    },
+    "E_spidernet_directed_graph": {
+      "AA": 0.46898,
+      "AA_std": 0.02666,
+      "BWT": -0.68408,
+      "BWT_std": 0.03275,
+      "forgetting": 0.68408,
+      "forgetting_std": 0.03275,
+      "retention_pct": 31.41,
+      "retention_pct_std": 3.28354,
+      "final_mean_loss": 1.00577,
+      "final_mean_loss_std": 0.12527,
+      "activation_ratio": 0.3333,
+      "activation_ratio_std": 0.0,
+      "flops_reduction_x": 3.0,
+      "flops_reduction_x_std": 0.0,
+      "I_N_D_bits": 0.05329,
+      "I_N_D_bits_std": 0.00878,
+      "n_seeds": 3,
+      "final_n_nodes": 6,
+      "graph_edge_rank": 8,
+      "growth_events": 0,
+      "total_params": 318384
+    },
+    "F_spidernet_full_autonomous": {
+      "AA": 0.62728,
+      "AA_std": 0.00674,
+      "BWT": -0.37913,
+      "BWT_std": 0.01055,
+      "forgetting": 0.37913,
+      "forgetting_std": 0.01055,
+      "retention_pct": 56.97,
+      "retention_pct_std": 0.92286,
+      "final_mean_loss": 0.59242,
+      "final_mean_loss_std": 0.02231,
+      "activation_ratio": 0.2857,
+      "activation_ratio_std": 0.0,
+      "flops_reduction_x": 3.5,
+      "flops_reduction_x_std": 0.0,
+      "I_N_D_bits": 0.04742,
+      "I_N_D_bits_std": 0.01284,
+      "n_seeds": 3,
+      "final_n_nodes": 7,
+      "graph_edge_rank": 8,
+      "growth_events": 3,
+      "total_params": 343152
+    }
+  },
+  "suite_6_dot2_code_logic_verification": {
+    "boolean_logic": "`(True and not False) xor False` evaluates to `True`.",
+    "bitwise_eval": "`13 & 7` = 5 (binary `0b101`).",
+    "syllogism_barbara": "Yes. By transitive deductive logic (Barbara syllogism), since all compilers are programs and all programs are software, all compilers are software.",
+    "python_ast_comp": "`[x * x for x in range(5)]` evaluates to `[0, 1, 4, 9, 16]`."
+  }
+}

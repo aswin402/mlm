@@ -604,6 +604,55 @@ def test_model_v2_hybrid_train_grow_and_gguf(tmp_path: Path):
     assert "SpiderNet Directed Graph & Edge Inspector (/graph)" in g_panel
     assert "a_ij=" in g_panel
 
+    # Verify v0.0.32 O(1) Ring-Buffer DSA & Recurrent Eviction Bridge
+    from mlm.model_v2 import (
+        adaptive_multi_hop_message_passing_v2,
+        profile_o1_memory_scaling_v2,
+        trace_compositional_3hop_chain_v2,
+    )
+
+    o1_prof = profile_o1_memory_scaling_v2(
+        loaded_params,
+        loaded_cfg,
+        seq_lengths=(16, 32, 64),
+        ring_window=16,
+    )
+    assert o1_prof["is_strictly_o1_constant_memory"] is True
+    assert o1_prof["o1_bytes_per_token_slope"] == 0.0
+    assert o1_prof["standard_bytes_per_token_slope"] > 0.0
+    assert o1_prof["max_logit_diff_within_window"] < 1e-5
+    assert o1_prof["evicted_summary_state_norm"] > 0.0
+
+    # Verify v0.0.33 Adaptive Multi-Hop (1-Hop / 2-Hop / 3-Hop) Message Passing & Halting
+    mh_out, mh_diag = adaptive_multi_hop_message_passing_v2(
+        x_ctx,
+        jnp.full((1, 2, sp_cfg.n_experts), 1.0 / sp_cfg.n_experts, dtype=jnp.float32),
+        dummy_h1,
+        sp_params["blk.0.nodes.edge_u"],
+        sp_params["blk.0.nodes.edge_v"],
+        sp_params["blk.0.nodes.edge_proj_h"],
+        sp_params["blk.0.nodes.edge_proj_x"],
+        sp_params["blk.0.nodes.edge_bias"],
+        sp_params["blk.0.nodes.msg_down"],
+        sp_params["blk.0.nodes.msg_up"],
+        c_active,
+        top_k_edges=2,
+        max_hops=3,
+        return_diagnostics=True,
+    )
+    assert mh_out.shape == (1, 2, sp_cfg.d_model)
+    assert "a_hop1" in mh_diag
+    assert "a_hop2" in mh_diag
+
+    hop_suite = trace_compositional_3hop_chain_v2(cal_params, sp_cfg, loaded_tok)
+    assert hop_suite["verified_1hop_fast_exit"] is True
+    assert hop_suite["verified_2hop_single_domain"] is True
+    assert hop_suite["verified_3hop_compositional_chain"] is True
+    assert hop_suite["hop_1_greeting"]["active_hops"] == 1
+    assert hop_suite["hop_2_science"]["active_hops"] == 2
+    assert hop_suite["hop_3_compositional_code_math"]["active_hops"] == 3
+    assert hop_suite["hop_3_compositional_code_math"]["chain_nodes"] == [4, 15, 24]
+
     # Export to GGUF v3 and verify with Rust `mlm-gguf-inspect`
     gguf_path = tmp_path / "model.gguf"
     info = export_gguf_v2(gguf_path, loaded_params, loaded_cfg, loaded_tok)

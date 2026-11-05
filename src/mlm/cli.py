@@ -384,6 +384,28 @@ def main(argv=None):
     cluster_p.add_argument("--max-tokens", type=int, default=96)
     cluster_p.add_argument("--force-node", type=str, default=None)
     cluster_p.add_argument("--json", action="store_true")
+    bench_sp_p = commands.add_parser(
+        "bench-spidernet-v2",
+        help="Run the full reproducible SpiderNet v0.0.22-v0.0.34 research benchmark suite",
+    )
+    bench_sp_p.add_argument(
+        "--checkpoint",
+        type=Path,
+        default=Path("runs/mlm-10m-math-colab/quantized/mlm_30m_spidernet_v2_16bit.mlm2"),
+    )
+    bench_sp_p.add_argument(
+        "--out",
+        type=Path,
+        default=Path("docs/evidence/spidernet_v2_full_benchmark.json"),
+    )
+    bench_sp_p.add_argument("--steps-per-task", type=int, default=40)
+    bench_sp_p.add_argument(
+        "--seeds",
+        type=int,
+        nargs="+",
+        default=[42, 43, 44],
+        help="Random seeds for 4-stage continual learning ablation (default: 42 43 44)",
+    )
     args = parser.parse_args(argv)
     if args.command == "train":
         run_train(args)
@@ -489,6 +511,17 @@ def main(argv=None):
                 f"[{res['selected_node']} ({res['selected_domain']})]\n{res['reply']}",
                 flush=True,
             )
+    elif args.command == "bench-spidernet-v2":
+        from mlm.model_v2 import run_full_spidernet_research_benchmark_v2
+
+        ckpt_arg = args.checkpoint if args.checkpoint and args.checkpoint.exists() else None
+        report = run_full_spidernet_research_benchmark_v2(
+            checkpoint_path=ckpt_arg,
+            out_json_path=args.out,
+            ablation_steps_per_task=int(args.steps_per_task),
+            ablation_seeds=tuple(int(s) for s in args.seeds),
+        )
+        print(json.dumps(report, indent=2), flush=True)
     elif args.command == "stream-train":
         from mlm.streamrun import run
 
