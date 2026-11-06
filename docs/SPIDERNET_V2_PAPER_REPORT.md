@@ -1,4 +1,4 @@
-# SpiderNet v2 (`v0.0.22`–`v0.0.41`): Autonomous Growing Directed-Graph Specialist Architecture with Strictly $O(1)$ Recurrent Memory
+# SpiderNet v2 (`v0.0.22`–`v0.0.42`): Autonomous Growing Directed-Graph Specialist Architecture with Strictly $O(1)$ Recurrent Memory
 
 **Evidence Artifact:** [`docs/evidence/spidernet_v2_full_benchmark.json`](file:///home/aswin/programming/vscode/model/mlm/docs/evidence/spidernet_v2_full_benchmark.json)  
 **Primary Checkpoints:**  
@@ -11,19 +11,19 @@
 
 ## 1. Executive Summary
 
-SpiderNet v2 (`v0.0.22`–`v0.0.41`) replaces static, monolithic Mixture-of-Experts (MoE) routing and $O(T)$ attention KV caches with an **autonomous, multi-hop directed-graph specialist network** coupled to a **strictly $O(1)$ constant-memory recurrent state hierarchy**:
+SpiderNet v2 (`v0.0.22`–`v0.0.42`) replaces static, monolithic Mixture-of-Experts (MoE) routing and $O(T)$ attention KV caches with an **autonomous, multi-hop directed-graph specialist network** coupled to a **strictly $O(1)$ constant-memory recurrent state hierarchy**:
 
 1. **True Sparse Index-Gather Execution (`v0.0.22`, Suite 1):** Gathers only the top-$K$ active specialist FFN weight slices (`gate.weight[active_idx]`, `up.weight[active_idx]`, `down.weight[active_idx]`) per token step, cutting specialist FFN FLOPs by **$15.0\times$ ($93.33\%$ reduction, $6.67\%$ activation ratio)** in fast mode (`K=2/30`) and **$7.5\times$ ($13.33\%$ activation ratio)** in deliberative `<|think|>` mode (`K=4/30`), achieving a **$3.45\times$ wall-clock single-token decode speedup** with $\max |\Delta \text{logits}| = 8.58 \times 10^{-6}$ against dense masked execution.
 2. **Strictly $O(1)$ Constant-Memory Ring-Buffer KV + Recurrent Eviction Bridge (`v0.0.32`, Suite 2):** Bounds the 2 DeepSeek Sparse Attention (DSA) layers (`blk.2`, `blk.5`) to a fixed ring buffer of capacity $W$, folding evicted slots $r_t = t \bmod W$ into a constant-size ELU-normalized recurrent summary state $(S_{\text{evict}}, z_{\text{evict}})$. Verified slope: **$0.0\text{ bytes/token}$** ($647,200\text{ B}$ constant state across all sequence lengths $T \in [16, 512]$ vs. $9,216.0\text{ B/tok}$ linear growth in standard KV caching, achieving **$7.91\times$ memory reduction** at $T=512$).
 3. **Gram-Nullspace FDA Directed Graph Routing & Von Neumann Spectral Multi-Hop Execution (`v0.0.23`–`v0.0.36`, Suite 3):** Connects all $N=30$ specialists via input-conditioned low-rank bilinear directed edges $A_{ij}(x_t)$ calibrated in closed form via regularized Fisher Discriminant Analysis (FDA) in the token-embedding Gram space, while selecting hop depth ($H \in \{1, 2, 3\}$) directly from the **Von Neumann Spectral Effective Rank** $R_{\text{eff}}(X) = \exp(-\sum_k p_k \ln p_k)$ of the layer-0 normalized token representations.
 4. **KKT Constrained Gram-Nullspace Dot-2 Subspace Router (`v0.0.38`, Suite 3 & Suite 6):** Calibrates the orthogonal perturbation vectors $Q_d \in r_{\text{parent},d}^\perp$ of Dot 2 (`Nodes 20..29`: Code & Symbolic Logic) via a saddle-point Karush-Kuhn-Tucker (KKT) solve so that the antisymmetric dyad difference $\Delta_d(x_t) = \frac{\sqrt{1+\epsilon^2}}{16\epsilon}(\text{rl}_0[t, 20+2d] - \text{rl}_0[t, 20+2d+1]) \equiv \hat{h}_0(x_t) \cdot \hat{Q}_d$ routes Code/Logic, Algorithm/Loop (`Nodes 22..23`), and Boolean/Bitwise/Syllogism (`Nodes 24..25`) prompts using **100% neural weight matrix multiplications** with zero keyword/regex heuristics.
-5. **Inverse-Gram Mahalanobis Whitened Episodic Memory & Stage-3 Dot-2 Continual Calibration (`v0.0.39`–`v0.0.41`, Suite 7):** Replaces stopword-filtered episodic retrieval with **Inverse-Gram Mahalanobis Whitening** ($\Sigma^{-1/2} = U (\Lambda + \lambda I)^{-1/2} U^\top$) over the model's own `tok_embeddings.weight` + BLT byte n-grams (`phrase_sim = 1.0`), and introduces [`run_dot2_continual_stage_v2`](file:///home/aswin/programming/vscode/model/mlm/src/mlm/v2_rl.py#L728-L852) (`mlm train-dot2-v2`) to train `Nodes 20..29` on a 5-bucket Code/Logic curriculum with `BWT = 0.0` (`max_drift_nodes_0_19 = 0.0`, `max_drift_trunk = 0.0`).
+5. **Inverse-Gram Mahalanobis Whitened Episodic Memory & Stage-3 Dot-2 Continual Calibration (`v0.0.39`–`v0.0.42`, Suite 7):** Replaces stopword-filtered episodic retrieval with **Inverse-Gram Mahalanobis Whitening** ($\Sigma^{-1/2} = U (\Lambda + \lambda I)^{-1/2} U^\top$) over the model's own `tok_embeddings.weight` + BLT byte n-grams (`phrase_sim = 1.0`), and introduces [`run_dot2_continual_stage_v2`](file:///home/aswin/programming/vscode/model/mlm/src/mlm/v2_rl.py#L728-L852) (`mlm train-dot2-v2`) to train `Nodes 20..29` on a 5-bucket Code/Logic curriculum with `BWT = 0.0` (`max_drift_nodes_0_19 = 0.0`, `max_drift_trunk = 0.0`).
 6. **Autonomous CUSUM + 3-Signal Node Spawning & Symmetric Orthogonal Splitting (`v0.0.25`–`v0.0.26`, Suite 4):** Triggers capacity (`sibling`) or capability (`child`) node splits $W_{\pm} = W_{\text{parent}} \pm \epsilon Q$ ($\langle W_{\text{parent}}, Q \rangle = 0$) only under sustained domain shifts ($C_t > h$), rejecting single-token outlier spikes (`outlier_spike_grew = False`, `domain_shift_grew = True`) with exact function preservation ($\max |\frac{1}{2}(W_+ + W_-) - W_{\text{parent}}| = 2.33 \times 10^{-10}$).
 7. **6-Architecture Continual Learning Controlled Ablation (`v0.0.27`–`v0.0.28`, Suite 5):** Across 4 sequential domains (`English -> Math -> Science -> Code`, 3 seeds), Full Autonomous SpiderNet (`Arch F`) achieves **$62.73\% \pm 0.67\%$ Average Accuracy (AA)**, **$-0.379 \pm 0.011$ Backward Transfer (BWT)**, and **$56.97\% \pm 0.92\%$ Task-1 Retention**, outperforming Static Flat MoE (`Arch B`, $31.38\%$ retention) by **$+25.59$ percentage points** and Static Hierarchical MoE (`Arch C`, $37.95\%$ retention) by **$+19.02$ percentage points** while cutting active FFN compute by **$3.5\times$**.
 
 ---
 
-## 2. Modular Codebase Architecture (`v0.0.37`–`v0.0.41`)
+## 2. Modular Codebase Architecture (`v0.0.37`–`v0.0.42`)
 
 The SpiderNet v2 implementation in `src/mlm/` is organized into 11 focused modules with 100% backward-compatible re-exports in [`src/mlm/model_v2.py`](file:///home/aswin/programming/vscode/model/mlm/src/mlm/model_v2.py) and [`src/mlm/train_v2.py`](file:///home/aswin/programming/vscode/model/mlm/src/mlm/train_v2.py):
 
@@ -106,7 +106,7 @@ To retrieve 2-bit TurboQuant episodic memory slots without any hardcoded stopwor
 $$\mu_E = \frac{1}{V}\sum_{v=1}^V \tilde{E}_v, \qquad \Sigma = \frac{1}{V}(\tilde{E} - \mu_E)^\top (\tilde{E} - \mu_E) = U \Lambda U^\top, \qquad \Sigma^{-1/2} = U (\Lambda + \lambda I)^{-1/2} U^\top$$
 Each word span $s_i$ is projected into the whitened sphere $\hat{z}_i = \frac{(h(s_i) - \mu_E)\Sigma^{-1/2}}{\|(h(s_i) - \mu_E)\Sigma^{-1/2}\|_2}$ ([`_encode_whitened_spans`](file:///home/aswin/programming/vscode/model/mlm/src/mlm/v2_memory.py#L190-L231)), and [`_compute_whitened_span_attention`](file:///home/aswin/programming/vscode/model/mlm/src/mlm/v2_memory.py#L233-L259) scores slot subjects against queries via Late-Interaction MaxSim and contiguous span alignment (`phrase_sim = 1.0`).
 
-### 3.5 Stage-3 Dot-2 Continual Calibration & 30-Node GGUF v3 Export (`v0.0.39`–`v0.0.41`)
+### 3.5 Stage-3 Dot-2 Continual Calibration & 30-Node GGUF v3 Export (`v0.0.39`–`v0.0.42`)
 In [`run_dot2_continual_stage_v2`](file:///home/aswin/programming/vscode/model/mlm/src/mlm/v2_rl.py#L728-L852) (`uv run mlm train-dot2-v2`), Dot-2 specialists (`Nodes 20..29`) are trained across 5 subnode-paired curriculum buckets (`(20,21)`, `(22,23)`, `(24,25)`, `(26,27)`, `(28,29)`) under [`mask_specialist_updates_v2`](file:///home/aswin/programming/vscode/model/mlm/src/mlm/v2_growth.py#L39-L198) with `mature_experts=20` and `strict_active_only=True`, guaranteeing zero parameter drift on `Nodes 0..19` (`max_drift_nodes_0_19 = 0.0`) and the shared trunk (`max_drift_trunk = 0.0`, `BWT = 0.0`). [`export_gguf_v2`](file:///home/aswin/programming/vscode/model/mlm/src/mlm/gguf_export.py#L211-L363) serializes all 308 tensors of the 30-node architecture into `llama.cpp`-compatible GGUF v3 binaries (`F16` and `Q2_K`), verified by [`crates/mlm_core`](file:///home/aswin/programming/vscode/model/mlm/crates/mlm_core/src/lib.rs).
 
 ---
@@ -187,7 +187,7 @@ Sequential 4-stage continual training (`English -> Math -> Science -> Code`, 3 r
 | **Syllogistic Deduction** | `domain="code"`, `active_subnodes=(24, 25)` (`Bool/Logic`) | `Yes. By transitive deductive logic (Barbara syllogism), since all compilers are programs and all programs are software, all compilers are software.` |
 | **Python AST Comprehension** | `domain="code"`, `active_subnodes=(22, 23)` (`Algo/Loops`) | `` `[x * x for x in range(5)]` evaluates to `[0, 1, 4, 9, 16]`. `` |
 
-### Suite 7: Stage-3 Dot-2 Continual Calibration, Whitened Episodic Memory & 30-Node GGUF v3 Verification (`v0.0.39`–`v0.0.41`)
+### Suite 7: Stage-3 Dot-2 Continual Calibration, Whitened Episodic Memory & 30-Node GGUF v3 Verification (`v0.0.39`–`v0.0.42`)
 
 | Verification Check | Verified Value |
 | :--- | ---: |

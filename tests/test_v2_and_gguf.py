@@ -927,6 +927,19 @@ def test_cli_train_v2_and_chat(tmp_path: Path, capsys):
     assert stage3_rep["max_drift_trunk"] == 0.0
     assert stage3_rep["dot2_update_l2_norm"] > 0.0
 
+    from mlm.tui import format_multihop_inspector_v2
+    from mlm.v2_generate import classify_cognitive_mode_v2 as classify_gen_v2
+    from mlm.v2_graph_trace import trace_compositional_3hop_chain_v2 as trace_3hop_direct
+    from mlm.v2_tui import format_graph_inspector_v2 as fmt_graph_v2
+
+    hops_panel = format_multihop_inspector_v2(p_30, c_30, tok_loaded)
+    assert "3-Hop Chain" in hops_panel
+    assert "N4(Science/Reading)" in hops_panel
+    assert "N24(Bool/Logic)" in hops_panel
+    assert classify_gen_v2(p_30, c_30, tok_loaded, code_q)["domain"] == "code"
+    assert trace_3hop_direct(p_30, c_30, tok_loaded)["verified_3hop_compositional_chain"] is True
+    assert "Directed Graph & Edge Inspector" in fmt_graph_v2(g_c)
+
     gguf_30_path = tmp_path / "spidernet_30n_q2k.gguf"
     gguf_30_info = export_gguf_v2(gguf_30_path, p_30_ft, c_30_ft, tok_loaded, bits=2)
     assert gguf_30_info["spidernet_experts"] == 30

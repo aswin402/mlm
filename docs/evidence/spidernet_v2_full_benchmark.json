@@ -1,5 +1,5 @@
 {
-  "version": "0.0.41",
+  "version": "0.0.42",
   "suite_1_sparse_execution": {
     "total_params": 31427264,
     "shared_params": 4885184,

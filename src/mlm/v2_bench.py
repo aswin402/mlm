@@ -530,7 +530,7 @@ def run_full_spidernet_research_benchmark_v2(
     }
 
     report: dict[str, object] = {
-        "version": "0.0.41",
+        "version": "0.0.42",
         "suite_1_sparse_execution": suite1,
         "suite_2_o1_memory_scaling": suite2,
         "suite_3_directed_graph_and_3hop": suite3,
