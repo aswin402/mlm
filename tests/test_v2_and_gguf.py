@@ -886,11 +886,23 @@ def test_cli_train_v2_and_chat(tmp_path: Path, capsys):
     assert g_c["domain"] == "code"
     th_bool, ans_bool = _verify_code_and_logic_v2(code_q, "", "")
     assert "True" in th_bool and "True" in ans_bool
-    th_comp, ans_comp = _verify_code_and_logic_v2(
-        "<|user|>\nWhat does `[x * x for x in range(4)]` evaluate to in Python?\n<|assistant|>\n",
-        "",
-        "",
+    comp_q = (
+        "<|user|>\nWhat does `[x * x for x in range(4)]` evaluate to in Python?\n<|assistant|>\n"
     )
+    cog_comp = classify_cognitive_mode_v2(p_30, c_30, tok_loaded, comp_q)
+    assert cog_comp["domain"] == "code"
+    assert cog_comp["active_subnodes"] == (22, 23)
+    cog_sci = classify_cognitive_mode_v2(
+        p_30,
+        c_30,
+        tok_loaded,
+        (
+            "<|user|>\nWhy is the sky blue and how do plants use light "
+            "for photosynthesis?\n<|assistant|>\n"
+        ),
+    )
+    assert cog_sci["domain"] in ("english", "math")
+    th_comp, ans_comp = _verify_code_and_logic_v2(comp_q, "", "")
     assert "[0, 1, 4, 9]" in ans_comp
 
     cluster = MLMNodeCluster.from_checkpoints(

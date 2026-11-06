@@ -1,5 +1,5 @@
 {
-  "version": "0.0.35",
+  "version": "0.0.38",
   "suite_1_sparse_execution": {
     "total_params": 31427264,
     "shared_params": 4885184,
@@ -18,10 +18,10 @@
     "sparse_specialist_flops_delib_per_tok": 10616832,
     "flops_reduction_fast_x": 15.0,
     "flops_saved_fast_pct": 93.33333333333333,
-    "max_logit_diff": 6.67572021484375e-06,
-    "sparse_ms_per_tok": 7.321266250073677,
-    "dense_ms_per_tok": 23.934926749461738,
-    "speedup_x": 3.2692332080151942
+    "max_logit_diff": 8.58306884765625e-06,
+    "sparse_ms_per_tok": 7.003012000041053,
+    "dense_ms_per_tok": 24.16016799998033,
+    "speedup_x": 3.4499680994176076
   },
   "suite_2_o1_memory_scaling": {
     "ring_window": 16,
@@ -30,7 +30,7 @@
     "o1_bytes_per_token_slope": 0.0,
     "standard_bytes_per_token_slope": 9216.0,
     "full_kv_bytes_per_token_slope": 9216.0,
-    "max_logit_diff_within_window": 8.58306884765625e-06,
+    "max_logit_diff_within_window": 1.0967254638671875e-05,
     "evicted_summary_state_norm": 58.9888,
     "scaling_table": [
       {
@@ -117,9 +117,9 @@
         "Science/Reading",
         "Eng-<think>"
       ],
-      "a_hop1": 0.9972,
+      "a_hop1": 0.9971,
       "a_hop2": 0.0,
-      "path_flux": 0.9972,
+      "path_flux": 0.9971,
       "pathway": "N4(Science/Reading) -> N8(Eng-<think>)"
     },
     "chain_3hop": {

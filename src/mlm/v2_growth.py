@@ -1011,6 +1011,119 @@ def grow_model_v2_depth(
     return new_params, new_cfg
 
 
+def _calibrate_dot2_router_subspace_v2(
+    params: dict[str, jnp.ndarray],
+    layer_idx: int,
+    r_parent: np.ndarray,
+    dyad_idx: int,
+    rms_eps: float,
+    rng: np.random.Generator,
+) -> np.ndarray:
+    """Solve KKT Constrained Gram-Nullspace FDA for Dot-2 specialist router dyad `d`.
+
+    Computes the optimal orthogonal perturbation `q_r` (`<q_r, r_parent> = 0`,
+    `||q_r||_2 = ||r_parent||_2`) via the saddle-point KKT system:
+        min_q  q^T G_neg q - 2 target^T q    s.t.   r_parent^T q = 0
+    so the antisymmetric dyad projection `rl_0[20+2d] - rl_0[20+2d+1]` separates
+    Code/Logic tokens (`20..21`), Algo/Loops (`22..23`), Bool/Logic (`24..25`),
+    and Types/Debug (`26..27`) from natural language and arithmetic tokens.
+    """
+    p = f"blk.{layer_idx}"
+    if "tok_embeddings.weight" not in params or f"{p}.ffn_norm.weight" not in params:
+        return _orthogonal_perturbation_like(r_parent, rng)
+
+    emb = np.asarray(params["tok_embeddings.weight"], dtype=np.float64)
+    norm_w = np.asarray(params[f"{p}.ffn_norm.weight"], dtype=np.float64)
+    rms = np.sqrt(np.mean(np.square(emb), axis=-1, keepdims=True) + float(rms_eps))
+    h0 = (emb / rms) * norm_w
+    h_u = h0 / np.maximum(np.linalg.norm(h0, axis=-1, keepdims=True), 1e-8)
+    v_sz, d_mod = h_u.shape
+
+    algo_ids = [i for i in (55, 66, 68, 71, 95, 1811) if i < v_sz]
+    bool_ids = [
+        i
+        for i in (
+            13,
+            15,
+            16,
+            33,
+            35,
+            37,
+            44,
+            45,
+            48,
+            59,
+            69,
+            99,
+            301,
+            389,
+            462,
+            536,
+            795,
+            1036,
+            1445,
+            1554,
+            3506,
+            3632,
+        )
+        if i < v_sz
+    ]
+    types_ids = [i for i in (35, 37, 69) if i < v_sz]
+    all_code = sorted(set(algo_ids + bool_ids + types_ids))
+    dyad_sets = [all_code, algo_ids, bool_ids, types_ids]
+
+    pos_ids = dyad_sets[dyad_idx] if dyad_idx < len(dyad_sets) else []
+    if not pos_ids:
+        return _orthogonal_perturbation_like(r_parent, rng)
+
+    all_code_set = set(all_code)
+    active_vocab = (
+        list(range(0, min(102, v_sz)))
+        + [i for i in (206, 228) if i < v_sz]
+        + list(range(256, v_sz))
+    )
+    neg_ids = [i for i in active_vocab if i not in all_code_set]
+    core_ascii = [
+        i
+        for i in list(range(0, min(102, v_sz))) + [206, 228, 265]
+        if i < v_sz and i not in all_code_set
+    ]
+    if not neg_ids or not core_ascii:
+        return _orthogonal_perturbation_like(r_parent, rng)
+
+    h_neg = h_u[neg_ids]
+    h_core = h_u[core_ascii]
+    g_neg = (
+        (h_neg.T @ h_neg) / float(len(neg_ids))
+        + 8.0 * (h_core.T @ h_core) / float(len(core_ascii))
+        + 1e-3 * np.eye(d_mod, dtype=np.float64)
+    )
+
+    mu_pos = np.mean(h_u[pos_ids], axis=0)
+    mu_neg = np.mean(h_core, axis=0)
+    other_ids = [
+        i
+        for j, s in enumerate(dyad_sets)
+        if j != dyad_idx and j in (1, 2)
+        for i in s
+        if i not in pos_ids
+    ]
+    mu_other = (
+        np.mean(h_u[other_ids], axis=0)
+        if other_ids
+        else np.zeros((d_mod,), dtype=np.float64)
+    )
+    target = (mu_pos - 0.5 * mu_neg) - (0.35 * mu_other if dyad_idx > 0 else 0.0)
+
+    rp = r_parent.astype(np.float64)
+    u = np.linalg.solve(g_neg, target)
+    v = np.linalg.solve(g_neg, rp)
+    q = u - (float(np.dot(rp, u)) / max(float(np.dot(rp, v)), 1e-12)) * v
+    q = q - (float(np.dot(rp, q)) / max(float(np.dot(rp, rp)), 1e-12)) * rp
+    q = q * (float(np.linalg.norm(rp)) / max(float(np.linalg.norm(q)), 1e-12))
+    return q.astype(np.float32)
+
+
 def grow_dot2_code_logic_v2(
     params: dict[str, jnp.ndarray],
     config: ConfigV2,
@@ -1067,9 +1180,11 @@ def grow_dot2_code_logic_v2(
 
         rw = np.asarray(params[f"{p}.nodes.router.weight"], dtype=np.float32)
         rw_children: list[np.ndarray] = []
-        for p_eng, p_math, w_e, w_m in dyad_recipes:
+        for d_idx, (p_eng, p_math, w_e, w_m) in enumerate(dyad_recipes):
             r_parent = (w_e * rw[:, p_eng] + w_m * rw[:, p_math]).astype(np.float32)
-            q_r = _orthogonal_perturbation_like(r_parent, rng)
+            q_r = _calibrate_dot2_router_subspace_v2(
+                params, i, r_parent, d_idx, config.rms_eps, rng
+            )
             rw_children.append((r_parent + eff_eps * q_r).astype(np.float32))
             rw_children.append((r_parent - eff_eps * q_r).astype(np.float32))
         rw_new = np.concatenate([rw, np.stack(rw_children, axis=-1)], axis=-1)
@@ -1328,7 +1443,7 @@ def run_full_spidernet_research_benchmark_v2(
     }
 
     report: dict[str, object] = {
-        "version": "0.0.35",
+        "version": "0.0.38",
         "suite_1_sparse_execution": suite1,
         "suite_2_o1_memory_scaling": suite2,
         "suite_3_directed_graph_and_3hop": suite3,
