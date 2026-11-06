@@ -14,11 +14,16 @@ fn main() {
     match inspect_gguf_header(path) {
         Ok(summary) => {
             println!(
-                "{{\"valid\":true,\"version\":{},\"tensor_count\":{},\"metadata_kv_count\":{},\"file_size_bytes\":{}}}",
+                "{{\"valid\":true,\"version\":{},\"tensor_count\":{},\"metadata_kv_count\":{},\"file_size_bytes\":{},\"architecture\":{:?},\"quantization_bits\":{},\"expert_count\":{},\"graph_edge_rank\":{},\"tensors_aligned\":{}}}",
                 summary.version,
                 summary.tensor_count,
                 summary.metadata_kv_count,
-                summary.file_size_bytes
+                summary.file_size_bytes,
+                summary.architecture,
+                summary.quantization_bits,
+                summary.expert_count,
+                summary.graph_edge_rank,
+                summary.tensors_aligned
             );
         }
         Err(err) => {

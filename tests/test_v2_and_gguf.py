@@ -925,6 +925,10 @@ def test_cli_train_v2_and_chat(tmp_path: Path, capsys):
     gguf_30_rust = verify_gguf_with_rust(gguf_30_path)
     assert gguf_30_rust["valid"] is True
     assert gguf_30_rust["tensor_count"] == gguf_30_info["tensor_count"]
+    if "expert_count" in gguf_30_rust:
+        assert gguf_30_rust["expert_count"] == 30
+        assert gguf_30_rust["graph_edge_rank"] == c_30_ft.graph_edge_rank
+        assert gguf_30_rust["tensors_aligned"] is True
 
     cluster = MLMNodeCluster.from_checkpoints(
         [

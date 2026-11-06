@@ -406,6 +406,18 @@ def main(argv=None):
         default=[42, 43, 44],
         help="Random seeds for 4-stage continual learning ablation (default: 42 43 44)",
     )
+    dot2_p = commands.add_parser(
+        "train-dot2-v2",
+        help="Run Stage-3 continual fine-tuning on Dot-2 (Nodes 20..29) with zero forgetting",
+    )
+    dot2_p.add_argument(
+        "--checkpoint",
+        type=Path,
+        default=Path("runs/mlm-10m-math-colab/quantized/mlm_30m_spidernet_v2_16bit.mlm2"),
+    )
+    dot2_p.add_argument("--out", type=Path, default=None)
+    dot2_p.add_argument("--steps-per-bucket", type=int, default=6)
+    dot2_p.add_argument("--lr", type=float, default=2.0e-3)
     args = parser.parse_args(argv)
     if args.command == "train":
         run_train(args)
@@ -522,6 +534,22 @@ def main(argv=None):
             ablation_seeds=tuple(int(s) for s in args.seeds),
         )
         print(json.dumps(report, indent=2), flush=True)
+    elif args.command == "train-dot2-v2":
+        from mlm.model_v2 import load_checkpoint_v2, save_checkpoint_v2
+        from mlm.v2_rl import run_dot2_continual_stage_v2
+
+        params_d2, cfg_d2, tok_d2, _ = load_checkpoint_v2(args.checkpoint)
+        new_p, new_cfg, rep_d2 = run_dot2_continual_stage_v2(
+            params_d2,
+            cfg_d2,
+            tok_d2,
+            steps_per_bucket=int(args.steps_per_bucket),
+            learning_rate=float(args.lr),
+        )
+        if args.out is not None:
+            save_checkpoint_v2(args.out, new_p, new_cfg, tok_d2, metadata=rep_d2)
+            rep_d2["saved_checkpoint"] = str(args.out)
+        print(json.dumps(rep_d2, indent=2), flush=True)
     elif args.command == "stream-train":
         from mlm.streamrun import run
 
@@ -532,19 +560,29 @@ def main(argv=None):
         summary = run_continual(args)
         print(json.dumps(summary, indent=2), flush=True)
     elif args.command == "chat":
-        if args.checkpoint is not None and args.checkpoint.suffix == ".mlm2":
+        eff_ckpt = args.checkpoint
+        if eff_ckpt is None and args.config is None:
+            for cand in (
+                Path("runs/mlm-10m-math-colab/quantized/mlm_30m_spidernet_v2_16bit.mlm2"),
+                Path("runs/mlm-10m-math-colab/quantized/mlm_30m_spidernet_v2_2bit.mlm2"),
+                Path("runs/mlm-10m-math-colab/mlm_10m_math_v2.mlm2"),
+            ):
+                if cand.exists():
+                    eff_ckpt = cand
+                    break
+        if eff_ckpt is not None and eff_ckpt.suffix == ".mlm2":
             from mlm.model_v2 import MemoryHierarchyV2, generate_v2, load_checkpoint_v2
             from mlm.train_v2 import format_chat_prompt_v2
             from mlm.tui import run_chat_tui_v2
 
             if args.message is not None:
-                params_v2, cfg_v2, tok_v2, _ = load_checkpoint_v2(args.checkpoint)
+                params_v2, cfg_v2, tok_v2, _ = load_checkpoint_v2(eff_ckpt)
                 if args.kv_bits is not None:
                     cfg_v2 = cfg_v2.model_copy(update={"kv_cache_bits": int(args.kv_bits)})
                 eff_mem_path = (
                     args.memory_file
                     if args.memory_file is not None
-                    else args.checkpoint.with_suffix(".mlm2.memory")
+                    else eff_ckpt.with_suffix(".mlm2.memory")
                 )
                 if args.reset_memory and eff_mem_path.exists():
                     eff_mem_path.unlink(missing_ok=True)
@@ -561,7 +599,7 @@ def main(argv=None):
                 print(reply.strip())
                 return
             run_chat_tui_v2(
-                args.checkpoint,
+                eff_ckpt,
                 max_new_tokens=max(16, args.max_bytes // 2),
                 show_thinking=not args.no_think,
                 initial_context=args.context,
