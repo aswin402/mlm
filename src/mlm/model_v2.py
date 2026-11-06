@@ -110,7 +110,6 @@ from mlm.v2_kernels import (  # noqa: F401
 )
 from mlm.v2_memory import (  # noqa: F401
     _QUESTION_STARTERS,
-    _STOPWORDS_MEM,
     _VAR_ASSIGN_RE,
     MemoryHierarchyV2,
 )

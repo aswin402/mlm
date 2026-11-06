@@ -60,7 +60,11 @@ def mask_specialist_updates_v2(
                 elif u.ndim == 2 and u.shape[0] == config.n_experts:
                     masked_updates[k] = u * m_jax[:, None]
                 else:
-                    masked_updates[k] = u * 0.25
+                    masked_updates[k] = (
+                        jnp.zeros_like(u)
+                        if float(config.shared_lr_scale) == 0.0
+                        else u * 0.25
+                    )
             elif k.endswith(".nodes.router.weight"):
                 masked_updates[k] = u * r_mask
             else:
@@ -92,14 +96,18 @@ def mask_specialist_updates_v2(
         node_mask_1d = np.full(
             (config.n_experts,), float(config.mature_lr_scale), dtype=np.float32
         )
-        if config.n_experts > 10 and min(active_set) >= 10:
+        if config.n_experts > 20 and min(active_set) >= 20:
+            node_mask_1d[:20] = 0.0
+        elif config.n_experts > 10 and min(active_set) >= 10:
             node_mask_1d[:10] = 0.0
         for a_idx in active_set:
             node_mask_1d[int(a_idx)] = 1.0
     elif 0 < config.mature_experts < config.n_experts:
         node_mask_1d = np.ones((config.n_experts,), dtype=np.float32)
         node_mask_1d[: config.mature_experts] = float(config.mature_lr_scale)
-        if config.n_experts > 10:
+        if config.n_experts > 20 and config.mature_experts >= 20:
+            node_mask_1d[:20] = 0.0
+        elif config.n_experts > 10:
             node_mask_1d[:10] = 0.0
     elif config.mature_experts >= config.n_experts > 0:
         node_mask_1d = np.full(
@@ -125,13 +133,19 @@ def mask_specialist_updates_v2(
             elif u.ndim == 2 and u.shape[0] == config.n_experts:
                 scaled_updates[k] = u * node_mask_jax[:, None]
             else:
-                scaled_updates[k] = u * max(float(config.shared_lr_scale), 0.25)
+                scaled_updates[k] = (
+                    jnp.zeros_like(u)
+                    if float(config.shared_lr_scale) == 0.0
+                    else u * max(float(config.shared_lr_scale), 0.25)
+                )
         elif k.endswith(".nodes.router.weight"):
             if active_set:
                 r_mask = np.full(
                     (1, config.n_experts), float(config.mature_lr_scale), dtype=np.float32
                 )
-                if config.n_experts > 10 and min(active_set) >= 10:
+                if config.n_experts > 20 and min(active_set) >= 20:
+                    r_mask[:, :20] = 0.0
+                elif config.n_experts > 10 and min(active_set) >= 10:
                     r_mask[:, :10] = 0.0
                 for a_idx in active_set:
                     r_mask[:, int(a_idx)] = 1.0
@@ -139,7 +153,9 @@ def mask_specialist_updates_v2(
             elif 0 < config.mature_experts < config.n_experts:
                 r_mask = np.ones((1, config.n_experts), dtype=np.float32)
                 r_mask[:, : config.mature_experts] = float(config.mature_lr_scale)
-                if config.n_experts > 10:
+                if config.n_experts > 20 and config.mature_experts >= 20:
+                    r_mask[:, :20] = 0.0
+                elif config.n_experts > 10:
                     r_mask[:, :10] = 0.0
                     if config.n_experts <= 18 or config.mature_experts <= 10:
                         r_mask[:, 10:] = 1.0

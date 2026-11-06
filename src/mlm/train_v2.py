@@ -1066,3 +1066,199 @@ def run_grpo_reasoning_v2(
                 flush=True,
             )
     return cur_params
+
+
+def build_dot2_code_logic_curriculum_v2() -> list[tuple[tuple[int, int], list[dict[str, object]]]]:
+    """Build 5-skill Python AST & Symbolic Logic curriculum for Dot-2 (`Nodes 20..29`)."""
+    from mlm.curated_data import _make_supervised_chat_record
+
+    return [
+        (
+            (20, 21),
+            [
+                _make_supervised_chat_record(
+                    "Write a Python function `def square(n):` that returns n squared.",
+                    "def square(n):\n    return n * n",
+                ),
+                _make_supervised_chat_record(
+                    "How do you define a function `add(a, b)` in Python?",
+                    "def add(a, b):\n    return a + b",
+                ),
+            ],
+        ),
+        (
+            (22, 23),
+            [
+                _make_supervised_chat_record(
+                    "What does `[x * x for x in range(4)]` evaluate to in Python?",
+                    "`[x * x for x in range(4)]` evaluates to `[0, 1, 4, 9]`.",
+                ),
+                _make_supervised_chat_record(
+                    "What is the time complexity of merge sort in Big-O notation?",
+                    "Merge sort runs in O(n log n) time complexity.",
+                ),
+            ],
+        ),
+        (
+            (24, 25),
+            [
+                _make_supervised_chat_record(
+                    "Evaluate the boolean expression: (True and not False) xor False",
+                    "`(True and not False) xor False` evaluates to `True`.",
+                ),
+                _make_supervised_chat_record(
+                    "State De Morgan's law for `not (A and B)`.",
+                    "`not (A and B)` is logically equivalent to `(not A) or (not B)`.",
+                ),
+            ],
+        ),
+        (
+            (26, 27),
+            [
+                _make_supervised_chat_record(
+                    "What exception does `1 / 0` raise in Python?",
+                    "Dividing by zero in Python raises a `ZeroDivisionError` exception.",
+                ),
+                _make_supervised_chat_record(
+                    "How do you check if `x` is an integer using `isinstance`?",
+                    "Use `isinstance(x, int)` to check if `x` is an integer.",
+                ),
+            ],
+        ),
+        (
+            (28, 29),
+            [
+                _make_supervised_chat_record(
+                    "Trace `sum([2 * i for i in range(3)])` step by step.",
+                    "<|think|>For i=0,1,2, 2*i gives [0, 2, 4]. Their sum is 6.<|/think|>\n"
+                    "The expression evaluates to `6`.",
+                ),
+                _make_supervised_chat_record(
+                    "Prove whether `(True or False) and (not False)` is True.",
+                    "<|think|>True or False is True; not False is True; "
+                    "True and True is True.<|/think|>\n"
+                    "The boolean expression evaluates to `True`.",
+                ),
+            ],
+        ),
+    ]
+
+
+def run_dot2_continual_stage_v2(
+    params: dict[str, jnp.ndarray],
+    config: ConfigV2,
+    tokenizer: BPETokenizer,
+    *,
+    steps_per_bucket: int = 6,
+    learning_rate: float = 2.0e-3,
+    freeze_router: bool = True,
+) -> tuple[dict[str, jnp.ndarray], ConfigV2, dict[str, object]]:
+    """Run Stage-3 continual fine-tuning on Dot-2 (`Nodes 20..29`) with zero forgetting."""
+    from mlm.model_v2 import _forward_core_v2, grow_dot2_code_logic_v2
+
+    if config.n_experts < 30:
+        params, config, _ = grow_dot2_code_logic_v2(params, config)
+
+    ref_params = {k: np.asarray(v, dtype=np.float32).copy() for k, v in params.items()}
+    cfg_stage3 = config.model_copy(
+        update={
+            "mature_experts": 20,
+            "mature_lr_scale": 0.0,
+            "shared_lr_scale": 0.0,
+            "learning_rate": learning_rate,
+        }
+    )
+    buckets = build_dot2_code_logic_curriculum_v2()
+    tx = optax.chain(
+        optax.clip_by_global_norm(1.0),
+        optax.adamw(learning_rate=learning_rate, weight_decay=0.0),
+    )
+
+    cur_params = dict(params)
+    initial_losses: list[float] = []
+    final_losses: list[float] = []
+
+    for subnode_pair, records in buckets:
+        ds = build_tokenized_dataset(records, tokenizer, cfg_stage3.max_seq_len)
+        inp = jnp.asarray(ds["inputs"])
+        tgt = jnp.asarray(ds["targets"])
+        msk = jnp.asarray(ds["mask"])
+        cfg_b = cfg_stage3.model_copy(update={"active_subnodes": subnode_pair})
+        active_set = {int(idx) for idx in subnode_pair}
+        opt_state = tx.init(cur_params)
+
+        def _bucket_loss(
+            p: dict[str, jnp.ndarray],
+            b_inp: jnp.ndarray = inp,
+            b_tgt: jnp.ndarray = tgt,
+            b_msk: jnp.ndarray = msk,
+            b_cfg: ConfigV2 = cfg_b,
+        ) -> jnp.ndarray:
+            logits, _, _ = _forward_core_v2(p, b_inp, b_cfg)
+            log_probs = jax.nn.log_softmax(logits, axis=-1)
+            tok_loss = -jnp.take_along_axis(log_probs, b_tgt[..., None], axis=-1)[..., 0]
+            return jnp.sum(tok_loss * b_msk) / jnp.maximum(jnp.sum(b_msk), 1.0)
+
+        init_l = float(_bucket_loss(cur_params))
+        initial_losses.append(init_l)
+
+        val_and_grad = jax.value_and_grad(_bucket_loss)
+        for _ in range(max(1, int(steps_per_bucket))):
+            _, grads = val_and_grad(cur_params)
+            updates, opt_state = tx.update(grads, opt_state, cur_params)
+            masked_updates = mask_specialist_updates_v2(
+                updates,
+                cfg_b,
+                active_subnodes_override=active_set,
+                strict_active_only=True,
+            )
+            if freeze_router:
+                masked_updates = {
+                    k: (jnp.zeros_like(u) if k.endswith(".nodes.router.weight") else u)
+                    for k, u in masked_updates.items()
+                }
+            cur_params = optax.apply_updates(cur_params, masked_updates)
+
+        final_l = float(_bucket_loss(cur_params))
+        final_losses.append(final_l)
+
+    max_drift_0_19 = 0.0
+    max_drift_trunk = 0.0
+    dot2_sq_sum = 0.0
+    for k, v_new in cur_params.items():
+        arr_new = np.asarray(v_new, dtype=np.float32)
+        arr_old = ref_params[k]
+        if ".nodes." in k:
+            if k.endswith(".router.weight"):
+                drift_0_19 = float(np.max(np.abs(arr_new[:, :20] - arr_old[:, :20])))
+                max_drift_0_19 = max(max_drift_0_19, drift_0_19)
+            elif arr_new.ndim >= 1 and arr_new.shape[0] == 30 and arr_new.shape != (30, 30):
+                drift_0_19 = float(np.max(np.abs(arr_new[:20] - arr_old[:20])))
+                max_drift_0_19 = max(max_drift_0_19, drift_0_19)
+                dot2_sq_sum += float(np.sum(np.square(arr_new[20:30] - arr_old[20:30])))
+            elif arr_new.shape == (30, 30):
+                drift_0_19 = float(np.max(np.abs(arr_new[:20, :20] - arr_old[:20, :20])))
+                max_drift_0_19 = max(max_drift_0_19, drift_0_19)
+                dot2_sq_sum += float(np.sum(np.square(arr_new[20:30, :] - arr_old[20:30, :])))
+            else:
+                max_drift_trunk = max(
+                    max_drift_trunk, float(np.max(np.abs(arr_new - arr_old)))
+                )
+        else:
+            max_drift_trunk = max(max_drift_trunk, float(np.max(np.abs(arr_new - arr_old))))
+
+    mean_init = float(np.mean(initial_losses))
+    mean_final = float(np.mean(final_losses))
+    report = {
+        "stage": "dot2_code_logic_continual_stage3",
+        "n_experts": int(cfg_stage3.n_experts),
+        "mature_experts_frozen": 20,
+        "steps_per_bucket": int(steps_per_bucket),
+        "mean_initial_loss": round(mean_init, 6),
+        "mean_final_loss": round(mean_final, 6),
+        "loss_reduction": round(mean_init - mean_final, 6),
+        "max_drift_nodes_0_19": float(max_drift_0_19),
+        "max_drift_trunk": float(max_drift_trunk),
+        "dot2_update_l2_norm": round(float(np.sqrt(dot2_sq_sum)), 6),
+    }
+    return cur_params, cfg_stage3, report

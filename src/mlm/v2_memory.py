@@ -58,43 +58,6 @@ _QUESTION_STARTERS = {
     "hey",
 }
 
-_STOPWORDS_MEM = {
-    "the",
-    "a",
-    "an",
-    "is",
-    "are",
-    "was",
-    "were",
-    "in",
-    "at",
-    "on",
-    "of",
-    "to",
-    "for",
-    "and",
-    "or",
-    "that",
-    "this",
-    "what",
-    "whats",
-    "who",
-    "where",
-    "when",
-    "why",
-    "how",
-    "do",
-    "does",
-    "did",
-    "can",
-    "you",
-    "tell",
-    "me",
-    "remember",
-    "about",
-    "please",
-}
-
 
 class MemoryHierarchyV2:
     """3-Tier Persistent External & Episodic Memory Hierarchy for MLM v2.
@@ -154,6 +117,7 @@ class MemoryHierarchyV2:
         self.total_overwrites: int = 0
         self.last_retrieved_slots: list[dict[str, object]] = []
         self.last_resolved_prompt: str = ""
+        self._whitening_cache: tuple[object, np.ndarray, np.ndarray, np.ndarray] | None = None
         from mlm.v2_decode import LMCacheHybridV2
 
         self.lmcache = LMCacheHybridV2(chunk_size=4, max_entries=64)
@@ -178,6 +142,122 @@ class MemoryHierarchyV2:
         k_j, v_j = dequantize_kv_cache_turboquant(self.packed_kv)
         return np.asarray(k_j, dtype=np.float32), np.asarray(v_j, dtype=np.float32)
 
+    def _get_whitening_stats(
+        self,
+        params: dict[str, jnp.ndarray],
+        config: ConfigV2,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Compute & cache Inverse-Gram Mahalanobis Whitening (`Sigma^{-1/2}`)."""
+        tok_w = np.asarray(params["tok_embeddings.weight"], dtype=np.float32)
+        cache_key = (
+            tok_w.shape,
+            round(float(tok_w[0, 0]), 6),
+            round(float(tok_w[-1, -1]), 6),
+        )
+        if self._whitening_cache is not None and self._whitening_cache[0] == cache_key:
+            return (
+                self._whitening_cache[1],
+                self._whitening_cache[2],
+                self._whitening_cache[3],
+            )
+
+        emb = tok_w.copy()
+        if (
+            config.blt_ngram_dim > 0
+            and "blt_token_ngrams" in params
+            and "blt_proj.weight" in params
+        ):
+            blt_tbl = np.asarray(params["blt_token_ngrams"], dtype=np.float32)
+            blt_w = np.asarray(params["blt_proj.weight"], dtype=np.float32)
+            emb = emb + (blt_tbl @ blt_w)
+        if "blk.0.attn_norm.weight" in params:
+            nw = np.asarray(params["blk.0.attn_norm.weight"], dtype=np.float32)
+            rms = np.sqrt(np.mean(np.square(emb), axis=-1, keepdims=True) + config.rms_eps)
+            emb = (emb / rms) * nw[None, :]
+
+        mu = np.mean(emb, axis=0)
+        centered = emb - mu[None, :]
+        v_sz, d_model = centered.shape
+        cov = (centered.T @ centered) / float(max(v_sz, 1))
+        reg_lambda = max(1e-3, 1e-2 * float(np.trace(cov)) / float(max(d_model, 1)))
+        eigvals, eigvecs = np.linalg.eigh(cov + reg_lambda * np.eye(d_model, dtype=np.float32))
+        inv_sqrt = np.diag(1.0 / np.sqrt(np.maximum(eigvals, 1e-6)))
+        inv_sqrt_cov = (eigvecs @ inv_sqrt @ eigvecs.T).astype(np.float32)
+        w_vocab = (centered @ inv_sqrt_cov).astype(np.float32)
+        self._whitening_cache = (cache_key, mu.astype(np.float32), inv_sqrt_cov, w_vocab)
+        return mu.astype(np.float32), inv_sqrt_cov, w_vocab
+
+    def _encode_whitened_spans(
+        self,
+        text: str,
+        params: dict[str, jnp.ndarray],
+        config: ConfigV2,
+        tokenizer: BPETokenizer,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Encode words in `text` into unit Inverse-Gram Whitened vectors & weights."""
+        _, _, w_vocab = self._get_whitening_stats(params, config)
+        words = re.findall(r"[a-z0-9_]+", text.lower())
+        if not words:
+            ids = tokenizer.encode(text, add_bos=False, add_eos=False).tolist() or [
+                tokenizer.bos_id
+            ]
+            vec = np.mean(w_vocab[ids], axis=0)
+            norm = max(float(np.linalg.norm(vec)), 1e-6)
+            u = (vec / norm).astype(np.float32)
+            return u[None, :], np.array([norm], dtype=np.float32), u
+
+        span_vecs: list[np.ndarray] = []
+        span_weights: list[float] = []
+        raw_vecs: list[np.ndarray] = []
+        for w in words:
+            w_ids = tokenizer.encode(" " + w, add_bos=False, add_eos=False).tolist()
+            if not w_ids:
+                w_ids = tokenizer.encode(w, add_bos=False, add_eos=False).tolist() or [
+                    tokenizer.bos_id
+                ]
+            v_w = np.mean(w_vocab[w_ids], axis=0)
+            raw_vecs.append(v_w)
+            info_w = float(np.linalg.norm(v_w)) * np.sqrt(float(len(w_ids)))
+            u_w = v_w / max(float(np.linalg.norm(v_w)), 1e-6)
+            span_vecs.append(u_w.astype(np.float32))
+            span_weights.append(max(info_w, 1e-4))
+
+        phrase_raw = np.mean(np.stack(raw_vecs, axis=0), axis=0)
+        phrase_u = (phrase_raw / max(float(np.linalg.norm(phrase_raw)), 1e-6)).astype(np.float32)
+        return (
+            np.stack(span_vecs, axis=0),
+            np.asarray(span_weights, dtype=np.float32),
+            phrase_u,
+        )
+
+    def _compute_whitened_span_attention(
+        self,
+        subj_text: str,
+        query_text: str,
+        params: dict[str, jnp.ndarray],
+        config: ConfigV2,
+        tokenizer: BPETokenizer,
+    ) -> tuple[float, float]:
+        """Compute Inverse-Gram Whitened Late-Interaction MaxSim & Contiguous Phrase Attention."""
+        u_s, w_s, phrase_s = self._encode_whitened_spans(subj_text, params, config, tokenizer)
+        u_q, _, _ = self._encode_whitened_spans(query_text, params, config, tokenizer)
+        sim_matrix = u_s @ u_q.T  # (M, L)
+        max_per_s = np.max(sim_matrix, axis=1)
+        max_sim = float(np.sum(w_s * max_per_s) / np.maximum(np.sum(w_s), 1e-6))
+
+        m_len = u_s.shape[0]
+        l_len = u_q.shape[0]
+        if l_len >= m_len:
+            win_sims: list[float] = []
+            for start in range(l_len - m_len + 1):
+                win_vec = np.mean(u_q[start : start + m_len], axis=0)
+                win_u = win_vec / max(float(np.linalg.norm(win_vec)), 1e-6)
+                win_sims.append(float(np.dot(phrase_s, win_u)))
+            phrase_sim = max(win_sims)
+        else:
+            phrase_sim = max_sim
+        return max_sim, phrase_sim
+
     def _compute_text_key_value(
         self,
         subject_text: str,
@@ -186,35 +266,20 @@ class MemoryHierarchyV2:
         config: ConfigV2,
         tokenizer: BPETokenizer,
     ) -> tuple[np.ndarray, np.ndarray]:
-        s_ids = tokenizer.encode(subject_text, add_bos=False, add_eos=False).tolist()
-        f_ids = tokenizer.encode(full_text, add_bos=False, add_eos=False).tolist()
+        _, _, w_vocab = self._get_whitening_stats(params, config)
+        s_ids = tokenizer.encode(" " + subject_text.strip(), add_bos=False, add_eos=False).tolist()
+        f_ids = tokenizer.encode(" " + full_text.strip(), add_bos=False, add_eos=False).tolist()
         if not s_ids:
             s_ids = [tokenizer.bos_id]
         if not f_ids:
             f_ids = s_ids
-        tok_w = np.asarray(params["tok_embeddings.weight"], dtype=np.float32)
-        s_emb = np.mean(tok_w[s_ids], axis=0)
-        f_emb = np.mean(tok_w[f_ids], axis=0)
-        if (
-            config.blt_ngram_dim > 0
-            and "blt_token_ngrams" in params
-            and "blt_proj.weight" in params
-        ):
-            blt_tbl = np.asarray(params["blt_token_ngrams"], dtype=np.float32)
-            blt_w = np.asarray(params["blt_proj.weight"], dtype=np.float32)
-            s_emb = s_emb + np.mean(blt_tbl[s_ids] @ blt_w, axis=0)
-            f_emb = f_emb + np.mean(blt_tbl[f_ids] @ blt_w, axis=0)
-        if "blk.0.attn_norm.weight" in params:
-            nw = np.asarray(params["blk.0.attn_norm.weight"], dtype=np.float32)
-            s_rms = np.sqrt(np.mean(np.square(s_emb)) + config.rms_eps)
-            f_rms = np.sqrt(np.mean(np.square(f_emb)) + config.rms_eps)
-            s_emb = (s_emb / s_rms) * nw
-            f_emb = (f_emb / f_rms) * nw
-        k_vec = 0.75 * s_emb + 0.25 * f_emb
+        s_white = np.mean(w_vocab[s_ids], axis=0)
+        f_white = np.mean(w_vocab[f_ids], axis=0)
+        k_vec = 0.80 * s_white + 0.20 * f_white
         k_norm = float(np.linalg.norm(k_vec))
         if k_norm > 1e-6:
             k_vec = k_vec / k_norm
-        v_vec = f_emb.copy()
+        v_vec = f_white.copy()
         # Blend in Tier-2 Gated DeltaNet working fast-weight readout if active
         if self.tier2_delta_norm > 1e-6:
             h = config.n_heads
@@ -360,12 +425,21 @@ class MemoryHierarchyV2:
         full_txt = entry["text"]
         k_vec, v_vec = self._compute_text_key_value(subj, full_txt, params, config, tokenizer)
 
-        # Check for existing slot with matching subject (State-Action-Overwrite / Delta Rule)
+        # Check for existing slot via Inverse-Gram Whitened key cosine + phrase attention (SAO)
         target_idx: int | None = None
         for idx, sl in enumerate(self.slots):
-            if str(sl["subject"]) == subj:
+            existing_subj = str(sl["subject"])
+            if existing_subj == subj:
                 target_idx = idx
                 break
+            if sl.get("kind") == entry["kind"] and entry["kind"] != "variable":
+                _, p_sim = self._compute_whitened_span_attention(
+                    existing_subj, subj, params, config, tokenizer
+                )
+                k_cos = float(np.dot(self._k_raw[idx], k_vec))
+                if p_sim >= 0.97 and k_cos >= 0.95:
+                    target_idx = idx
+                    break
 
         if target_idx is not None:
             slot = self.slots[target_idx]
@@ -434,7 +508,7 @@ class MemoryHierarchyV2:
         tokenizer: BPETokenizer,
         top_k: int = 2,
     ) -> list[dict[str, object]]:
-        """Query the dequantized 2-bit TurboQuant episodic key bank via cosine + entity matching."""
+        """Query the 2-bit TurboQuant episodic bank via Inverse-Gram Whitened Attention."""
         if not self.slots:
             return []
         q_clean = query_text.lower().strip()
@@ -452,38 +526,26 @@ class MemoryHierarchyV2:
         k_norms = np.maximum(np.linalg.norm(k_occ, axis=-1), 1e-6)
         cos_sims = (k_occ @ q_vec) / k_norms
 
-        q_tokens = {
-            w.strip(".,!?;:\"'()[]")
-            for w in q_norm_pronoun.split()
-            if w.strip(".,!?;:\"'()[]") and w.strip(".,!?;:\"'()[]") not in _STOPWORDS_MEM
-        }
         scored: list[tuple[float, int]] = []
         for idx, sl in enumerate(self.slots):
             subj = str(sl["subject"]).lower()
             if sl.get("kind") == "variable":
-                if re.match(
+                _, p_sim = self._compute_whitened_span_attention(
+                    subj, q_norm_pronoun, params, config, tokenizer
+                )
+                if p_sim >= 0.98 and re.match(
                     rf"^(?:what\s+is|whats|value\s+of|show)\s+{re.escape(subj)}\s*\??$",
                     q_clean,
                 ):
-                    scored.append((float(cos_sims[idx]) + 1.5, idx))
+                    scored.append((float(cos_sims[idx]) + 1.5 * p_sim, idx))
                 continue
             subj_check = subj.replace("i am ", "").replace("i ", "")
-            subj_tokens = {
-                w.strip(".,!?;:\"'")
-                for w in subj_check.split()
-                if len(w.strip(".,!?;:\"'")) >= 2
-                and w.strip(".,!?;:\"'") not in _STOPWORDS_MEM
-            }
-            exact_subj = bool(re.search(rf"\b{re.escape(subj)}\b", q_norm_pronoun)) or (
-                subj == "my name" and ("my name" in q_norm_pronoun or "who am i" in q_clean)
+            max_sim, phrase_sim = self._compute_whitened_span_attention(
+                subj_check, q_norm_pronoun, params, config, tokenizer
             )
-            token_overlap = (
-                len(q_tokens & subj_tokens) / float(max(len(subj_tokens), 1))
-                if subj_tokens
-                else 0.0
-            )
-            if exact_subj or token_overlap >= 0.65:
-                combined_score = float(cos_sims[idx]) + (1.0 if exact_subj else 0.5 * token_overlap)
+            if phrase_sim >= 0.95 or max_sim >= 0.72:
+                attn_bonus = 1.0 * phrase_sim if phrase_sim >= 0.95 else 0.5 * max_sim
+                combined_score = float(cos_sims[idx]) + attn_bonus
                 scored.append((combined_score, idx))
 
         scored.sort(key=lambda pair: -pair[0])

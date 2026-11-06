@@ -905,6 +905,27 @@ def test_cli_train_v2_and_chat(tmp_path: Path, capsys):
     th_comp, ans_comp = _verify_code_and_logic_v2(comp_q, "", "")
     assert "[0, 1, 4, 9]" in ans_comp
 
+    # Verify v0.0.39 Stage-3 Dot-2 Continual Fine-Tuning & 30-Node GGUF v3 Export
+    from mlm.gguf_export import export_gguf_v2, verify_gguf_with_rust
+    from mlm.train_v2 import run_dot2_continual_stage_v2
+
+    p_30_ft, c_30_ft, stage3_rep = run_dot2_continual_stage_v2(
+        p_30, c_30, tok_loaded, steps_per_bucket=2, learning_rate=2.0e-3
+    )
+    assert stage3_rep["n_experts"] == 30
+    assert stage3_rep["loss_reduction"] > 0.0
+    assert stage3_rep["max_drift_nodes_0_19"] == 0.0
+    assert stage3_rep["max_drift_trunk"] == 0.0
+    assert stage3_rep["dot2_update_l2_norm"] > 0.0
+
+    gguf_30_path = tmp_path / "spidernet_30n_q2k.gguf"
+    gguf_30_info = export_gguf_v2(gguf_30_path, p_30_ft, c_30_ft, tok_loaded, bits=2)
+    assert gguf_30_info["spidernet_experts"] == 30
+    assert gguf_30_info["graph_edge_tensors"] > 0
+    gguf_30_rust = verify_gguf_with_rust(gguf_30_path)
+    assert gguf_30_rust["valid"] is True
+    assert gguf_30_rust["tensor_count"] == gguf_30_info["tensor_count"]
+
     cluster = MLMNodeCluster.from_checkpoints(
         [
             ("node_0_english_science", "general", out_dir / "best.mlm2"),

@@ -101,9 +101,10 @@ def _pack_ggml_q2_k(arr: np.ndarray) -> bytes:
     sblocks = flat.reshape(-1, 256)
     fmin = np.min(sblocks, axis=-1, keepdims=True)
     fmax = np.max(sblocks, axis=-1, keepdims=True)
-    d = np.maximum((fmax - fmin) / 3.0, 1e-8).astype(np.float16)
+    d = ((fmax - fmin) / 3.0).astype(np.float16)
     dmin = (-fmin).astype(np.float16)
-    qi = np.clip(np.round((sblocks - fmin) / d.astype(np.float32)), 0, 3).astype(np.uint8)
+    inv_d = np.where(d.astype(np.float32) > 0, 1.0 / d.astype(np.float32), 0.0)
+    qi = np.clip(np.round((sblocks - fmin) * inv_d), 0, 3).astype(np.uint8)
     packed = (
         (qi[:, 0::4] & 0x03)
         | ((qi[:, 1::4] & 0x03) << 2)
@@ -171,7 +172,21 @@ def _encode_ggml_tensor(
         arr.ndim >= 2
         and arr.size >= 256
         and name != "blt_token_ngrams"
-        and not name.endswith((".res", ".pre", ".post"))
+        and not name.endswith(
+            (
+                ".res",
+                ".pre",
+                ".post",
+                ".edge_bias",
+                ".edge_u",
+                ".edge_v",
+                ".edge_proj_h",
+                ".edge_proj_x",
+                ".router.weight",
+                ".router_bias",
+                ".collab_gate",
+            )
+        )
     )
     if not can_quant or bits == 32:
         f32 = arr.astype(np.float32)
@@ -234,6 +249,18 @@ def export_gguf_v2(
     ]
     if arch == "lfm2":
         kvs.append((f"{arch}.shortconv.l_cache", GGUF_TYPE_UINT32, config.conv_kernel))
+    if config.n_experts > 0:
+        kvs.extend(
+            [
+                (f"{arch}.expert_count", GGUF_TYPE_UINT32, config.n_experts),
+                (f"{arch}.expert_used_count", GGUF_TYPE_UINT32, config.top_k_experts),
+                (f"{arch}.expert_feed_forward_length", GGUF_TYPE_UINT32, config.expert_ffn_dim),
+                ("spidernet.mature_experts", GGUF_TYPE_UINT32, config.mature_experts),
+                ("spidernet.graph_edge_rank", GGUF_TYPE_UINT32, config.graph_edge_rank),
+                ("spidernet.graph_edge_top_k", GGUF_TYPE_UINT32, config.graph_edge_top_k),
+                ("spidernet.kv_cache_bits", GGUF_TYPE_UINT32, config.kv_cache_bits),
+            ]
+        )
 
     # Prepare GGML tensors (converting JAX `(in, out)` linear matrices to GGML `(out, in)`)
     gguf_tensors: list[tuple[str, tuple[int, ...], bytes, int]] = []
@@ -294,10 +321,17 @@ def export_gguf_v2(
             curr_data_pos += len(raw_bytes)
     tmp_path.replace(path)
 
+    graph_edge_tensors = sum(
+        1
+        for name, _, _, _ in gguf_tensors
+        if (".edge_" in name or ".msg_" in name or ".collab_gate" in name)
+    )
     return {
         "path": str(path),
         "architecture": arch,
         "bits": eff_bits,
+        "spidernet_experts": int(config.n_experts),
+        "graph_edge_tensors": int(graph_edge_tensors),
         "tensor_count": len(gguf_tensors),
         "metadata_kv_count": len(kvs),
         "file_size_bytes": path.stat().st_size,
