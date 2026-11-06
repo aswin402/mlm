@@ -24,6 +24,7 @@ from mlm.model_v2 import (
     grow_model_v2_nodes,
     load_checkpoint_v2,
     make_train_step_v2,
+    mask_specialist_updates_v2,
     merge_checkpoints_v2,
     save_checkpoint_v2,
 )
@@ -643,58 +644,7 @@ def make_grpo_step_v2(
             for k, g in grads.items()
         }
         updates, new_opt_state = tx.update(clean_grads, opt_state, params)
-        scaled_updates = {}
-        for k, u in updates.items():
-            if k.endswith(".nodes.router_bias") or k == "blt_token_ngrams":
-                scaled_updates[k] = jnp.zeros_like(u)
-            elif k.endswith(".nodes.edge_scale") or k.endswith(".nodes.collab_gate"):
-                if 0 < config.mature_experts < config.n_experts:
-                    e_mask = np.ones((config.n_experts,), dtype=np.float32)
-                    e_mask[: config.mature_experts] = float(config.mature_lr_scale)
-                    if config.n_experts > 10:
-                        e_mask[:10] = 0.0
-                    scaled_updates[k] = u * jnp.asarray(e_mask)
-                else:
-                    scaled_updates[k] = u
-            elif config.mature_experts > 0 and ".nodes." in k and not k.endswith(".router.weight"):
-                if 0 < config.mature_experts < config.n_experts:
-                    m_1d = np.ones((config.n_experts,), dtype=np.float32)
-                    m_1d[: config.mature_experts] = float(config.mature_lr_scale)
-                    if config.n_experts > 10:
-                        m_1d[:10] = 0.0
-                    m_jax = jnp.asarray(m_1d)
-                    if u.ndim == 3 and u.shape[0] == config.n_experts:
-                        scaled_updates[k] = u * m_jax[:, None, None]
-                    elif u.ndim == 2 and u.shape == (config.n_experts, config.n_experts):
-                        e_mat = jnp.asarray(np.maximum(m_1d[:, None], m_1d[None, :]))
-                        scaled_updates[k] = u * e_mat
-                    elif u.ndim == 2 and u.shape[0] == config.n_experts:
-                        scaled_updates[k] = u * m_jax[:, None]
-                    else:
-                        scaled_updates[k] = u * max(float(config.shared_lr_scale), 0.25)
-                else:
-                    scaled_updates[k] = u
-            elif k.endswith(".nodes.router.weight"):
-                if 0 < config.mature_experts < config.n_experts:
-                    r_mask = np.ones((1, config.n_experts), dtype=np.float32)
-                    r_mask[:, : config.mature_experts] = float(config.mature_lr_scale)
-                    if config.n_experts > 10:
-                        r_mask[:, :10] = 0.0
-                    scaled_updates[k] = u * jnp.asarray(r_mask)
-                else:
-                    scaled_updates[k] = u
-            elif k.endswith(".shortconv.conv.weight") and (
-                0 < config.mature_conv_kernel < config.conv_kernel
-                and config.shared_lr_scale > 0.0
-            ):
-                new_taps = config.conv_kernel - config.mature_conv_kernel
-                c_mask = np.ones((config.conv_kernel, 1), dtype=np.float32)
-                c_mask[new_taps:, :] = float(config.shared_lr_scale)
-                scaled_updates[k] = u * jnp.asarray(c_mask)
-            elif k.startswith("mtp_"):
-                scaled_updates[k] = u
-            else:
-                scaled_updates[k] = u * float(config.shared_lr_scale)
+        scaled_updates = mask_specialist_updates_v2(updates, config, always_train_mtp=True)
         new_params = optax.apply_updates(params, scaled_updates)
         return new_params, new_opt_state, loss, jnp.mean(rewards)
 
@@ -1080,38 +1030,12 @@ def run_grpo_reasoning_v2(
 
         loss_val, grads = jax.value_and_grad(loss_fn)(p)
         updates, next_opt = tx.update(grads, o_st, p)
-        masked_updates = {}
-        for k, u in updates.items():
-            if k.endswith(".nodes.edge_scale") or k.endswith(".nodes.collab_gate"):
-                m = np.zeros((config.n_experts,), dtype=np.float32)
-                for a_i in active_set:
-                    m[int(a_i)] = 1.0
-                masked_updates[k] = u * jnp.asarray(m)
-            elif (
-                ".nodes." in k
-                and not k.endswith(".router.weight")
-                and not k.endswith(".router_bias")
-            ):
-                m_1d = np.zeros((config.n_experts,), dtype=np.float32)
-                for a_i in active_set:
-                    m_1d[int(a_i)] = 1.0
-                m_jax = jnp.asarray(m_1d)
-                if u.ndim == 3 and u.shape[0] == config.n_experts:
-                    masked_updates[k] = u * m_jax[:, None, None]
-                elif u.ndim == 2 and u.shape == (config.n_experts, config.n_experts):
-                    e_mat = jnp.asarray(np.maximum(m_1d[:, None], m_1d[None, :]))
-                    masked_updates[k] = u * e_mat
-                elif u.ndim == 2 and u.shape[0] == config.n_experts:
-                    masked_updates[k] = u * m_jax[:, None]
-                else:
-                    masked_updates[k] = u * 0.25
-            elif k.endswith(".nodes.router.weight"):
-                m = np.zeros((1, config.n_experts), dtype=np.float32)
-                for a_i in active_set:
-                    m[:, int(a_i)] = 1.0
-                masked_updates[k] = u * jnp.asarray(m)
-            else:
-                masked_updates[k] = jnp.zeros_like(u)
+        masked_updates = mask_specialist_updates_v2(
+            updates,
+            config,
+            active_subnodes_override=active_set,
+            strict_active_only=True,
+        )
         next_p = optax.apply_updates(p, masked_updates)
         return next_p, next_opt, loss_val
 
