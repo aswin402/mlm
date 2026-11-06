@@ -536,8 +536,17 @@ def test_model_v2_hybrid_train_grow_and_gguf(tmp_path: Path):
     assert grown_c.n_experts == sp_cfg.n_experts + 1
     assert len(ctrl.growth_events) == 1
 
-    # Verify v0.0.26 Domain Mutual Information I(N; D)
+    # Verify v0.0.26 Domain Mutual Information I(N; D) & v0.0.41 v2_bench module
     from mlm.model_v2 import compute_node_domain_mutual_info_v2
+    from mlm.v2_bench import (
+        evaluate_continual_learning_metrics_v2 as eval_cl_bench,
+    )
+    from mlm.v2_bench import (
+        run_full_spidernet_research_benchmark_v2 as run_full_bench_v2,
+    )
+
+    assert eval_cl_bench is evaluate_continual_learning_metrics_v2
+    assert callable(run_full_bench_v2)
 
     mi_stats = compute_node_domain_mutual_info_v2(
         np.array(

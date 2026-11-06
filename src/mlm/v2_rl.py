@@ -796,7 +796,13 @@ def run_dot2_continual_stage_v2(
             )
             if freeze_router:
                 masked_updates = {
-                    k: (jnp.zeros_like(u) if k.endswith(".nodes.router.weight") else u)
+                    k: (
+                        u
+                        if k.endswith(
+                            (".nodes.gate.weight", ".nodes.up.weight", ".nodes.down.weight")
+                        )
+                        else jnp.zeros_like(u)
+                    )
                     for k, u in masked_updates.items()
                 }
             cur_params = optax.apply_updates(cur_params, masked_updates)

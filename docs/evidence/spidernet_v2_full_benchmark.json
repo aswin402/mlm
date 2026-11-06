@@ -1,5 +1,5 @@
 {
-  "version": "0.0.38",
+  "version": "0.0.41",
   "suite_1_sparse_execution": {
     "total_params": 31427264,
     "shared_params": 4885184,
@@ -314,5 +314,33 @@
     "bitwise_eval": "`13 & 7` = 5 (binary `0b101`).",
     "syllogism_barbara": "Yes. By transitive deductive logic (Barbara syllogism), since all compilers are programs and all programs are software, all compilers are software.",
     "python_ast_comp": "`[x * x for x in range(5)]` evaluates to `[0, 1, 4, 9, 16]`."
+  },
+  "suite_7_dot2_continual_stage3_and_gguf_v3": {
+    "stage3_continual_dot2": {
+      "stage": "dot2_code_logic_continual_stage3",
+      "n_experts": 30,
+      "mature_experts_frozen": 20,
+      "steps_per_bucket": 4,
+      "mean_initial_loss": 5.714517,
+      "mean_final_loss": 3.081301,
+      "loss_reduction": 2.633215,
+      "max_drift_nodes_0_19": 0.0,
+      "max_drift_trunk": 0.0,
+      "dot2_update_l2_norm": 2.972077
+    },
+    "whitened_episodic_memory_hit": true,
+    "whitened_episodic_memory_score": 1.3856,
+    "gguf_v3_30node_rust_verified": {
+      "valid": true,
+      "version": 3,
+      "tensor_count": 308,
+      "metadata_kv_count": 30,
+      "file_size_bytes": 12124480,
+      "architecture": "lfm2",
+      "quantization_bits": 2,
+      "expert_count": 30,
+      "graph_edge_rank": 16,
+      "tensors_aligned": true
+    }
   }
 }
